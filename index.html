@@ -5,94 +5,122 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบค้นหาข้อมูล</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <main class="page">
-    <header class="hero">
-      <p class="hero__eyebrow">ระบบค้นหาข้อมูล</p>
-      <h1 class="hero__title" id="heroTitle"></h1>
-    </header>
+  <header class="topbar">
+    <h1 class="topbar__title">ระบบค้นหาข้อมูล</h1>
+  </header>
 
-    <!-- ขั้นที่ 1: เลือกไฟล์ -->
-    <section class="books" id="booksSection">
-      <div class="books__grid" id="booksGrid"></div>
-      <p class="books__hint" id="booksHint"></p>
+  <div class="layout">
 
-      <p class="section-label">เพิ่มชีทใหม่</p>
-      <section class="add-book-panel" id="addBookPanel">
+    <!-- ซ้าย: รายชื่อไฟล์ทั้งหมด -->
+    <aside class="sidebar">
+      <p class="sidebar__label">ไฟล์ทั้งหมด</p>
+      <div class="book-list" id="bookList"></div>
+      <p class="sidebar__status" id="booksHint"></p>
+
+      <button type="button" class="sidebar-btn" id="addFileToggle">+ เพิ่มไฟล์</button>
+      <div class="sidebar-panel" id="addFilePanel" hidden>
         <div class="add-field">
-          <label for="addBookName">ชื่อที่อยากให้แสดงบนหน้าเว็บ</label>
+          <label for="addBookName">ชื่อที่อยากให้แสดง</label>
           <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
         </div>
         <div class="add-field">
-          <label for="addBookUrl">ลิงก์ Google Sheet (หรือวาง ID ตรงๆ ก็ได้)</label>
+          <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
           <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
         </div>
-        <div class="add-panel__actions">
-          <button type="button" class="search__button" id="addBookSubmit">เพิ่มไฟล์</button>
-          <p class="add-panel__status" id="addBookStatus"></p>
+        <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
+        <p class="sidebar-panel__status" id="addBookStatus"></p>
+      </div>
+
+      <button type="button" class="sidebar-btn sidebar-btn--trash" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
+      <div class="sidebar-panel" id="bookTrashPanel" hidden>
+        <p class="sidebar-panel__hint">ไฟล์ที่เอาออกจากระบบล่าสุด</p>
+        <div class="trash-list" id="bookTrashList"></div>
+        <p class="sidebar-panel__status" id="bookTrashStatus"></p>
+      </div>
+    </aside>
+
+    <!-- กลาง: แท็บ + ค้นหา + ตารางข้อมูล -->
+    <main class="main">
+      <p class="main__empty" id="mainEmpty">เลือกไฟล์ทางด้านซ้ายเพื่อเริ่มต้นใช้งาน</p>
+
+      <div class="workspace" id="workspace" hidden>
+        <div class="tabs-row" id="tabsBar"></div>
+        <button type="button" class="tabs-row__add" id="createSheetOpen">+ สร้างแท็บใหม่</button>
+
+        <div class="toolbar">
+          <form class="toolbar__search" id="searchForm" autocomplete="off">
+            <input type="text" id="searchInput" placeholder="พิมพ์ชื่อ, รหัส หรือคำที่เกี่ยวข้อง..." aria-label="คำค้นหา">
+            <button type="submit" id="searchButton">ค้นหา</button>
+          </form>
+          <select class="toolbar__status-filter" id="statusFilter" hidden></select>
+          <button type="button" class="toolbar__btn" id="addToggle">+ เพิ่มข้อมูล</button>
+          <button type="button" class="toolbar__btn toolbar__btn--danger" id="manageToggle" hidden>จัดการคอลัมน์</button>
+          <button type="button" class="toolbar__btn toolbar__btn--muted" id="trashToggle">🗑 ถังขยะ</button>
         </div>
-      </section>
 
-      <button type="button" class="mode-toggle mode-toggle--trash" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
-      <section class="trash-panel" id="bookTrashPanel" hidden>
-        <p class="trash-panel__label">ไฟล์ที่เอาออกจากระบบล่าสุด — กด "กู้คืน" เพื่อนำกลับมาแสดงในรายการไฟล์อีกครั้ง</p>
-        <div class="trash-panel__list" id="bookTrashList"></div>
-        <p class="trash-panel__status" id="bookTrashStatus"></p>
-      </section>
-    </section>
+        <section class="add-panel" id="addPanel" hidden>
+          <p class="add-panel__label">กำลังเพิ่มข้อมูลลงแท็บ: <b id="addPanelSheetName"></b></p>
+          <div class="add-panel__fields" id="addFields"></div>
+          <div class="add-panel__actions">
+            <button type="button" class="toolbar__btn toolbar__btn--accent" id="addSubmitButton">บันทึกข้อมูล</button>
+            <p class="add-panel__status" id="addStatus"></p>
+          </div>
+        </section>
 
-    <!-- ขั้นที่ 2-3: เลือกแท็บ + ดูข้อมูล/จัดการ -->
-    <section class="workspace" id="workspace" hidden>
-      <button type="button" class="back-link" id="backButton">← กลับไปเลือกไฟล์</button>
+        <section class="manage-panel" id="managePanel" hidden>
+          <p class="manage-panel__label">คอลัมน์ในแท็บนี้ — กด × เพื่อลบทั้งคอลัมน์ออกจากชีตจริง</p>
+          <div class="manage-panel__chips" id="manageChips"></div>
+          <p class="manage-panel__status" id="manageStatus"></p>
+        </section>
 
-      <div class="tabs" id="tabsBar"></div>
+        <section class="trash-panel" id="trashPanel" hidden>
+          <p class="trash-panel__label">รายการที่ลบล่าสุดในไฟล์นี้</p>
+          <div class="trash-list" id="trashList"></div>
+          <p class="trash-panel__status" id="trashStatus"></p>
+        </section>
 
-      <form class="search" id="searchForm" autocomplete="off">
-        <input
-          type="text"
-          id="searchInput"
-          class="search__input"
-          placeholder="พิมพ์ชื่อ, รหัส หรือคำที่เกี่ยวข้อง..."
-          aria-label="คำค้นหา"
-        >
-        <button type="submit" class="search__button" id="searchButton">ค้นหา</button>
-        <button type="button" class="mode-toggle" id="addToggle">+ เพิ่มข้อมูล</button>
-        <button type="button" class="mode-toggle mode-toggle--danger" id="manageToggle" hidden>จัดการคอลัมน์</button>
-        <button type="button" class="mode-toggle mode-toggle--trash" id="trashToggle">🗑 ถังขยะ</button>
-      </form>
-
-      <section class="trash-panel" id="trashPanel" hidden>
-        <p class="trash-panel__label">รายการที่ลบล่าสุดในไฟล์นี้ — กด "กู้คืน" เพื่อนำข้อมูลกลับเข้าชีตจริง (จะถูกเพิ่มไว้ท้ายชีตปลายทาง)</p>
-        <div class="trash-panel__list" id="trashList"></div>
-        <p class="trash-panel__status" id="trashStatus"></p>
-      </section>
-
-      <section class="add-panel" id="addPanel" hidden>
-        <p class="add-panel__label">กำลังเพิ่มข้อมูลลงแท็บ: <b id="addPanelSheetName"></b></p>
-        <div class="add-panel__fields" id="addFields"></div>
-        <div class="add-panel__actions">
-          <button type="button" class="search__button" id="addSubmitButton">บันทึกข้อมูล</button>
-          <p class="add-panel__status" id="addStatus"></p>
-        </div>
-      </section>
-
-      <section class="manage-panel" id="managePanel" hidden>
-        <p class="manage-panel__label">คอลัมน์ในแท็บนี้ — กด × เพื่อลบทั้งคอลัมน์ออกจากชีตจริง (ลบแล้วกู้คืนไม่ได้)</p>
-        <div class="manage-panel__chips" id="manageChips"></div>
-        <p class="manage-panel__status" id="manageStatus"></p>
-      </section>
-
-      <section class="results" id="resultsSection" aria-live="polite">
         <p class="results__hint" id="resultsHint">เลือกแท็บด้านบน หรือพิมพ์คำค้นหาแล้วกด Enter</p>
         <p class="results__count" id="resultsCount" hidden></p>
-        <div class="results__grid" id="resultsGrid"></div>
-      </section>
-    </section>
-  </main>
+        <div class="table-wrap" id="tableWrap" hidden>
+          <table class="data-table" id="dataTable">
+            <thead id="dataTableHead"></thead>
+            <tbody id="dataTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- หน้าต่างสร้างแท็บใหม่แบบตาราง Excel -->
+  <div class="modal-overlay" id="createSheetModal" hidden>
+    <div class="modal-box">
+      <h2 class="modal-box__title">สร้างแท็บใหม่</h2>
+      <div class="add-field">
+        <label for="newSheetName">ชื่อแท็บใหม่</label>
+        <input type="text" id="newSheetName" placeholder="เช่น ปัญหาเดือนตุลาคม">
+      </div>
+
+      <div class="grid-editor-wrap">
+        <table class="grid-editor" id="gridEditor"></table>
+      </div>
+
+      <div class="grid-editor__toolbar">
+        <button type="button" class="toolbar__btn" id="gridAddRow">+ แถว</button>
+        <button type="button" class="toolbar__btn" id="gridAddCol">+ คอลัมน์</button>
+      </div>
+
+      <div class="modal-box__actions">
+        <button type="button" class="toolbar__btn toolbar__btn--muted" id="gridCancel">ยกเลิก</button>
+        <button type="button" class="toolbar__btn toolbar__btn--accent" id="gridSave">บันทึกเป็นแท็บใหม่</button>
+      </div>
+      <p class="modal-box__status" id="createSheetStatus"></p>
+    </div>
+  </div>
 
   <script src="config.js"></script>
   <script src="script.js"></script>
