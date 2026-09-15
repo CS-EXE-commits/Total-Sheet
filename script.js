@@ -72,6 +72,7 @@ let jsonpCounter = 0;
 let currentTableHeaders = []; // หัวตารางเต็ม (โหมดแท็บเดียว) หรือ ['แท็บ','แถวที่','ข้อมูล'] (โหมดทั้งหมด)
 let currentRows = []; // ผลลัพธ์ล่าสุดที่โหลดมา (ก่อนกรองสถานะ)
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
+let lastTruncated = false; // true ถ้าผลลัพธ์ล่าสุดถูกตัดทิ้งบางส่วนเพราะเกินขีดจำกัด
 let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -455,6 +456,7 @@ async function loadSingleTabView(sheetName, keyword) {
     if (!searchResult.ok) throw new Error(searchResult.error || 'ค้นหาไม่สำเร็จ');
 
     currentRows = searchResult.results;
+    lastTruncated = !!searchResult.truncated;
     setupStatusFilter();
     applyStatusFilterAndRender();
   } catch (err) {
@@ -505,7 +507,7 @@ function renderSingleTable(rows) {
   }
   hint.hidden = true;
   countLabel.hidden = false;
-  countLabel.textContent = `พบ ${rows.length} รายการ`;
+  countLabel.textContent = `พบ ${rows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
 
   tableHead.innerHTML = '<tr>' + currentTableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '<th></th></tr>';
   tableBody.innerHTML = '';
@@ -545,6 +547,7 @@ async function loadAllTabsView(keyword) {
 
     currentTableHeaders = ['แท็บ', 'แถวที่', 'ข้อมูล'];
     currentRows = result.results;
+    lastTruncated = !!result.truncated;
     renderAllTable(currentRows);
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
@@ -562,7 +565,7 @@ function renderAllTable(rows) {
   }
   hint.hidden = true;
   countLabel.hidden = false;
-  countLabel.textContent = `พบ ${rows.length} รายการ`;
+  countLabel.textContent = `พบ ${rows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
 
   tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th></th></tr>';
   tableBody.innerHTML = '';
