@@ -1,4 +1,13 @@
 /* ===== อ้างอิง element ===== */
+const loginModal = document.getElementById('loginModal');
+const loginEmail = document.getElementById('loginEmail');
+const loginSubmit = document.getElementById('loginSubmit');
+const loginStatus = document.getElementById('loginStatus');
+const appLayout = document.getElementById('appLayout');
+const topbarAccount = document.getElementById('topbarAccount');
+const topbarEmail = document.getElementById('topbarEmail');
+const logoutButton = document.getElementById('logoutButton');
+
 const bookList = document.getElementById('bookList');
 const booksHint = document.getElementById('booksHint');
 const addFileToggle = document.getElementById('addFileToggle');
@@ -63,10 +72,69 @@ let jsonpCounter = 0;
 let currentTableHeaders = []; // หัวตารางเต็ม (โหมดแท็บเดียว) หรือ ['แท็บ','แถวที่','ข้อมูล'] (โหมดทั้งหมด)
 let currentRows = []; // ผลลัพธ์ล่าสุดที่โหลดมา (ก่อนกรองสถานะ)
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
+let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadBooks();
+  const savedEmail = localStorage.getItem('sheetSearchEmail');
+  if (savedEmail) {
+    tryLogin(savedEmail, true);
+  } else {
+    loginModal.hidden = false;
+  }
 });
+
+/* ===== เข้าสู่ระบบ / ออกจากระบบ ===== */
+
+loginSubmit.addEventListener('click', () => {
+  const email = loginEmail.value.trim();
+  if (!email) { setLoginStatus('กรุณากรอกอีเมล', 'error'); return; }
+  tryLogin(email, false);
+});
+
+loginEmail.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loginSubmit.click();
+});
+
+async function tryLogin(email, silent) {
+  loginSubmit.disabled = true;
+  if (!silent) setLoginStatus('กำลังตรวจสอบ...', null);
+
+  try {
+    const result = await jsonpRequest(rawApiUrl({ action: 'login', email }));
+    if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+
+    currentUserEmail = result.email;
+    localStorage.setItem('sheetSearchEmail', currentUserEmail);
+    loginModal.hidden = true;
+    topbarAccount.hidden = false;
+    topbarEmail.textContent = currentUserEmail;
+    appLayout.hidden = false;
+    loadBooks();
+  } catch (err) {
+    localStorage.removeItem('sheetSearchEmail');
+    loginModal.hidden = false;
+    setLoginStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    loginSubmit.disabled = false;
+  }
+}
+
+logoutButton.addEventListener('click', () => {
+  localStorage.removeItem('sheetSearchEmail');
+  currentUserEmail = '';
+  currentBook = '';
+  selectedSheet = '';
+  appLayout.hidden = true;
+  topbarAccount.hidden = true;
+  loginEmail.value = '';
+  setLoginStatus('', null);
+  loginModal.hidden = false;
+});
+
+function setLoginStatus(message, type) {
+  loginStatus.textContent = message;
+  loginStatus.className = 'modal-box__status' + (type ? ` modal-box__status--${type}` : '');
+}
 
 /* ===== เครื่องมือกลาง ===== */
 
@@ -82,12 +150,16 @@ function jsonpRequest(url) {
   });
 }
 
-function apiUrl(params) {
+function rawApiUrl(params) {
   const parts = Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
   parts.push(`key=${encodeURIComponent(ACCESS_KEY)}`);
   return `${API_URL}?${parts.join('&')}`;
+}
+
+function apiUrl(params) {
+  return rawApiUrl(Object.assign({ email: currentUserEmail }, params));
 }
 
 function escapeHtml(value) {

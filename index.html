@@ -10,11 +10,31 @@
 </head>
 <body>
 
+  <!-- หน้าต่างเข้าสู่ระบบ -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal-box modal-box--narrow">
+      <h2 class="modal-box__title">เข้าสู่ระบบ</h2>
+      <p class="modal-box__desc">กรอกอีเมลของคุณ (ต้องเป็นอีเมลที่ผู้ดูแลอนุญาตไว้เท่านั้น)</p>
+      <div class="add-field">
+        <label for="loginEmail">อีเมล</label>
+        <input type="email" id="loginEmail" placeholder="you@email.com">
+      </div>
+      <div class="modal-box__actions">
+        <button type="button" class="toolbar__btn toolbar__btn--accent" id="loginSubmit">เข้าสู่ระบบ</button>
+      </div>
+      <p class="modal-box__status" id="loginStatus"></p>
+    </div>
+  </div>
+
   <header class="topbar">
     <h1 class="topbar__title">ระบบค้นหาข้อมูล</h1>
+    <div class="topbar__account" id="topbarAccount" hidden>
+      <span id="topbarEmail"></span>
+      <button type="button" id="logoutButton">ออกจากระบบ</button>
+    </div>
   </header>
 
-  <div class="layout">
+  <div class="layout" id="appLayout" hidden>
 
     <!-- ซ้าย: รายชื่อไฟล์ทั้งหมด -->
     <aside class="sidebar">
