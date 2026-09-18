@@ -53,6 +53,132 @@ const trashPanel = document.getElementById('trashPanel');
 const trashList = document.getElementById('trashList');
 const trashStatus = document.getElementById('trashStatus');
 
+const tableToolbar = document.getElementById('tableToolbar');
+const pageSizeSelect = document.getElementById('pageSizeSelect');
+const pagination = document.getElementById('pagination');
+
+let filteredRows = []; // ผลลัพธ์หลังกรองสถานะ (โหมดแท็บเดียว) หรือผลค้นหาทั้งหมด (โหมดทั้งหมด) — ใช้แบ่งหน้า
+
+pageSizeSelect.addEventListener('change', () => {
+  pageSize = parseInt(pageSizeSelect.value, 10) || 20;
+  currentPage = 1;
+  renderCurrentPage();
+});
+
+function renderCurrentPage() {
+  if (!filteredRows || filteredRows.length === 0) {
+    tableWrap.hidden = true;
+    countLabel.hidden = true;
+    tableToolbar.hidden = true;
+    pagination.hidden = true;
+    showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหา', false);
+    return;
+  }
+
+  hint.hidden = true;
+  countLabel.hidden = false;
+  tableToolbar.hidden = false;
+  countLabel.textContent = `พบ ${filteredRows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
+
+  const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * pageSize;
+  const pageRows = filteredRows.slice(start, start + pageSize);
+
+  if (displayMode === 'single') {
+    tableHead.innerHTML = '<tr>' + currentTableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '<th></th></tr>';
+    tableBody.innerHTML = '';
+    pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
+  } else {
+    tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th></th></tr>';
+    tableBody.innerHTML = '';
+    pageRows.forEach(row => tableBody.appendChild(buildAllRow(row)));
+  }
+
+  tableWrap.hidden = false;
+  renderPaginationControls(totalPages);
+}
+
+function renderPaginationControls(totalPages) {
+  pagination.innerHTML = '';
+  if (totalPages <= 1) { pagination.hidden = true; return; }
+  pagination.hidden = false;
+
+  const makeButton = (label, page, disabled, active) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.setAttribute('aria-current', active ? 'true' : 'false');
+    btn.disabled = !!disabled;
+    btn.addEventListener('click', () => { currentPage = page; renderCurrentPage(); });
+    return btn;
+  };
+
+  pagination.appendChild(makeButton('‹ ก่อนหน้า', currentPage - 1, currentPage === 1, false));
+
+  // จำกัดจำนวนปุ่มเลขหน้าไม่ให้เยอะเกินไปถ้ามีหลายสิบหน้า
+  const windowSize = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
+  let endPage = Math.min(totalPages, startPage + windowSize - 1);
+  startPage = Math.max(1, endPage - windowSize + 1);
+
+  if (startPage > 1) {
+    pagination.appendChild(makeButton('1', 1, false, currentPage === 1));
+    if (startPage > 2) pagination.appendChild(makeButton('…', 0, true, false));
+  }
+  for (let p = startPage; p <= endPage; p++) {
+    pagination.appendChild(makeButton(String(p), p, false, p === currentPage));
+  }
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) pagination.appendChild(makeButton('…', 0, true, false));
+    pagination.appendChild(makeButton(String(totalPages), totalPages, false, currentPage === totalPages));
+  }
+
+  pagination.appendChild(makeButton('ถัดไป ›', currentPage + 1, currentPage === totalPages, false));
+}
+
+function buildSingleRow(row) {
+  const tr = document.createElement('tr');
+  currentTableHeaders.forEach((h, i) => {
+    const td = document.createElement('td');
+    td.innerHTML = highlightMatch((row.cells[i] || '').toString(), lastKeyword);
+    tr.appendChild(td);
+  });
+  tr.appendChild(buildDeleteCell(row, tr));
+  return tr;
+}
+
+function buildAllRow(row) {
+  const tr = document.createElement('tr');
+
+  const sheetTd = document.createElement('td');
+  sheetTd.textContent = row.sheet;
+  tr.appendChild(sheetTd);
+
+  const rowTd = document.createElement('td');
+  rowTd.textContent = row.row;
+  tr.appendChild(rowTd);
+
+  const dataTd = document.createElement('td');
+  dataTd.innerHTML = row.cells.filter(c => c.trim() !== '').map(c => highlightMatch(c, lastKeyword)).join(' &middot; ');
+  tr.appendChild(dataTd);
+
+  tr.appendChild(buildDeleteCell(row, tr));
+  return tr;
+}
+
+function buildDeleteCell(row, tr) {
+  const delTd = document.createElement('td');
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'data-table__delete';
+  delBtn.textContent = '🗑';
+  delBtn.title = 'ลบแถวนี้';
+  delBtn.addEventListener('click', () => deleteRow(row, tr, delBtn));
+  delTd.appendChild(delBtn);
+  return delTd;
+}
+
 const createSheetModal = document.getElementById('createSheetModal');
 const newSheetName = document.getElementById('newSheetName');
 const gridEditor = document.getElementById('gridEditor');
@@ -63,7 +189,7 @@ const gridSave = document.getElementById('gridSave');
 const createSheetStatus = document.getElementById('createSheetStatus');
 
 /* ===== สถานะที่รู้จัก — dropdown จะโชว์เฉพาะค่าที่พบจริงในข้อมูล ===== */
-const KNOWN_STATUSES = ['รอตรวจสอบ', 'รับเรื่องแล้ว', 'แก้ไขแล้ว', 'ข้อมูลเพิ่มเติม', 'ปิดก่อน', 'แบน', 'ปลดแบน', 'BANNED', 'UNBANNED'];
+// หมายเหตุ: เดิมเคยใช้รายชื่อสถานะตายตัว ตอนนี้เปลี่ยนเป็นดึงค่าจริงจากข้อมูลแทน (setupStatusFilter)
 
 let currentBook = '';
 let selectedSheet = ''; // '' = ทุกแท็บในไฟล์นี้
@@ -73,6 +199,9 @@ let currentTableHeaders = []; // หัวตารางเต็ม (โหม
 let currentRows = []; // ผลลัพธ์ล่าสุดที่โหลดมา (ก่อนกรองสถานะ)
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
 let lastTruncated = false; // true ถ้าผลลัพธ์ล่าสุดถูกตัดทิ้งบางส่วนเพราะเกินขีดจำกัด
+let currentPage = 1;
+let pageSize = 20; // ตัวเลือก: 20 / 50 / 100
+let displayMode = 'single'; // 'single' = ตารางเต็มคอลัมน์, 'all' = ตาราง 3 คอลัมน์รวมทุกแท็บ
 let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -457,7 +586,16 @@ async function loadSingleTabView(sheetName, keyword) {
 
     currentRows = searchResult.results;
     lastTruncated = !!searchResult.truncated;
+
+    // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
+    // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
+    const maxCells = currentRows.reduce((max, r) => Math.max(max, r.cells.length), currentTableHeaders.length);
+    while (currentTableHeaders.length < maxCells) {
+      currentTableHeaders.push(`คอลัมน์ ${currentTableHeaders.length + 1}`);
+    }
+
     setupStatusFilter();
+    currentPage = 1;
     applyStatusFilterAndRender();
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
@@ -472,18 +610,20 @@ function setupStatusFilter() {
     statusFilter.innerHTML = '';
     return;
   }
+  // เก็บทุกค่าที่พบจริงในคอลัมน์สถานะ ไม่ยึดรายชื่อตายตัว เพื่อให้ตรงกับข้อมูลจริงในชีทเสมอ
   const found = new Set();
   currentRows.forEach(row => {
     const v = (row.cells[statusColIndex] || '').toString().trim();
-    if (KNOWN_STATUSES.includes(v)) found.add(v);
+    if (v) found.add(v);
   });
   if (found.size === 0) {
     statusFilter.hidden = true;
     statusFilter.innerHTML = '';
     return;
   }
+  const options = Array.from(found).sort((a, b) => a.localeCompare(b, 'th'));
   statusFilter.innerHTML = '<option value="">ทุกสถานะ</option>' +
-    KNOWN_STATUSES.filter(s => found.has(s)).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    options.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
   statusFilter.hidden = false;
   statusFilter.value = '';
 }
@@ -492,45 +632,15 @@ statusFilter.addEventListener('change', () => applyStatusFilterAndRender());
 
 function applyStatusFilterAndRender() {
   const chosen = statusFilter.value;
-  const rows = (!chosen || statusColIndex === -1)
+  filteredRows = (!chosen || statusColIndex === -1)
     ? currentRows
     : currentRows.filter(row => (row.cells[statusColIndex] || '').toString().trim() === chosen);
-  renderSingleTable(rows);
+  displayMode = 'single';
+  currentPage = 1;
+  renderCurrentPage();
 }
 
-function renderSingleTable(rows) {
-  if (!rows || rows.length === 0) {
-    tableWrap.hidden = true;
-    countLabel.hidden = true;
-    showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหา', false);
-    return;
-  }
-  hint.hidden = true;
-  countLabel.hidden = false;
-  countLabel.textContent = `พบ ${rows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
-
-  tableHead.innerHTML = '<tr>' + currentTableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '<th></th></tr>';
-  tableBody.innerHTML = '';
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    currentTableHeaders.forEach((h, i) => {
-      const td = document.createElement('td');
-      td.innerHTML = highlightMatch((row.cells[i] || '').toString(), lastKeyword);
-      tr.appendChild(td);
-    });
-    const delTd = document.createElement('td');
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'data-table__delete';
-    delBtn.textContent = '🗑';
-    delBtn.title = 'ลบแถวนี้';
-    delBtn.addEventListener('click', () => deleteRow(row, tr, delBtn));
-    delTd.appendChild(delBtn);
-    tr.appendChild(delTd);
-    tableBody.appendChild(tr);
-  });
-  tableWrap.hidden = false;
-}
+/* หมายเหตุ: การ render ตารางจริงทำผ่าน renderCurrentPage() + buildSingleRow()/buildAllRow() ด้านล่าง (รองรับแบ่งหน้า) */
 
 /* ===== โหมดทั้งหมดในไฟล์: ตาราง 3 คอลัมน์ (แท็บ / แถวที่ / ข้อมูล) ===== */
 
@@ -548,55 +658,15 @@ async function loadAllTabsView(keyword) {
     currentTableHeaders = ['แท็บ', 'แถวที่', 'ข้อมูล'];
     currentRows = result.results;
     lastTruncated = !!result.truncated;
-    renderAllTable(currentRows);
+    filteredRows = currentRows;
+    displayMode = 'all';
+    currentPage = 1;
+    renderCurrentPage();
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
     setLoading(false);
   }
-}
-
-function renderAllTable(rows) {
-  if (!rows || rows.length === 0) {
-    tableWrap.hidden = true;
-    countLabel.hidden = true;
-    showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหา', false);
-    return;
-  }
-  hint.hidden = true;
-  countLabel.hidden = false;
-  countLabel.textContent = `พบ ${rows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
-
-  tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th></th></tr>';
-  tableBody.innerHTML = '';
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-
-    const sheetTd = document.createElement('td');
-    sheetTd.textContent = row.sheet;
-    tr.appendChild(sheetTd);
-
-    const rowTd = document.createElement('td');
-    rowTd.textContent = row.row;
-    tr.appendChild(rowTd);
-
-    const dataTd = document.createElement('td');
-    dataTd.innerHTML = row.cells.filter(c => c.trim() !== '').map(c => highlightMatch(c, lastKeyword)).join(' &middot; ');
-    tr.appendChild(dataTd);
-
-    const delTd = document.createElement('td');
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'data-table__delete';
-    delBtn.textContent = '🗑';
-    delBtn.title = 'ลบแถวนี้';
-    delBtn.addEventListener('click', () => deleteRow(row, tr, delBtn));
-    delTd.appendChild(delBtn);
-    tr.appendChild(delTd);
-
-    tableBody.appendChild(tr);
-  });
-  tableWrap.hidden = false;
 }
 
 /* ===== ค้นหา ===== */
@@ -632,13 +702,10 @@ async function deleteRow(row, rowEl, buttonEl) {
     const result = await jsonpRequest(apiUrl({ action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row }));
     if (!result.ok) throw new Error(result.error || 'ลบไม่สำเร็จ');
 
-    rowEl.remove();
-    currentRows = currentRows.filter(r => !(r.sheet === row.sheet && r.row === row.row));
-    countLabel.textContent = `พบ ${currentRows.length} รายการ`;
-    if (currentRows.length === 0) {
-      tableWrap.hidden = true;
-      showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหา', false);
-    }
+    const matches = (r) => r.sheet === row.sheet && r.row === row.row;
+    currentRows = currentRows.filter(r => !matches(r));
+    filteredRows = filteredRows.filter(r => !matches(r));
+    renderCurrentPage();
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
     buttonEl.disabled = false;

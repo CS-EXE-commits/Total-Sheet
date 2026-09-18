@@ -104,6 +104,15 @@
           <p class="trash-panel__status" id="trashStatus"></p>
         </section>
 
+        <div class="table-toolbar" id="tableToolbar" hidden>
+          <label for="pageSizeSelect">แสดงหน้าละ</label>
+          <select id="pageSizeSelect">
+            <option value="20">20 แถว</option>
+            <option value="50">50 แถว</option>
+            <option value="100">100 แถว</option>
+          </select>
+        </div>
+
         <p class="results__hint" id="resultsHint">เลือกแท็บด้านบน หรือพิมพ์คำค้นหาแล้วกด Enter</p>
         <p class="results__count" id="resultsCount" hidden></p>
         <div class="table-wrap" id="tableWrap" hidden>
@@ -112,6 +121,7 @@
             <tbody id="dataTableBody"></tbody>
           </table>
         </div>
+        <div class="pagination" id="pagination" hidden></div>
       </div>
     </main>
   </div>
