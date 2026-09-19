@@ -486,7 +486,17 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: auto;
+  max-height: 65vh; /* จำกัดความสูง ให้เลื่อนดูข้อมูลแนวตั้งได้ พร้อมหัวตารางค้างด้านบน */
 }
+
+/* แถบเลื่อนแบบมองเห็นชัดเจน (Chrome/Edge/Safari) */
+.table-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
+.table-wrap::-webkit-scrollbar-track { background: var(--color-bg); border-radius: 8px; }
+.table-wrap::-webkit-scrollbar-thumb { background: #B7C0CB; border-radius: 8px; border: 2px solid var(--color-bg); }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: #99A5B3; }
+
+/* Firefox */
+.table-wrap { scrollbar-width: auto; scrollbar-color: #B7C0CB var(--color-bg); }
 
 .data-table {
   width: 100%;
