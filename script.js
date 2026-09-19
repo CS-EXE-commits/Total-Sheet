@@ -141,11 +141,35 @@ function buildSingleRow(row) {
   const tr = document.createElement('tr');
   currentTableHeaders.forEach((h, i) => {
     const td = document.createElement('td');
-    td.innerHTML = highlightMatch((row.cells[i] || '').toString(), lastKeyword);
+    const cellValue = (row.cells[i] || '').toString();
+
+    if (isTicketColumn(h) && isLikelyUrl(cellValue)) {
+      const link = document.createElement('a');
+      link.href = cellValue.trim();
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'ticket-link';
+      link.textContent = 'เปิด Ticket ↗';
+      link.title = cellValue.trim();
+      td.appendChild(link);
+    } else {
+      td.innerHTML = highlightMatch(cellValue, lastKeyword);
+    }
+
     tr.appendChild(td);
   });
   tr.appendChild(buildDeleteCell(row, tr));
   return tr;
+}
+
+/** เช็คว่าชื่อคอลัมน์นี้คือคอลัมน์ Ticket หรือไม่ (ไม่สนตัวพิมพ์เล็ก/ใหญ่) ใช้ได้กับทุกไฟล์/ทุกแท็บ */
+function isTicketColumn(headerName) {
+  return /ticket/i.test((headerName || '').toString());
+}
+
+/** เช็คคร่าวๆ ว่าค่านี้หน้าตาเหมือนลิงก์ (ขึ้นต้นด้วย http:// หรือ https://) ก่อนเปลี่ยนเป็นปุ่มลิงก์ */
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test((value || '').toString().trim());
 }
 
 function buildAllRow(row) {

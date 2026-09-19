@@ -522,6 +522,22 @@ body {
 .data-table tbody tr:hover { background: #F7F9FA; }
 .data-table td mark { background: var(--color-accent-bg); color: var(--color-accent-hover); border-radius: 4px; padding: 0 2px; }
 
+.ticket-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ticket-link:hover { background: var(--color-accent); color: #fff; }
+
 .data-table__delete {
   width: 30px; height: 30px;
   display: flex; align-items: center; justify-content: center;
