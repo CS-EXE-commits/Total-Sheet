@@ -343,6 +343,7 @@ let currentRows = []; // ผลลัพธ์ล่าสุดที่โห�
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
 let currentHeadersMeta = []; // [{name, options}] ของแท็บที่กำลังเปิดอยู่ — ใช้ทำ dropdown เปลี่ยนสถานะแบบเร็ว
 let lastTruncated = false; // true ถ้าผลลัพธ์ล่าสุดถูกตัดทิ้งบางส่วนเพราะเกินขีดจำกัด
+let loadRequestSeq = 0; // ตัวนับคำขอโหลดข้อมูลล่าสุด กันคำขอเก่าที่ตอบช้ากว่ามาเขียนทับผลลัพธ์ใหม่กว่า (เช่น ตอนสลับแท็บ/ค้นหาซ้อนกันเร็วๆ)
 let currentPage = 1;
 let pageSize = 20; // ตัวเลือก: 20 / 50 / 100
 let displayMode = 'single'; // 'single' = ตารางเต็มคอลัมน์, 'all' = ตาราง 3 คอลัมน์รวมทุกแท็บ
@@ -844,8 +845,14 @@ async function loadSingleTabView(sheetName, keyword) {
   setLoading(true);
   showHint('กำลังโหลด...', false);
 
+  // กันปัญหาข้อมูล/ลิงก์ Ticket ขึ้นๆ หายๆ ที่เกิดจาก "คำขอเก่าที่ช้ากว่า" กลับมาถึงทีหลัง
+  // คำขอที่ใหม่กว่า แล้วไปเขียนทับผลลัพธ์ล่าสุดด้วยข้อมูลเก่า (race condition) — ถ้ามีคนกดค้นหา/สลับแท็บ
+  // ซ้อนกันเร็วๆ ให้ยึดเฉพาะคำขอล่าสุดเท่านั้น คำขอเก่าที่ตอบกลับมาทีหลังจะถูกทิ้งไปเงียบๆ
+  const requestId = ++loadRequestSeq;
+
   try {
     const headerResult = await jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: sheetName }));
+    if (requestId !== loadRequestSeq) return;
     if (!headerResult.ok) throw new Error(headerResult.error || 'โหลดหัวตารางไม่สำเร็จ');
 
     currentTableHeaders = headerResult.headers;
@@ -854,8 +861,10 @@ async function loadSingleTabView(sheetName, keyword) {
     if (statusColIndex !== -1) {
       try {
         const headersMetaResult = await jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: sheetName }));
+        if (requestId !== loadRequestSeq) return;
         currentHeadersMeta = headersMetaResult.ok ? headersMetaResult.headers : [];
       } catch (e) {
+        if (requestId !== loadRequestSeq) return;
         currentHeadersMeta = [];
       }
     } else {
@@ -863,6 +872,7 @@ async function loadSingleTabView(sheetName, keyword) {
     }
 
     const searchResult = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook, sheet: sheetName }));
+    if (requestId !== loadRequestSeq) return;
     if (!searchResult.ok) throw new Error(searchResult.error || 'ค้นหาไม่สำเร็จ');
 
     currentRows = searchResult.results;
@@ -884,9 +894,10 @@ async function loadSingleTabView(sheetName, keyword) {
     currentPage = 1;
     applyStatusFilterAndRender();
   } catch (err) {
+    if (requestId !== loadRequestSeq) return;
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
-    setLoading(false);
+    if (requestId === loadRequestSeq) setLoading(false);
   }
 }
 
@@ -952,8 +963,11 @@ async function loadAllTabsView(keyword) {
   setLoading(true);
   showHint('กำลังค้นหา...', false);
 
+  const requestId = ++loadRequestSeq;
+
   try {
     const result = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook }));
+    if (requestId !== loadRequestSeq) return;
     if (!result.ok) throw new Error(result.error || 'ค้นหาไม่สำเร็จ');
 
     currentTableHeaders = ['แท็บ', 'แถวที่', 'ข้อมูล'];
@@ -964,9 +978,10 @@ async function loadAllTabsView(keyword) {
     currentPage = 1;
     renderCurrentPage();
   } catch (err) {
+    if (requestId !== loadRequestSeq) return;
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
-    setLoading(false);
+    if (requestId === loadRequestSeq) setLoading(false);
   }
 }
 
