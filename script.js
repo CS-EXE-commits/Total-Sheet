@@ -6,6 +6,28 @@ const appLayout = document.getElementById('appLayout');
 const topbarAccount = document.getElementById('topbarAccount');
 const topbarEmail = document.getElementById('topbarEmail');
 const logoutButton = document.getElementById('logoutButton');
+const themeToggle = document.getElementById('themeToggle');
+
+/* ===== สลับธีมสว่าง/มืด (จำไว้ใน localStorage เบราว์เซอร์นี้) ===== */
+function applyThemeToggleIcon() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  themeToggle.textContent = isDark ? '☀️' : '🌙';
+  themeToggle.title = isDark ? 'สลับเป็นธีมสว่าง' : 'สลับเป็นธีมมืด';
+}
+
+themeToggle.addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark) {
+    document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('sheetSearchTheme', 'light'); } catch (e) {}
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('sheetSearchTheme', 'dark'); } catch (e) {}
+  }
+  applyThemeToggleIcon();
+});
+
+applyThemeToggleIcon();
 
 const bookList = document.getElementById('bookList');
 const booksHint = document.getElementById('booksHint');

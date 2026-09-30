@@ -9,8 +9,32 @@
   --color-accent-bg: #E4F0F0;
   --color-danger: #B3441E;
   --color-danger-bg: #F6E7E0;
+  --color-table-header-bg: #FAFBFC;
+  --color-row-hover-bg: #F7F9FA;
+  --color-btn-hover-bg: #D6E8E8;
+  --color-danger-hover-bg: #EFD5C7;
+  --color-scrollbar-thumb: #000000;
   --font-body: 'Inter', system-ui, sans-serif;
   --radius: 10px;
+}
+
+/* ===== ธีมมืด (สลับด้วยปุ่มไอคอนพระจันทร์/พระอาทิตย์ มุมซ้ายบน) ===== */
+:root[data-theme="dark"] {
+  --color-bg: #12161B;
+  --color-surface: #1B2027;
+  --color-border: #2B323C;
+  --color-text: #E7ECF2;
+  --color-text-muted: #8D98A6;
+  --color-accent: #45B0BA;
+  --color-accent-hover: #5FC4CD;
+  --color-accent-bg: #1D3A3D;
+  --color-danger: #E38B69;
+  --color-danger-bg: #3D2A20;
+  --color-table-header-bg: #20262E;
+  --color-row-hover-bg: #232A33;
+  --color-btn-hover-bg: #24484B;
+  --color-danger-hover-bg: #4A2E22;
+  --color-scrollbar-thumb: #000000;
 }
 
 * { box-sizing: border-box; }
@@ -26,7 +50,29 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
+
+/* ===== ปุ่มสลับธีมสว่าง/มืด (มุมซ้ายบนของหัวเว็บ) ===== */
+.theme-toggle {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover { border-color: var(--color-accent); color: var(--color-text); }
 
 /* ===== หัวเว็บ (กึ่งกลาง ตัวใหญ่) ===== */
 .topbar {
@@ -75,7 +121,7 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 24px;
-  max-width: 1280px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 28px 24px 80px;
 }
@@ -262,7 +308,7 @@ body {
   cursor: pointer;
 }
 
-.tabs-row__add:hover { background: #D6E8E8; }
+.tabs-row__add:hover { background: var(--color-btn-hover-bg); }
 
 /* แถบเครื่องมือ */
 .toolbar {
@@ -333,12 +379,12 @@ body {
   white-space: nowrap;
 }
 
-.toolbar__btn:hover { background: #D6E8E8; }
+.toolbar__btn:hover { background: var(--color-btn-hover-bg); }
 .toolbar__btn[aria-pressed="true"] { background: var(--color-accent); color: #fff; }
 .toolbar__btn--accent { color: #fff; background: var(--color-accent); }
 .toolbar__btn--accent:hover { background: var(--color-accent-hover); }
 .toolbar__btn--danger { color: var(--color-danger); background: var(--color-danger-bg); }
-.toolbar__btn--danger:hover { background: #EFD5C7; }
+.toolbar__btn--danger:hover { background: var(--color-danger-hover-bg); }
 .toolbar__btn--danger[aria-pressed="true"] { background: var(--color-danger); color: #fff; }
 .toolbar__btn--muted { color: var(--color-text-muted); background: var(--color-bg); border: 1px solid var(--color-border); }
 .toolbar__btn--muted[aria-pressed="true"] { background: var(--color-text); border-color: var(--color-text); color: #fff; }
@@ -486,17 +532,18 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: auto;
-  max-height: 65vh; /* จำกัดความสูง ให้เลื่อนดูข้อมูลแนวตั้งได้ พร้อมหัวตารางค้างด้านบน */
+  max-height: 80vh; /* ขยายพื้นที่แสดงตารางให้ใหญ่ขึ้น ยังเลื่อนดูข้อมูลแนวตั้งได้ พร้อมหัวตารางค้างด้านบน */
 }
 
-/* แถบเลื่อนแบบมองเห็นชัดเจน (Chrome/Edge/Safari) */
-.table-wrap::-webkit-scrollbar { width: 12px; height: 12px; }
-.table-wrap::-webkit-scrollbar-track { background: var(--color-bg); border-radius: 8px; }
-.table-wrap::-webkit-scrollbar-thumb { background: #B7C0CB; border-radius: 8px; border: 2px solid var(--color-bg); }
-.table-wrap::-webkit-scrollbar-thumb:hover { background: #99A5B3; }
+/* แถบเลื่อนขนาดเล็กสีดำ (Chrome/Edge/Safari) */
+.table-wrap::-webkit-scrollbar { width: 7px; height: 7px; }
+.table-wrap::-webkit-scrollbar-track { background: transparent; }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--color-scrollbar-thumb); border-radius: 6px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--color-scrollbar-thumb); }
+.table-wrap::-webkit-scrollbar-corner { background: transparent; }
 
 /* Firefox */
-.table-wrap { scrollbar-width: auto; scrollbar-color: #B7C0CB var(--color-bg); }
+.table-wrap { scrollbar-width: thin; scrollbar-color: var(--color-scrollbar-thumb) transparent; }
 
 .data-table {
   width: 100%;
@@ -512,14 +559,14 @@ body {
 }
 
 .data-table th {
-  background: #FAFBFC;
+  background: var(--color-table-header-bg);
   font-weight: 600;
   color: var(--color-text-muted);
   position: sticky;
   top: 0;
 }
 
-.data-table tbody tr:hover { background: #F7F9FA; }
+.data-table tbody tr:hover { background: var(--color-row-hover-bg); }
 .data-table td mark { background: var(--color-accent-bg); color: var(--color-accent-hover); border-radius: 4px; padding: 0 2px; }
 
 .ticket-link {
@@ -570,7 +617,7 @@ body {
   font-family: inherit;
   font-size: 12px;
   color: var(--color-text-muted);
-  background: #FAFBFC;
+  background: var(--color-table-header-bg);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 3px 6px;

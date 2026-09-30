@@ -7,6 +7,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script>
+  // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
+  (function () {
+    try {
+      if (localStorage.getItem('sheetSearchTheme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body>
 
@@ -21,6 +31,7 @@
   </div>
 
   <header class="topbar">
+    <button type="button" class="theme-toggle" id="themeToggle" title="สลับธีมสว่าง/มืด" aria-label="สลับธีมสว่าง/มืด">🌙</button>
     <h1 class="topbar__title">Data Search and Recording System</h1>
     <div class="topbar__account" id="topbarAccount" hidden>
       <span id="topbarEmail"></span>
