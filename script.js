@@ -129,7 +129,10 @@ function renderCurrentPage() {
   const pageRows = filteredRows.slice(start, start + pageSize);
 
   if (displayMode === 'single') {
-    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => `<th>${escapeHtml(currentTableHeaders[i])}</th>`).join('') + '<th class="data-table__actions-col"></th></tr>';
+    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => {
+      const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
+      return `<th${cls}>${escapeHtml(currentTableHeaders[i])}</th>`;
+    }).join('') + '<th class="data-table__actions-col"></th></tr>';
     tableBody.innerHTML = '';
     pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
   } else {
@@ -137,6 +140,7 @@ function renderCurrentPage() {
     tableBody.innerHTML = '';
     pageRows.forEach(row => tableBody.appendChild(buildAllRow(row)));
   }
+  syncTicketColumnOffset_();
 
   tableWrap.hidden = false;
   renderPaginationControls(totalPages);
@@ -190,6 +194,7 @@ function buildSingleRow(row) {
     if (i === statusColIndex) {
       td.appendChild(buildStatusCell(row, cellValue));
     } else if (isTicketColumn(h)) {
+      td.className = 'data-table__ticket-col';
       // ลิงก์จริงอาจซ่อนอยู่หลังข้อความ (เช่น "Ticket #756950" ที่ผูกไฮเปอร์ลิงก์ไว้) — ใช้ลิงก์จริงจาก
       // row.links ถ้ามี ไม่งั้นถ้าข้อความในเซลล์เป็น URL ตรงๆ อยู่แล้วก็ใช้ค่านั้นแทน
       const linkUrl = (row.links && row.links[i]) || (isLikelyUrl(cellValue) ? cellValue.trim() : null);
@@ -337,6 +342,23 @@ function buildActionsCell(row, tr) {
   actionsTd.appendChild(wrap);
   return actionsTd;
 }
+
+/**
+ * วัดความกว้างจริงของคอลัมน์ปุ่มแก้ไข/ลบ (ท้ายตาราง) แล้วบันทึกไว้เป็น CSS variable
+ * เพื่อให้คอลัมน์ Ticket ที่ตรึงไว้ (sticky) ชิดขวาถัดจากคอลัมน์ปุ่มพอดี ไม่ทับกัน
+ * ต้องวัดจริงเพราะความกว้างของปุ่มเปลี่ยนได้ตามฟอนต์/ขนาดจอ
+ */
+function syncTicketColumnOffset_() {
+  const sampleActionsCell = tableBody.querySelector('.data-table__actions-col');
+  if (!sampleActionsCell) return;
+  const width = sampleActionsCell.getBoundingClientRect().width;
+  if (width > 0) {
+    tableWrap.style.setProperty('--actions-col-width', `${width}px`);
+  }
+}
+
+// ขนาดจอเปลี่ยน (เช่น พลิกมือถือ หรือย่อ/ขยายวินโดว์) อาจทำให้ความกว้างคอลัมน์ปุ่มเปลี่ยนไปด้วย วัดซ้ำให้ตรงเสมอ
+window.addEventListener('resize', () => syncTicketColumnOffset_());
 
 const createSheetModal = document.getElementById('createSheetModal');
 const newSheetName = document.getElementById('newSheetName');

@@ -795,6 +795,23 @@ th.data-table__actions-col {
   background: var(--color-table-header-bg);
 }
 
+/* ตรึงคอลัมน์ Ticket ไว้ชิดขวาถัดจากคอลัมน์ปุ่มแก้ไข/ลบ (ความกว้างจริงคำนวณจาก JS ใส่เป็นตัวแปรนี้) */
+.data-table__ticket-col {
+  position: sticky;
+  right: var(--actions-col-width, 96px);
+  z-index: 1;
+  background: var(--color-surface);
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.06);
+}
+.data-table tbody tr:nth-child(even) .data-table__ticket-col {
+  background: color-mix(in srgb, var(--color-row-hover-bg) 55%, var(--color-surface));
+}
+.data-table tbody tr:hover .data-table__ticket-col { background: var(--color-row-hover-bg); }
+th.data-table__ticket-col {
+  z-index: 2;
+  background: var(--color-table-header-bg);
+}
+
 .data-table__edit {
   width: 30px; height: 30px;
   display: flex; align-items: center; justify-content: center;
