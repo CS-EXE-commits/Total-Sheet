@@ -16,6 +16,12 @@ const addBookName = document.getElementById('addBookName');
 const addBookUrl = document.getElementById('addBookUrl');
 const addBookSubmit = document.getElementById('addBookSubmit');
 const addBookStatus = document.getElementById('addBookStatus');
+const createBookToggle = document.getElementById('createBookToggle');
+const createBookPanel = document.getElementById('createBookPanel');
+const createBookName = document.getElementById('createBookName');
+const createBookSheetName = document.getElementById('createBookSheetName');
+const createBookSubmit = document.getElementById('createBookSubmit');
+const createBookStatus = document.getElementById('createBookStatus');
 const bookTrashToggle = document.getElementById('bookTrashToggle');
 const bookTrashPanel = document.getElementById('bookTrashPanel');
 const bookTrashList = document.getElementById('bookTrashList');
@@ -86,7 +92,7 @@ function renderCurrentPage() {
   const pageRows = filteredRows.slice(start, start + pageSize);
 
   if (displayMode === 'single') {
-    tableHead.innerHTML = '<tr>' + currentTableHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '<th></th></tr>';
+    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => `<th>${escapeHtml(currentTableHeaders[i])}</th>`).join('') + '<th></th></tr>';
     tableBody.innerHTML = '';
     pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
   } else {
@@ -139,7 +145,8 @@ function renderPaginationControls(totalPages) {
 
 function buildSingleRow(row) {
   const tr = document.createElement('tr');
-  currentTableHeaders.forEach((h, i) => {
+  visibleColumnIndices.forEach(i => {
+    const h = currentTableHeaders[i];
     const td = document.createElement('td');
     const cellValue = (row.cells[i] || '').toString();
 
@@ -301,6 +308,7 @@ let selectedSheet = ''; // '' = ทุกแท็บในไฟล์นี้
 let lastKeyword = '';
 let jsonpCounter = 0;
 let currentTableHeaders = []; // หัวตารางเต็ม (โหมดแท็บเดียว) หรือ ['แท็บ','แถวที่','ข้อมูล'] (โหมดทั้งหมด)
+let visibleColumnIndices = []; // ตำแหน่งคอลัมน์ที่ "มีชื่อหัวตารางจริง" เท่านั้น (โหมดแท็บเดียว) — ใช้ซ่อนคอลัมน์ว่างที่ไม่มีอยู่จริงในชีต
 let currentRows = []; // ผลลัพธ์ล่าสุดที่โหลดมา (ก่อนกรองสถานะ)
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
 let currentHeadersMeta = []; // [{name, options}] ของแท็บที่กำลังเปิดอยู่ — ใช้ทำ dropdown เปลี่ยนสถานะแบบเร็ว
@@ -510,6 +518,8 @@ addFileToggle.addEventListener('click', () => {
   const isOpen = !addFilePanel.hidden;
   addFilePanel.hidden = isOpen;
   bookTrashPanel.hidden = true;
+  createBookPanel.hidden = true;
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet ใหม่';
   addFileToggle.textContent = isOpen ? '+ เพิ่มไฟล์' : '× ปิดฟอร์ม';
   if (!isOpen) { addBookName.value = ''; addBookUrl.value = ''; setAddBookStatus('', null); }
 });
@@ -540,12 +550,55 @@ function setAddBookStatus(message, type) {
   addBookStatus.className = 'sidebar-panel__status' + (type ? ` sidebar-panel__status--${type}` : '');
 }
 
+/* ===== สร้างไฟล์ Google Sheet ใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) ===== */
+
+createBookToggle.addEventListener('click', () => {
+  const isOpen = !createBookPanel.hidden;
+  createBookPanel.hidden = isOpen;
+  addFilePanel.hidden = true;
+  bookTrashPanel.hidden = true;
+  addFileToggle.textContent = '+ เพิ่มไฟล์';
+  bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
+  createBookToggle.textContent = isOpen ? '+ สร้างไฟล์ Google Sheet ใหม่' : '× ปิดฟอร์ม';
+  if (!isOpen) { createBookName.value = ''; createBookSheetName.value = ''; setCreateBookStatus('', null); }
+});
+
+createBookSubmit.addEventListener('click', async () => {
+  const name = createBookName.value.trim();
+  const sheetName = createBookSheetName.value.trim();
+  if (!name) { setCreateBookStatus('กรุณากรอกชื่อไฟล์', 'error'); return; }
+
+  createBookSubmit.disabled = true;
+  setCreateBookStatus('กำลังสร้างไฟล์ Google Sheet ใหม่...', null);
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'createBook', name, sheetName }));
+    if (!result.ok) throw new Error(result.error || 'สร้างไฟล์ไม่สำเร็จ');
+
+    createBookStatus.innerHTML = `${escapeHtml(result.message)} — <a href="${result.url}" target="_blank" rel="noopener noreferrer">เปิดไฟล์ใน Google Sheets ↗</a>`;
+    createBookStatus.className = 'sidebar-panel__status sidebar-panel__status--success';
+    createBookName.value = ''; createBookSheetName.value = '';
+    renderBookList(result.books);
+  } catch (err) {
+    setCreateBookStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    createBookSubmit.disabled = false;
+  }
+});
+
+function setCreateBookStatus(message, type) {
+  createBookStatus.textContent = message;
+  createBookStatus.className = 'sidebar-panel__status' + (type ? ` sidebar-panel__status--${type}` : '');
+}
+
 /* ===== ถังขยะไฟล์ ===== */
 
 bookTrashToggle.addEventListener('click', () => {
   const isOpen = !bookTrashPanel.hidden;
   bookTrashPanel.hidden = isOpen;
   addFilePanel.hidden = true;
+  createBookPanel.hidden = true;
+  addFileToggle.textContent = '+ เพิ่มไฟล์';
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet ใหม่';
   bookTrashToggle.textContent = isOpen ? '🗑 ถังขยะไฟล์' : '× ปิดถังขยะไฟล์';
   if (!isOpen) loadBookTrash();
 });
@@ -710,6 +763,11 @@ async function loadSingleTabView(sheetName, keyword) {
     while (currentTableHeaders.length < maxCells) {
       currentTableHeaders.push(`คอลัมน์ ${currentTableHeaders.length + 1}`);
     }
+
+    // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
+    visibleColumnIndices = currentTableHeaders
+      .map((h, i) => i)
+      .filter(i => currentTableHeaders[i].trim() !== '');
 
     setupStatusFilter();
     currentPage = 1;

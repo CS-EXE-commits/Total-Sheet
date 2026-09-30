@@ -56,6 +56,21 @@
         <p class="sidebar-panel__status" id="addBookStatus"></p>
       </div>
 
+      <button type="button" class="sidebar-btn" id="createBookToggle">+ สร้างไฟล์ Google Sheet ใหม่</button>
+      <div class="sidebar-panel" id="createBookPanel" hidden>
+        <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
+        <div class="add-field">
+          <label for="createBookName">ชื่อไฟล์ใหม่</label>
+          <input type="text" id="createBookName" placeholder="เช่น ปัญหาเติมเงินเกม B">
+        </div>
+        <div class="add-field">
+          <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
+          <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
+        </div>
+        <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
+        <p class="sidebar-panel__status" id="createBookStatus"></p>
+      </div>
+
       <button type="button" class="sidebar-btn sidebar-btn--trash" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
       <div class="sidebar-panel" id="bookTrashPanel" hidden>
         <p class="sidebar-panel__hint">ไฟล์ที่เอาออกจากระบบล่าสุด</p>
