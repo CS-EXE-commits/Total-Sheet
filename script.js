@@ -152,15 +152,24 @@ function buildSingleRow(row) {
 
     if (i === statusColIndex) {
       td.appendChild(buildStatusCell(row, cellValue));
-    } else if (isTicketColumn(h) && isLikelyUrl(cellValue)) {
-      const link = document.createElement('a');
-      link.href = cellValue.trim();
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.className = 'ticket-link';
-      link.textContent = 'เปิด Ticket ↗';
-      link.title = cellValue.trim();
-      td.appendChild(link);
+    } else if (isTicketColumn(h)) {
+      // ลิงก์จริงอาจซ่อนอยู่หลังข้อความ (เช่น "Ticket #756950" ที่ผูกไฮเปอร์ลิงก์ไว้) — ใช้ลิงก์จริงจาก
+      // row.links ถ้ามี ไม่งั้นถ้าข้อความในเซลล์เป็น URL ตรงๆ อยู่แล้วก็ใช้ค่านั้นแทน
+      const linkUrl = (row.links && row.links[i]) || (isLikelyUrl(cellValue) ? cellValue.trim() : null);
+      if (linkUrl) {
+        const link = document.createElement('a');
+        link.href = linkUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'ticket-link';
+        // ถ้าข้อความในเซลล์เป็นป้ายกำกับที่อ่านง่ายอยู่แล้ว (ไม่ใช่ URL ดิบๆ) ให้แสดงข้อความนั้นเป็นลิงก์เลย
+        const label = cellValue && !isLikelyUrl(cellValue) ? cellValue : 'เปิด Ticket ↗';
+        link.innerHTML = highlightMatch(label, lastKeyword);
+        link.title = linkUrl;
+        td.appendChild(link);
+      } else {
+        td.innerHTML = highlightMatch(cellValue, lastKeyword);
+      }
     } else {
       td.innerHTML = highlightMatch(cellValue, lastKeyword);
     }
