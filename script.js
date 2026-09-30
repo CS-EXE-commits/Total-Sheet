@@ -143,7 +143,9 @@ function buildSingleRow(row) {
     const td = document.createElement('td');
     const cellValue = (row.cells[i] || '').toString();
 
-    if (isTicketColumn(h) && isLikelyUrl(cellValue)) {
+    if (i === statusColIndex) {
+      td.appendChild(buildStatusCell(row, cellValue));
+    } else if (isTicketColumn(h) && isLikelyUrl(cellValue)) {
       const link = document.createElement('a');
       link.href = cellValue.trim();
       link.target = '_blank';
@@ -158,8 +160,73 @@ function buildSingleRow(row) {
 
     tr.appendChild(td);
   });
-  tr.appendChild(buildDeleteCell(row, tr));
+  tr.appendChild(buildActionsCell(row, tr));
   return tr;
+}
+
+/**
+ * ช่องสถานะแบบแก้ไขได้ทันที: แสดงค่าปัจจุบัน + dropdown ให้เลือกเปลี่ยนสถานะ
+ * เมื่อเลือกค่าใหม่จะเขียนกลับเข้าชีตจริงทันที (ผ่าน action=updateRow)
+ */
+function buildStatusCell(row, currentValue) {
+  const wrap = document.createElement('div');
+  wrap.className = 'status-cell';
+
+  const label = document.createElement('span');
+  label.innerHTML = highlightMatch(currentValue, lastKeyword) || '-';
+  wrap.appendChild(label);
+
+  const headerName = currentTableHeaders[statusColIndex];
+  const headerMeta = currentHeadersMeta.find(h => h.name === headerName);
+  const knownValues = new Set(currentRows.map(r => (r.cells[statusColIndex] || '').toString().trim()).filter(Boolean));
+  const options = headerMeta && headerMeta.options && headerMeta.options.length > 0
+    ? headerMeta.options
+    : Array.from(knownValues);
+
+  if (options.length === 0) return wrap;
+
+  const select = document.createElement('select');
+  select.className = 'status-cell__select';
+  select.title = 'เปลี่ยนสถานะแถวนี้';
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = 'เปลี่ยนสถานะ...';
+  select.appendChild(blank);
+  options.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => {
+    const newValue = select.value;
+    if (!newValue || newValue === currentValue.trim()) { select.value = ''; return; }
+    updateStatusQuick(row, headerName, newValue, select);
+  });
+  wrap.appendChild(select);
+
+  return wrap;
+}
+
+/** เปลี่ยนแค่ค่าในคอลัมน์สถานะของแถวนี้ แล้วเขียนกลับเข้าชีตจริงทันที */
+async function updateStatusQuick(row, headerName, newValue, selectEl) {
+  const confirmed = confirm(`ยืนยันเปลี่ยนสถานะแถวที่ ${row.row} เป็น "${newValue}" ?`);
+  if (!confirmed) { selectEl.value = ''; return; }
+
+  selectEl.disabled = true;
+  try {
+    const data = {};
+    data[headerName] = newValue;
+    const result = await jsonpRequest(apiUrl({ action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row, data: JSON.stringify(data) }));
+    if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
+
+    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
+    else await loadAllTabsView(lastKeyword);
+  } catch (err) {
+    alert('เกิดข้อผิดพลาด: ' + err.message);
+    selectEl.disabled = false;
+    selectEl.value = '';
+  }
 }
 
 /** เช็คว่าชื่อคอลัมน์นี้คือคอลัมน์ Ticket หรือไม่ (ไม่สนตัวพิมพ์เล็ก/ใหญ่) ใช้ได้กับทุกไฟล์/ทุกแท็บ */
@@ -187,20 +254,34 @@ function buildAllRow(row) {
   dataTd.innerHTML = row.cells.filter(c => c.trim() !== '').map(c => highlightMatch(c, lastKeyword)).join(' &middot; ');
   tr.appendChild(dataTd);
 
-  tr.appendChild(buildDeleteCell(row, tr));
+  tr.appendChild(buildActionsCell(row, tr));
   return tr;
 }
 
-function buildDeleteCell(row, tr) {
-  const delTd = document.createElement('td');
+/** ช่องปุ่มจัดการท้ายแถว: ปุ่มแก้ไข (แก้ไขข้อมูลในชีตจริง) และปุ่มลบ อยู่ด้วยกัน ใช้ได้ทั้งโหมดแท็บเดียวและโหมดทั้งหมด */
+function buildActionsCell(row, tr) {
+  const actionsTd = document.createElement('td');
+  const wrap = document.createElement('div');
+  wrap.className = 'data-table__actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'data-table__edit';
+  editBtn.textContent = '✎';
+  editBtn.title = 'แก้ไขแถวนี้';
+  editBtn.addEventListener('click', () => openEditModal(row));
+  wrap.appendChild(editBtn);
+
   const delBtn = document.createElement('button');
   delBtn.type = 'button';
   delBtn.className = 'data-table__delete';
   delBtn.textContent = '🗑';
   delBtn.title = 'ลบแถวนี้';
   delBtn.addEventListener('click', () => deleteRow(row, tr, delBtn));
-  delTd.appendChild(delBtn);
-  return delTd;
+  wrap.appendChild(delBtn);
+
+  actionsTd.appendChild(wrap);
+  return actionsTd;
 }
 
 const createSheetModal = document.getElementById('createSheetModal');
@@ -222,6 +303,7 @@ let jsonpCounter = 0;
 let currentTableHeaders = []; // หัวตารางเต็ม (โหมดแท็บเดียว) หรือ ['แท็บ','แถวที่','ข้อมูล'] (โหมดทั้งหมด)
 let currentRows = []; // ผลลัพธ์ล่าสุดที่โหลดมา (ก่อนกรองสถานะ)
 let statusColIndex = -1; // ตำแหน่งคอลัมน์ "สถานะ" ในโหมดแท็บเดียว (-1 = ไม่มี)
+let currentHeadersMeta = []; // [{name, options}] ของแท็บที่กำลังเปิดอยู่ — ใช้ทำ dropdown เปลี่ยนสถานะแบบเร็ว
 let lastTruncated = false; // true ถ้าผลลัพธ์ล่าสุดถูกตัดทิ้งบางส่วนเพราะเกินขีดจำกัด
 let currentPage = 1;
 let pageSize = 20; // ตัวเลือก: 20 / 50 / 100
@@ -605,6 +687,17 @@ async function loadSingleTabView(sheetName, keyword) {
     currentTableHeaders = headerResult.headers;
     statusColIndex = headerResult.statusIndex;
 
+    if (statusColIndex !== -1) {
+      try {
+        const headersMetaResult = await jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: sheetName }));
+        currentHeadersMeta = headersMetaResult.ok ? headersMetaResult.headers : [];
+      } catch (e) {
+        currentHeadersMeta = [];
+      }
+    } else {
+      currentHeadersMeta = [];
+    }
+
     const searchResult = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook, sheet: sheetName }));
     if (!searchResult.ok) throw new Error(searchResult.error || 'ค้นหาไม่สำเร็จ');
 
@@ -736,6 +829,106 @@ async function deleteRow(row, rowEl, buttonEl) {
   }
 }
 
+/* ===== แก้ไขข้อมูลแถว (ใช้ได้ทุกไฟล์ ทุกแท็บ ทั้งโหมดแท็บเดียวและโหมดทั้งหมดในไฟล์) ===== */
+
+const editModal = document.getElementById('editModal');
+const editModalMeta = document.getElementById('editModalMeta');
+const editFields = document.getElementById('editFields');
+const editCancel = document.getElementById('editCancel');
+const editSubmit = document.getElementById('editSubmit');
+const editStatus = document.getElementById('editStatus');
+
+let editingRow = null; // แถวที่กำลังแก้ไขอยู่ (เก็บ book/sheet/row ไว้ใช้ตอนบันทึก)
+
+/**
+ * เปิดหน้าต่างแก้ไขข้อมูลแถว: โหลดรายชื่อคอลัมน์ + ตัวเลือก dropdown จริงของแท็บนั้น (action=headers)
+ * และโหลดหัวตารางเต็ม (action=tableHeaders) เพื่อจับคู่ค่าปัจจุบันของแต่ละคอลัมน์ให้ตรงตำแหน่งใน row.cells
+ * ใช้ row.sheet เสมอ (ไม่ใช่ selectedSheet) เพื่อให้ทำงานถูกต้องแม้อยู่ในโหมด "ทั้งหมดในไฟล์นี้"
+ */
+async function openEditModal(row) {
+  editingRow = row;
+  editModalMeta.textContent = `แก้ไขแถวที่ ${row.row} ในแท็บ "${row.sheet}"`;
+  editFields.innerHTML = '';
+  editSubmit.disabled = true;
+  setEditStatus('กำลังโหลดคอลัมน์...', null);
+  editModal.hidden = false;
+
+  try {
+    const [headersResult, tableHeadersResult] = await Promise.all([
+      jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: row.sheet })),
+      jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: row.sheet }))
+    ]);
+    if (!headersResult.ok) throw new Error(headersResult.error || 'โหลดคอลัมน์ไม่สำเร็จ');
+    if (!tableHeadersResult.ok) throw new Error(tableHeadersResult.error || 'โหลดหัวตารางไม่สำเร็จ');
+
+    const fullHeaders = tableHeadersResult.headers;
+    renderEditFields(headersResult.headers, fullHeaders, row);
+    editSubmit.disabled = false;
+    setEditStatus('', null);
+  } catch (err) {
+    setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+}
+
+function renderEditFields(headers, fullHeaders, row) {
+  editFields.innerHTML = '';
+  headers.forEach(header => {
+    const wrap = document.createElement('div');
+    wrap.className = 'add-field';
+    const label = document.createElement('label');
+    label.textContent = header.name;
+    label.setAttribute('for', `edit-field-${header.name}`);
+    wrap.appendChild(label);
+
+    const inputEl = buildFieldInput(header, 'edit-field-');
+    const colIndex = fullHeaders.indexOf(header.name);
+    if (colIndex !== -1) {
+      inputEl.value = (row.cells[colIndex] || '').toString();
+    }
+    wrap.appendChild(inputEl);
+    editFields.appendChild(wrap);
+  });
+}
+
+editCancel.addEventListener('click', () => closeEditModal());
+
+function closeEditModal() {
+  editModal.hidden = true;
+  editingRow = null;
+  editFields.innerHTML = '';
+  setEditStatus('', null);
+}
+
+editSubmit.addEventListener('click', async () => {
+  if (!editingRow) return;
+  const row = editingRow;
+  const data = {};
+  editFields.querySelectorAll('input, select').forEach(el => {
+    data[el.dataset.header] = el.value;
+  });
+
+  editSubmit.disabled = true;
+  setEditStatus('กำลังบันทึก...', null);
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row, data: JSON.stringify(data) }));
+    if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
+    setEditStatus('บันทึกการแก้ไขสำเร็จ', 'success');
+    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
+    else await loadAllTabsView(lastKeyword);
+    closeEditModal();
+  } catch (err) {
+    setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    editSubmit.disabled = false;
+  }
+});
+
+function setEditStatus(message, type) {
+  editStatus.textContent = message;
+  editStatus.className = 'add-panel__status' + (type ? ` add-panel__status--${type}` : '');
+}
+
 /* ===== ปิดแผงย่อยทั้งหมด (ใช้ตอนสลับแท็บ/สลับโหมด) ===== */
 
 function resetPanels() {
@@ -797,12 +990,13 @@ function renderAddFields(headers) {
   });
 }
 
-function buildFieldInput(header) {
+function buildFieldInput(header, idPrefix) {
+  const prefix = idPrefix || 'field-';
   const isDateColumn = /วันที่|date/i.test(header.name);
 
   if (header.options && header.options.length > 0) {
     const select = document.createElement('select');
-    select.id = `field-${header.name}`;
+    select.id = `${prefix}${header.name}`;
     select.dataset.header = header.name;
     const blank = document.createElement('option');
     blank.value = ''; blank.textContent = '-- เลือก --';
@@ -817,7 +1011,7 @@ function buildFieldInput(header) {
 
   const inputEl = document.createElement('input');
   inputEl.type = isDateColumn ? 'date' : 'text';
-  inputEl.id = `field-${header.name}`;
+  inputEl.id = `${prefix}${header.name}`;
   inputEl.dataset.header = header.name;
   return inputEl;
 }
