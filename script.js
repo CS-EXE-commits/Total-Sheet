@@ -353,7 +353,8 @@ async function tryLogin(email, silent) {
     topbarAccount.hidden = false;
     topbarEmail.textContent = currentUserEmail;
     appLayout.hidden = false;
-    loadBooks();
+    const books = await loadBooks();
+    restoreLastView(books);
   } catch (err) {
     localStorage.removeItem('sheetSearchEmail');
     loginModal.hidden = false;
@@ -365,6 +366,8 @@ async function tryLogin(email, silent) {
 
 logoutButton.addEventListener('click', () => {
   localStorage.removeItem('sheetSearchEmail');
+  localStorage.removeItem('sheetSearchLastBook');
+  localStorage.removeItem('sheetSearchLastSheet');
   currentUserEmail = '';
   currentBook = '';
   selectedSheet = '';
@@ -374,6 +377,22 @@ logoutButton.addEventListener('click', () => {
   setLoginStatus('', null);
   loginModal.hidden = false;
 });
+
+/**
+ * เมื่อรีเฟรชหน้าเว็บไซต์แล้วล็อกอินอัตโนมัติสำเร็จ ให้กลับไปที่ไฟล์และแท็บล่าสุดที่เปิดไว้
+ * (จำไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น) แทนที่จะย้อนกลับไปหน้าเริ่มต้นเปล่าๆ ทุกครั้ง
+ */
+function restoreLastView(books) {
+  try {
+    const savedBook = localStorage.getItem('sheetSearchLastBook');
+    if (savedBook && Array.isArray(books) && books.includes(savedBook)) {
+      const savedSheet = localStorage.getItem('sheetSearchLastSheet') || '';
+      openBook(savedBook, savedSheet);
+    }
+  } catch (e) {
+    // ถ้าอ่าน localStorage ไม่ได้ด้วยเหตุผลใดก็ตาม ก็แค่ไม่ย้อนกลับ ไม่ต้องทำให้หน้าเว็บพัง
+  }
+}
 
 function setLoginStatus(message, type) {
   loginStatus.textContent = message;
@@ -431,7 +450,7 @@ function formatDateTime(isoString) {
 async function loadBooks() {
   if (!API_URL || API_URL.includes('วาง_URL')) {
     booksHint.textContent = 'ยังไม่ได้ตั้งค่า API_URL ใน config.js';
-    return;
+    return [];
   }
   booksHint.textContent = 'กำลังโหลด...';
   try {
@@ -439,8 +458,10 @@ async function loadBooks() {
     if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
     booksHint.textContent = '';
     renderBookList(result.books);
+    return result.books;
   } catch (err) {
     booksHint.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+    return [];
   }
 }
 
@@ -659,11 +680,13 @@ function setBookTrashStatus(message, type) {
 
 /* ===== กลาง: เปิดไฟล์ → เลือกแท็บ ===== */
 
-async function openBook(book) {
+async function openBook(book, initialSheet) {
   currentBook = book;
   selectedSheet = '';
   lastKeyword = '';
   input.value = '';
+
+  try { localStorage.setItem('sheetSearchLastBook', book); } catch (e) { /* ignore */ }
 
   mainEmpty.hidden = true;
   workspace.hidden = false;
@@ -683,7 +706,12 @@ async function openBook(book) {
     const result = await jsonpRequest(apiUrl({ action: 'sheets', book }));
     if (!result.ok) throw new Error(result.error || 'โหลดแท็บไม่สำเร็จ');
     renderTabs(result.sheets);
-    selectTab(''); // เริ่มที่ "ทั้งหมดในไฟล์นี้"
+    // ถ้าระบุแท็บล่าสุดไว้ (เช่น ตอนรีเฟรชหน้าเว็บ) และแท็บนั้นยังมีอยู่จริง ให้เปิดแท็บนั้นต่อ
+    // ไม่งั้นเริ่มที่ "ทั้งหมดในไฟล์นี้" ตามปกติ
+    const sheetToSelect = (initialSheet && result.sheets.some(s => s.name === initialSheet))
+      ? initialSheet
+      : '';
+    selectTab(sheetToSelect);
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   }
@@ -714,6 +742,7 @@ function updateTabPillStates() {
 
 async function selectTab(sheetName) {
   selectedSheet = sheetName;
+  try { localStorage.setItem('sheetSearchLastSheet', sheetName || ''); } catch (e) { /* ignore */ }
   updateTabPillStates();
   resetPanels();
   manageToggle.hidden = !sheetName;
