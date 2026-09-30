@@ -104,6 +104,31 @@
         <p class="sidebar-dashboard__subhead">สรุปยอดคงเหลือแยกตามสถานะ</p>
         <div class="sidebar-dashboard__list" id="dashboardStatusList"></div>
         <p class="sidebar-dashboard__status" id="dashboardStatus"></p>
+
+        <!-- รายงานย้อนหลัง: เลือกช่วงวันที่เอง แล้วดาวน์โหลดเป็น Excel ได้ -->
+        <div class="report-block">
+          <p class="sidebar-dashboard__subhead">📄 รายงานย้อนหลัง</p>
+          <div class="report-block__presets">
+            <button type="button" class="report-block__preset-btn" id="dashReportPresetToday">รายวัน (วันนี้)</button>
+            <button type="button" class="report-block__preset-btn" id="dashReportPresetMonth">รายเดือน (เดือนนี้)</button>
+          </div>
+          <div class="report-block__custom">
+            <label class="report-block__date-label">จาก
+              <input type="date" id="dashReportFromDate">
+            </label>
+            <label class="report-block__date-label">ถึง
+              <input type="date" id="dashReportToDate">
+            </label>
+            <button type="button" class="report-block__view-btn" id="dashReportViewBtn">ดูข้อมูล</button>
+          </div>
+          <p class="sidebar-dashboard__status" id="dashReportStatus"></p>
+          <div class="report-block__result" id="dashReportResult" hidden>
+            <p class="report-block__summary" id="dashReportSummary"></p>
+            <div class="sidebar-dashboard__list" id="dashReportStatusList"></div>
+            <button type="button" class="report-block__download-btn" id="dashReportDownloadBtn">⬇️ ดาวน์โหลด Excel</button>
+            <div class="sidebar-dashboard__cases" id="dashReportCasesList"></div>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -229,6 +254,8 @@
   </div>
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
   <script src="script.js"></script>
 </body>

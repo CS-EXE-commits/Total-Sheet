@@ -102,6 +102,18 @@ const dashboardNewCasesList = document.getElementById('dashboardNewCasesList');
 const dashboardStatusList = document.getElementById('dashboardStatusList');
 const dashboardStatus = document.getElementById('dashboardStatus');
 
+const dashReportPresetToday = document.getElementById('dashReportPresetToday');
+const dashReportPresetMonth = document.getElementById('dashReportPresetMonth');
+const dashReportFromDate = document.getElementById('dashReportFromDate');
+const dashReportToDate = document.getElementById('dashReportToDate');
+const dashReportViewBtn = document.getElementById('dashReportViewBtn');
+const dashReportStatus = document.getElementById('dashReportStatus');
+const dashReportResult = document.getElementById('dashReportResult');
+const dashReportSummary = document.getElementById('dashReportSummary');
+const dashReportStatusList = document.getElementById('dashReportStatusList');
+const dashReportCasesList = document.getElementById('dashReportCasesList');
+const dashReportDownloadBtn = document.getElementById('dashReportDownloadBtn');
+
 const tableToolbar = document.getElementById('tableToolbar');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
@@ -1579,6 +1591,138 @@ function renderDashboardStatusList(result) {
 function setDashboardStatus(message, type) {
   dashboardStatus.textContent = message;
   dashboardStatus.className = 'sidebar-dashboard__status' + (type ? ` sidebar-dashboard__status--${type}` : '');
+}
+
+/* ===== รายงานย้อนหลัง (เลือกช่วงวันที่เอง + ดาวน์โหลด Excel) ===== */
+
+let lastDashboardReport = null; // เก็บผลลัพธ์ล่าสุดไว้ใช้ตอนกดดาวน์โหลด Excel (ไม่ต้องยิง API ซ้ำ)
+
+function todayDateInputValue_() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+if (dashReportPresetToday) {
+  dashReportPresetToday.addEventListener('click', () => {
+    const t = todayDateInputValue_();
+    dashReportFromDate.value = t;
+    dashReportToDate.value = t;
+    loadDashboardReport(t, t);
+  });
+}
+
+if (dashReportPresetMonth) {
+  dashReportPresetMonth.addEventListener('click', () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const first = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const last = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    dashReportFromDate.value = first;
+    dashReportToDate.value = last;
+    loadDashboardReport(first, last);
+  });
+}
+
+if (dashReportViewBtn) {
+  dashReportViewBtn.addEventListener('click', () => {
+    if (!dashReportFromDate.value || !dashReportToDate.value) {
+      setDashReportStatus('กรุณาเลือกวันที่ให้ครบทั้งจากและถึง', 'error');
+      return;
+    }
+    if (dashReportFromDate.value > dashReportToDate.value) {
+      setDashReportStatus('วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด', 'error');
+      return;
+    }
+    loadDashboardReport(dashReportFromDate.value, dashReportToDate.value);
+  });
+}
+
+async function loadDashboardReport(from, to) {
+  setDashReportStatus('กำลังโหลด...', null);
+  dashReportResult.hidden = true;
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'dashboardReport', from, to }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายงานไม่สำเร็จ');
+    lastDashboardReport = result;
+    renderDashboardReport(result);
+    setDashReportStatus('', null);
+  } catch (err) {
+    setDashReportStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+}
+
+function renderDashboardReport(result) {
+  dashReportSummary.textContent = `ช่วงวันที่ ${result.from} ถึง ${result.to} — พบทั้งหมด ${result.totalCases} เคส` +
+    (result.truncated ? ' (ข้อมูลเยอะเกินขีดจำกัด แสดงไม่ครบทุกรายการ)' : '');
+
+  if (!result.statusBreakdown || result.statusBreakdown.length === 0) {
+    dashReportStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ไม่พบเคสที่เพิ่มในช่วงวันที่นี้</p>';
+  } else {
+    dashReportStatusList.innerHTML = result.statusBreakdown.map(s => `
+      <div class="sidebar-dashboard__row">
+        <span class="sidebar-dashboard__row-name">${escapeHtml(s.status)}</span>
+        <span class="sidebar-dashboard__row-count">${s.count}</span>
+      </div>`).join('');
+  }
+
+  if (!result.cases || result.cases.length === 0) {
+    dashReportCasesList.innerHTML = '';
+  } else {
+    dashReportCasesList.innerHTML = result.cases.map(c => `
+      <div class="sidebar-dashboard__case">
+        <div class="sidebar-dashboard__case-top">
+          <b>${escapeHtml(c.date)} ${escapeHtml(c.time)}</b>
+          <span class="sidebar-dashboard__case-status">${escapeHtml(c.status)}</span>
+        </div>
+        <div class="sidebar-dashboard__case-meta">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
+      </div>`).join('');
+  }
+
+  dashReportResult.hidden = false;
+}
+
+function setDashReportStatus(message, type) {
+  dashReportStatus.textContent = message;
+  dashReportStatus.className = 'sidebar-dashboard__status' + (type ? ` sidebar-dashboard__status--${type}` : '');
+}
+
+if (dashReportDownloadBtn) {
+  dashReportDownloadBtn.addEventListener('click', () => {
+    if (!lastDashboardReport) return;
+    downloadDashboardReportAsExcel_(lastDashboardReport);
+  });
+}
+
+/** สร้างไฟล์ .xlsx จากข้อมูลรายงานล่าสุด แล้วสั่งดาวน์โหลดทันที (ทำฝั่ง browser ด้วย SheetJS ไม่ต้องผ่าน backend) */
+function downloadDashboardReportAsExcel_(result) {
+  if (typeof XLSX === 'undefined') {
+    setDashReportStatus('ไม่พบไลบรารีสร้างไฟล์ Excel (โหลดหน้าเว็บใหม่แล้วลองอีกครั้ง)', 'error');
+    return;
+  }
+
+  const caseRows = (result.cases || []).map(c => ({
+    'วันที่': c.date,
+    'เวลา': c.time,
+    'ไฟล์': c.book,
+    'แท็บ': c.sheet,
+    'แถวที่': c.row || '',
+    'สถานะ': c.status,
+  }));
+  const summaryRows = (result.statusBreakdown || []).map(s => ({
+    'สถานะ': s.status,
+    'จำนวน': s.count,
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const wsCases = XLSX.utils.json_to_sheet(caseRows.length ? caseRows : [{ 'หมายเหตุ': 'ไม่พบเคสในช่วงวันที่นี้' }]);
+  XLSX.utils.book_append_sheet(wb, wsCases, 'รายการเคส');
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows.length ? summaryRows : [{ 'หมายเหตุ': 'ไม่มีข้อมูล' }]);
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุปตามสถานะ');
+
+  const filename = `รายงาน_${result.from}_ถึง_${result.to}.xlsx`;
+  XLSX.writeFile(wb, filename);
 }
 
 async function loadTrash() {
