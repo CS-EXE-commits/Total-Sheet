@@ -814,20 +814,35 @@ function setupStatusFilter() {
     statusFilter.innerHTML = '';
     return;
   }
-  // เก็บทุกค่าที่พบจริงในคอลัมน์สถานะ ไม่ยึดรายชื่อตายตัว เพื่อให้ตรงกับข้อมูลจริงในชีทเสมอ
-  const found = new Set();
+  // ตัวเลือกสถานะ = รายการ Dropdown จริงที่ตั้งไว้ในชีต (เรียงตามลำดับในชีต) รวมกับค่าที่พบจริงในข้อมูล
+  // ที่อาจไม่ได้อยู่ใน Dropdown ก็ตาม (เผื่อกรอกมาแบบพิมพ์เองก่อนหน้านี้) — ไม่ซ้ำกัน
+  const headerName = currentTableHeaders[statusColIndex];
+  const headerMeta = currentHeadersMeta.find(h => h.name === headerName);
+  const validationOptions = (headerMeta && headerMeta.options) || [];
+
+  const ordered = [];
+  const seen = new Set();
+  validationOptions.forEach(v => {
+    const s = (v || '').toString().trim();
+    if (s && !seen.has(s)) { seen.add(s); ordered.push(s); }
+  });
+
+  const foundInData = new Set();
   currentRows.forEach(row => {
     const v = (row.cells[statusColIndex] || '').toString().trim();
-    if (v) found.add(v);
+    if (v) foundInData.add(v);
   });
-  if (found.size === 0) {
+  Array.from(foundInData).sort((a, b) => a.localeCompare(b, 'th')).forEach(v => {
+    if (!seen.has(v)) { seen.add(v); ordered.push(v); }
+  });
+
+  if (ordered.length === 0) {
     statusFilter.hidden = true;
     statusFilter.innerHTML = '';
     return;
   }
-  const options = Array.from(found).sort((a, b) => a.localeCompare(b, 'th'));
   statusFilter.innerHTML = '<option value="">ทุกสถานะ</option>' +
-    options.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    ordered.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
   statusFilter.hidden = false;
   statusFilter.value = '';
 }
