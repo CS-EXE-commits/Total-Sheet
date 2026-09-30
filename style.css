@@ -332,6 +332,101 @@ body {
 .sidebar-panel__status--success { color: var(--color-accent); }
 .sidebar-panel__status--error { color: var(--color-danger); }
 
+/* Dashboard ภาพรวมทั้งระบบ ท้ายสุดของแถบไฟล์ทั้งหมด (มุมล่างซ้าย) */
+.sidebar-dashboard {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.sidebar-dashboard__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.sidebar-dashboard__title span { font-weight: 500; text-transform: none; letter-spacing: normal; font-size: 11px; }
+
+.sidebar-dashboard__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  background: var(--color-accent-bg);
+  border-radius: var(--radius-sm);
+}
+.sidebar-dashboard__stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--color-accent);
+  line-height: 1;
+}
+.sidebar-dashboard__stat-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.sidebar-dashboard__list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.sidebar-dashboard__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.sidebar-dashboard__row-name {
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-dashboard__row-count {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+}
+
+.sidebar-dashboard__total {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.sidebar-dashboard__empty, .sidebar-dashboard__status {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.sidebar-dashboard__status--error { color: var(--color-danger); }
+
 .trash-list {
   display: flex;
   flex-direction: column;

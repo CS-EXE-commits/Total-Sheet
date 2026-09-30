@@ -96,6 +96,11 @@ const reportStatusList = document.getElementById('reportStatusList');
 const reportLogList = document.getElementById('reportLogList');
 const reportStatus = document.getElementById('reportStatus');
 
+const dashboardDate = document.getElementById('dashboardDate');
+const dashboardCasesToday = document.getElementById('dashboardCasesToday');
+const dashboardStatusList = document.getElementById('dashboardStatusList');
+const dashboardStatus = document.getElementById('dashboardStatus');
+
 const tableToolbar = document.getElementById('tableToolbar');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
@@ -417,6 +422,7 @@ async function trySessionRestore(email) {
     setLoginStatus('', null);
     const books = await loadBooks();
     restoreLastView(books);
+    initGlobalDashboard();
   } catch (err) {
     // อีเมลนี้อาจถูกถอนสิทธิ์ไปแล้ว หรือ session เก่าใช้ไม่ได้แล้ว ให้กลับไปหน้าล็อกอินด้วย Google ปกติ
     localStorage.removeItem('sheetSearchEmail');
@@ -475,6 +481,7 @@ async function tryLoginGoogle(idToken) {
     appLayout.hidden = false;
     const books = await loadBooks();
     restoreLastView(books);
+    initGlobalDashboard();
   } catch (err) {
     localStorage.removeItem('sheetSearchEmail');
     loginModal.hidden = false;
@@ -1511,6 +1518,49 @@ function renderReportLogList(result) {
 function setReportStatus(message, type) {
   reportStatus.textContent = message;
   reportStatus.className = 'report-panel__status' + (type ? ` report-panel__status--${type}` : '');
+}
+
+/* ===== Dashboard ภาพรวมทั้งระบบ (มุมล่างซ้าย ใต้รายชื่อไฟล์ทั้งหมด) ===== */
+
+const GLOBAL_DASHBOARD_REFRESH_MS = 90 * 1000; // รีเฟรชทุก 90 วิ ให้พอดีกับ cache ฝั่งเซิร์ฟเวอร์
+let globalDashboardTimer = null;
+
+/** เรียกครั้งเดียวตอนล็อกอินสำเร็จ: โหลดข้อมูลทันที แล้วตั้งเวลารีเฟรชอัตโนมัติต่อเนื่อง */
+function initGlobalDashboard() {
+  loadGlobalDashboard();
+  if (globalDashboardTimer) clearInterval(globalDashboardTimer);
+  globalDashboardTimer = setInterval(loadGlobalDashboard, GLOBAL_DASHBOARD_REFRESH_MS);
+}
+
+async function loadGlobalDashboard() {
+  setDashboardStatus('กำลังโหลด...', null);
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }));
+    if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
+    dashboardDate.textContent = result.date;
+    dashboardCasesToday.textContent = result.casesToday;
+    renderDashboardStatusList(result);
+    setDashboardStatus('', null);
+  } catch (err) {
+    setDashboardStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+}
+
+function renderDashboardStatusList(result) {
+  if (!result.statusBreakdown || result.statusBreakdown.length === 0) {
+    dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ยังไม่พบคอลัมน์ "สถานะ" ในไฟล์ใดเลย</p>';
+    return;
+  }
+  dashboardStatusList.innerHTML = result.statusBreakdown.map(s => `
+    <div class="sidebar-dashboard__row">
+      <span class="sidebar-dashboard__row-name">${escapeHtml(s.status)}</span>
+      <span class="sidebar-dashboard__row-count">${s.count}</span>
+    </div>`).join('') + `<p class="sidebar-dashboard__total">รวมทั้งหมด ${result.totalRows} เคส (${result.sheetsScanned} แท็บ)</p>`;
+}
+
+function setDashboardStatus(message, type) {
+  dashboardStatus.textContent = message;
+  dashboardStatus.className = 'sidebar-dashboard__status' + (type ? ` sidebar-dashboard__status--${type}` : '');
 }
 
 async function loadTrash() {

@@ -92,6 +92,17 @@
         <div class="trash-list" id="bookTrashList"></div>
         <p class="sidebar-panel__status" id="bookTrashStatus"></p>
       </div>
+
+      <!-- ภาพรวมการใช้งานทั้งระบบ (ทุกไฟล์ ทุกแท็บ) แสดงไว้ท้ายสุดของแถบไฟล์ทั้งหมด -->
+      <div class="sidebar-dashboard" id="sidebarDashboard">
+        <p class="sidebar-dashboard__title">📊 ภาพรวมวันนี้ <span id="dashboardDate"></span></p>
+        <div class="sidebar-dashboard__stat">
+          <span class="sidebar-dashboard__stat-value" id="dashboardCasesToday">-</span>
+          <span class="sidebar-dashboard__stat-label">เคสเข้าใหม่วันนี้ (ทุกไฟล์)</span>
+        </div>
+        <div class="sidebar-dashboard__list" id="dashboardStatusList"></div>
+        <p class="sidebar-dashboard__status" id="dashboardStatus"></p>
+      </div>
     </aside>
 
     <!-- กลาง: แท็บ + ค้นหา + ตารางข้อมูล -->
