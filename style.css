@@ -1,21 +1,27 @@
 :root {
-  --color-bg: #F5F7F9;
+  --color-bg: #F3F5F8;
   --color-surface: #FFFFFF;
-  --color-border: #DCE1E7;
-  --color-text: #1B2430;
-  --color-text-muted: #667085;
+  --color-border: #DFE4EA;
+  --color-text: #16202B;
+  --color-text-muted: #62707F;
   --color-accent: #1F6F78;
   --color-accent-hover: #17565D;
   --color-accent-bg: #E4F0F0;
   --color-danger: #B3441E;
   --color-danger-bg: #F6E7E0;
-  --color-table-header-bg: #FAFBFC;
-  --color-row-hover-bg: #F7F9FA;
+  --color-table-header-bg: #F8FAFB;
+  --color-row-hover-bg: #F4F8F8;
   --color-btn-hover-bg: #D6E8E8;
   --color-danger-hover-bg: #EFD5C7;
   --color-scrollbar-thumb: #000000;
+  --color-navy: #16202B;
   --font-body: 'Inter', system-ui, sans-serif;
   --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(22, 32, 43, 0.06);
+  --shadow-md: 0 6px 20px -8px rgba(22, 32, 43, 0.16);
+  --shadow-card: 0 1px 3px rgba(22, 32, 43, 0.06), 0 1px 2px rgba(22, 32, 43, 0.04);
 }
 
 /* ===== ธีมมืด (สลับด้วยปุ่มไอคอนพระจันทร์/พระอาทิตย์ มุมซ้ายบน) ===== */
@@ -35,6 +41,10 @@
   --color-btn-hover-bg: #24484B;
   --color-danger-hover-bg: #4A2E22;
   --color-scrollbar-thumb: #000000;
+  --color-navy: #0D1015;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px -8px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
 * { box-sizing: border-box; }
@@ -53,53 +63,122 @@ body {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* ===== ปุ่มสลับธีมสว่าง/มืด (มุมซ้ายบนของหัวเว็บ) ===== */
+/* ===== ปุ่มสลับธีมสว่าง/มืด ===== */
 .theme-toggle {
-  position: absolute;
-  top: 20px;
-  left: 24px;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1;
   color: var(--color-text-muted);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
 
 .theme-toggle:hover { border-color: var(--color-accent); color: var(--color-text); }
+.theme-toggle:active { transform: scale(0.94); }
 
-/* ===== หัวเว็บ (กึ่งกลาง ตัวใหญ่) ===== */
+/* ===== หัวเว็บ: แถบนำทางแบบกะทัดรัด มืออาชีพ (sticky ด้านบน) ===== */
 .topbar {
-  padding: 40px 24px 28px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow-sm);
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar__logo {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-navy));
+  box-shadow: var(--shadow-sm);
+}
+
+.topbar__brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .topbar__title {
   margin: 0;
-  font-size: 32px;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar__subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .topbar__account {
-  position: absolute;
-  top: 20px;
-  right: 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-size: 13px;
   color: var(--color-text-muted);
+  padding: 4px 6px 4px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+}
+
+.topbar__avatar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-navy));
+  border-radius: 50%;
+}
+
+.topbar__account span:not(.topbar__avatar) {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__account button {
@@ -108,13 +187,14 @@ body {
   font-weight: 600;
   font-family: var(--font-body);
   color: var(--color-text-muted);
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
-.topbar__account button:hover { border-color: var(--color-danger); color: var(--color-danger); }
+.topbar__account button:hover { border-color: var(--color-danger); color: var(--color-danger); background: var(--color-danger-bg); }
 
 /* ===== เลย์เอาต์หลัก: ซ้าย (ไฟล์) + กลาง (ข้อมูล) ===== */
 .layout {
@@ -134,10 +214,11 @@ body {
   gap: 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 18px;
   position: sticky;
-  top: 24px;
+  top: 76px;
+  box-shadow: var(--shadow-card);
 }
 
 .sidebar__label {
@@ -173,6 +254,7 @@ body {
 .book-item[data-active="true"] {
   background: var(--color-accent-bg);
   border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .book-item__main {
@@ -219,10 +301,11 @@ body {
   color: var(--color-text-muted);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
   margin-top: 6px;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sidebar-btn:hover { border-color: var(--color-accent); color: var(--color-text); }
@@ -289,10 +372,11 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tab-pill:hover { border-color: var(--color-accent); color: var(--color-text); }
-.tab-pill[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.tab-pill:hover { border-color: var(--color-accent); color: var(--color-text); box-shadow: var(--shadow-sm); }
+.tab-pill[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; box-shadow: var(--shadow-sm); }
 
 .tabs-row__add {
   display: block;
@@ -324,11 +408,15 @@ body {
   gap: 8px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 4px 4px 4px 14px;
   flex: 1 1 280px;
   max-width: 420px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
+.toolbar__search:focus-within { border-color: var(--color-accent); box-shadow: var(--shadow-card); }
 
 .toolbar__search input {
   flex: 1;
@@ -374,10 +462,13 @@ body {
   color: var(--color-accent);
   background: var(--color-accent-bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
+
+.toolbar__btn:active { transform: scale(0.97); }
 
 .toolbar__btn:hover { background: var(--color-btn-hover-bg); }
 .toolbar__btn[aria-pressed="true"] { background: var(--color-accent); color: #fff; }
@@ -530,9 +621,10 @@ body {
 .table-wrap {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: auto;
   max-height: 80vh; /* ขยายพื้นที่แสดงตารางให้ใหญ่ขึ้น ยังเลื่อนดูข้อมูลแนวตั้งได้ พร้อมหัวตารางค้างด้านบน */
+  box-shadow: var(--shadow-card);
 }
 
 /* แถบเลื่อนขนาดเล็กสีดำ (Chrome/Edge/Safari) */
@@ -560,12 +652,17 @@ body {
 
 .data-table th {
   background: var(--color-table-header-bg);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
+.data-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--color-row-hover-bg) 55%, transparent); }
 .data-table tbody tr:hover { background: var(--color-row-hover-bg); }
 .data-table td mark { background: var(--color-accent-bg); color: var(--color-accent-hover); border-radius: 4px; padding: 0 2px; }
 
@@ -635,12 +732,13 @@ body {
 
 .modal-box {
   background: var(--color-surface);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 24px;
   width: 100%;
   max-width: 720px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-md);
 }
 
 .modal-box__title { margin: 0 0 16px; font-size: 20px; font-weight: 700; }
@@ -731,9 +829,17 @@ body {
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-/* Mobile: sidebar ย้ายไปด้านบนแทน */
+/* Mobile: sidebar ย้ายไปด้านบนแทน + ย่อแถบหัวเว็บ */
 @media (max-width: 860px) {
   .layout { flex-direction: column; }
   .sidebar { flex: none; width: 100%; position: static; }
-  .topbar__title { font-size: 24px; }
+  .topbar { padding: 10px 14px; }
+  .topbar__subtitle { display: none; }
+  .topbar__title { font-size: 15px; }
+  .topbar__logo { width: 34px; height: 34px; font-size: 16px; }
+  .topbar__account span:not(.topbar__avatar) { max-width: 90px; }
+}
+
+@media (max-width: 520px) {
+  .topbar__account span:not(.topbar__avatar) { display: none; }
 }

@@ -32,11 +32,20 @@
   </div>
 
   <header class="topbar">
-    <button type="button" class="theme-toggle" id="themeToggle" title="สลับธีมสว่าง/มืด" aria-label="สลับธีมสว่าง/มืด">🌙</button>
-    <h1 class="topbar__title">Data Search and Recording System</h1>
-    <div class="topbar__account" id="topbarAccount" hidden>
-      <span id="topbarEmail"></span>
-      <button type="button" id="logoutButton">ออกจากระบบ</button>
+    <div class="topbar__brand">
+      <span class="topbar__logo">🗂️</span>
+      <div class="topbar__brand-text">
+        <h1 class="topbar__title">Data Search and Recording System</h1>
+        <span class="topbar__subtitle">ระบบค้นหาและจัดการข้อมูล</span>
+      </div>
+    </div>
+    <div class="topbar__actions">
+      <button type="button" class="theme-toggle" id="themeToggle" title="สลับธีมสว่าง/มืด" aria-label="สลับธีมสว่าง/มืด">🌙</button>
+      <div class="topbar__account" id="topbarAccount" hidden>
+        <span class="topbar__avatar" id="topbarAvatar"></span>
+        <span id="topbarEmail"></span>
+        <button type="button" id="logoutButton">ออกจากระบบ</button>
+      </div>
     </div>
   </header>
 

@@ -5,6 +5,13 @@ const loginStatus = document.getElementById('loginStatus');
 const appLayout = document.getElementById('appLayout');
 const topbarAccount = document.getElementById('topbarAccount');
 const topbarEmail = document.getElementById('topbarEmail');
+const topbarAvatar = document.getElementById('topbarAvatar');
+
+/** แสดงตัวอักษรแรกของอีเมลเป็นวงกลมอวาตาร์เล็กๆ ข้างชื่อผู้ใช้บนแถบหัวเว็บ */
+function setTopbarAccountEmail(email) {
+  topbarEmail.textContent = email;
+  topbarAvatar.textContent = (email || '?').trim().charAt(0).toUpperCase();
+}
 const logoutButton = document.getElementById('logoutButton');
 const themeToggle = document.getElementById('themeToggle');
 
@@ -373,7 +380,7 @@ async function trySessionRestore(email) {
     currentUserEmail = result.email;
     loginModal.hidden = true;
     topbarAccount.hidden = false;
-    topbarEmail.textContent = currentUserEmail;
+    setTopbarAccountEmail(currentUserEmail);
     appLayout.hidden = false;
     setLoginStatus('', null);
     const books = await loadBooks();
@@ -432,7 +439,7 @@ async function tryLoginGoogle(idToken) {
     localStorage.setItem('sheetSearchEmail', currentUserEmail);
     loginModal.hidden = true;
     topbarAccount.hidden = false;
-    topbarEmail.textContent = currentUserEmail;
+    setTopbarAccountEmail(currentUserEmail);
     appLayout.hidden = false;
     const books = await loadBooks();
     restoreLastView(books);
