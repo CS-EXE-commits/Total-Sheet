@@ -87,6 +87,15 @@ const trashPanel = document.getElementById('trashPanel');
 const trashList = document.getElementById('trashList');
 const trashStatus = document.getElementById('trashStatus');
 
+const reportToggle = document.getElementById('reportToggle');
+const reportPanel = document.getElementById('reportPanel');
+const reportPanelSheetName = document.getElementById('reportPanelSheetName');
+const reportPanelDate = document.getElementById('reportPanelDate');
+const reportStats = document.getElementById('reportStats');
+const reportStatusList = document.getElementById('reportStatusList');
+const reportLogList = document.getElementById('reportLogList');
+const reportStatus = document.getElementById('reportStatus');
+
 const tableToolbar = document.getElementById('tableToolbar');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
@@ -1143,12 +1152,15 @@ function resetPanels() {
   addPanel.hidden = true;
   managePanel.hidden = true;
   trashPanel.hidden = true;
+  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
+  reportToggle.setAttribute('aria-pressed', 'false');
+  reportToggle.textContent = '📊 รายงานประจำวัน';
 }
 
 /* ===== แถบเพิ่มข้อมูล ===== */
@@ -1159,10 +1171,13 @@ addToggle.addEventListener('click', () => {
   addPanel.hidden = isOpen;
   managePanel.hidden = true;
   trashPanel.hidden = true;
+  reportPanel.hidden = true;
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
+  reportToggle.setAttribute('aria-pressed', 'false');
+  reportToggle.textContent = '📊 รายงานประจำวัน';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
   addToggle.textContent = isOpen ? '+ เพิ่มข้อมูล' : '× ปิดฟอร์ม';
   if (!isOpen) loadAddFields();
@@ -1258,10 +1273,13 @@ manageToggle.addEventListener('click', () => {
   managePanel.hidden = isOpen;
   addPanel.hidden = true;
   trashPanel.hidden = true;
+  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
+  reportToggle.setAttribute('aria-pressed', 'false');
+  reportToggle.textContent = '📊 รายงานประจำวัน';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
   manageToggle.textContent = isOpen ? 'จัดการคอลัมน์' : 'ปิดหน้าจัดการ';
   if (!isOpen) loadManageColumns();
@@ -1330,14 +1348,104 @@ trashToggle.addEventListener('click', () => {
   trashPanel.hidden = isOpen;
   addPanel.hidden = true;
   managePanel.hidden = true;
+  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
+  reportToggle.setAttribute('aria-pressed', 'false');
+  reportToggle.textContent = '📊 รายงานประจำวัน';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
   trashToggle.textContent = isOpen ? '🗑 ถังขยะ' : '× ปิดถังขยะ';
   if (!isOpen) loadTrash();
 });
+
+/* ===== รายงานประจำวัน ===== */
+
+reportToggle.addEventListener('click', () => {
+  if (!selectedSheet) { alert('กรุณาเลือกแท็บใดแท็บหนึ่งก่อน'); return; }
+  const isOpen = !reportPanel.hidden;
+  reportPanel.hidden = isOpen;
+  addPanel.hidden = true;
+  managePanel.hidden = true;
+  trashPanel.hidden = true;
+  addToggle.setAttribute('aria-pressed', 'false');
+  addToggle.textContent = '+ เพิ่มข้อมูล';
+  manageToggle.setAttribute('aria-pressed', 'false');
+  manageToggle.textContent = 'จัดการคอลัมน์';
+  trashToggle.setAttribute('aria-pressed', 'false');
+  trashToggle.textContent = '🗑 ถังขยะ';
+  reportToggle.setAttribute('aria-pressed', String(!isOpen));
+  reportToggle.textContent = isOpen ? '📊 รายงานประจำวัน' : '× ปิดรายงาน';
+  if (!isOpen) loadDailyReport();
+});
+
+async function loadDailyReport() {
+  reportPanelSheetName.textContent = selectedSheet;
+  reportStats.innerHTML = '';
+  reportStatusList.innerHTML = '';
+  reportLogList.innerHTML = '';
+  setReportStatus('กำลังโหลด...', null);
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'dailyReport', book: currentBook, sheet: selectedSheet }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายงานไม่สำเร็จ');
+    reportPanelDate.textContent = result.date;
+    renderReportStats(result);
+    renderReportStatusList(result);
+    renderReportLogList(result);
+    setReportStatus('', null);
+  } catch (err) {
+    setReportStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+}
+
+function renderReportStats(result) {
+  const stats = [
+    { label: 'เพิ่มวันนี้', value: result.addedToday },
+    { label: 'แก้ไขวันนี้', value: result.editedToday },
+    { label: 'ลบวันนี้', value: result.deletedToday },
+    { label: 'กู้คืนวันนี้', value: result.restoredToday },
+    { label: 'ทั้งหมดในแท็บนี้', value: result.totalRows },
+  ];
+  reportStats.innerHTML = stats.map(s => `
+    <div class="report-stat">
+      <div class="report-stat__value">${s.value}</div>
+      <div class="report-stat__label">${escapeHtml(s.label)}</div>
+    </div>`).join('');
+}
+
+function renderReportStatusList(result) {
+  if (!result.hasStatusColumn) {
+    reportStatusList.innerHTML = '<p class="report-panel__status">แท็บนี้ไม่มีคอลัมน์ "สถานะ"</p>';
+    return;
+  }
+  if (result.statusBreakdown.length === 0) {
+    reportStatusList.innerHTML = '<p class="report-panel__status">ยังไม่มีข้อมูลในแท็บนี้</p>';
+    return;
+  }
+  reportStatusList.innerHTML = result.statusBreakdown.map(s => `
+    <div class="report-status-row">
+      <span class="report-status-row__name">${escapeHtml(s.status)}</span>
+      <span class="report-status-row__count">${s.count}</span>
+    </div>`).join('');
+}
+
+function renderReportLogList(result) {
+  if (result.recentToday.length === 0) {
+    reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในแท็บนี้</p>';
+    return;
+  }
+  reportLogList.innerHTML = result.recentToday.map(item => `
+    <div class="report-log-row">
+      <b>${escapeHtml(item.time)}</b> · ${escapeHtml(item.action)} · ${escapeHtml(item.editor)}
+      ${item.detail ? `<br>${escapeHtml(item.detail)}` : ''}
+    </div>`).join('');
+}
+
+function setReportStatus(message, type) {
+  reportStatus.textContent = message;
+  reportStatus.className = 'report-panel__status' + (type ? ` report-panel__status--${type}` : '');
+}
 
 async function loadTrash() {
   trashList.innerHTML = '';

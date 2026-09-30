@@ -111,6 +111,7 @@
           <button type="button" class="toolbar__btn" id="addToggle">+ เพิ่มข้อมูล</button>
           <button type="button" class="toolbar__btn toolbar__btn--danger" id="manageToggle" hidden>จัดการคอลัมน์</button>
           <button type="button" class="toolbar__btn toolbar__btn--muted" id="trashToggle">🗑 ถังขยะ</button>
+          <button type="button" class="toolbar__btn toolbar__btn--muted" id="reportToggle">📊 รายงานประจำวัน</button>
         </div>
 
         <section class="add-panel" id="addPanel" hidden>
@@ -132,6 +133,22 @@
           <p class="trash-panel__label">รายการที่ลบล่าสุดในไฟล์นี้</p>
           <div class="trash-list" id="trashList"></div>
           <p class="trash-panel__status" id="trashStatus"></p>
+        </section>
+
+        <section class="report-panel" id="reportPanel" hidden>
+          <p class="report-panel__label">รายงานประจำวัน — แท็บ: <b id="reportPanelSheetName"></b> (<span id="reportPanelDate"></span>)</p>
+          <div class="report-stats" id="reportStats"></div>
+          <div class="report-panel__cols">
+            <div>
+              <p class="report-panel__subhead">สรุปยอดคงเหลือปัจจุบันแยกตามสถานะ</p>
+              <div class="report-status-list" id="reportStatusList"></div>
+            </div>
+            <div>
+              <p class="report-panel__subhead">เหตุการณ์วันนี้ล่าสุด</p>
+              <div class="report-log-list" id="reportLogList"></div>
+            </div>
+          </div>
+          <p class="report-panel__status" id="reportStatus"></p>
         </section>
 
         <div class="table-toolbar" id="tableToolbar" hidden>
