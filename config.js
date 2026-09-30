@@ -1,6 +1,6 @@
 // วาง Web app URL ที่ deploy จาก Apps Script ไว้ตรงนี้
 // ตัวอย่าง: https://script.google.com/macros/s/AKfycb.../exec
-const API_URL = 'https://script.google.com/macros/s/AKfycbwJwIBv9d-X0n5ua8Gkzz8S7AmxYlu2Y1lwFEF1Fb7gAZoNQ0_cK6TJtLYHowY_IwnX/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwR4Km4j-CcnPbBwPkkAQN8764FL_mBfiPdbOzYCzg5_0U7BoUc0Va1mJj3TBwJ9BuK/exec';
 
 // รหัสเข้าถึง ต้องตรงกับค่าที่ตั้งไว้ใน Script Properties ชื่อ DASHBOARD_ACCESS_KEY
 const ACCESS_KEY = 'a07pxG9js452JLCQAc3F';
