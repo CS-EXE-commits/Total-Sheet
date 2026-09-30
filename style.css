@@ -675,6 +675,60 @@ body {
 .modal-box__status--success { color: var(--color-accent); }
 .modal-box__status--error { color: var(--color-danger); }
 
+/* ===== หน้าต่างเข้าสู่ระบบ (ดีไซน์ทันสมัย มีสีสัน) ===== */
+.login-modal {
+  background: radial-gradient(circle at 20% 15%, rgba(94, 84, 226, 0.35), transparent 55%),
+              radial-gradient(circle at 85% 85%, rgba(31, 111, 120, 0.35), transparent 55%),
+              rgba(15, 18, 26, 0.72);
+}
+
+.login-box {
+  position: relative;
+  text-align: center;
+  overflow: hidden;
+  padding: 40px 32px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px -20px rgba(94, 84, 226, 0.45), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.login-box::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 6px;
+  background: linear-gradient(90deg, #6C5CE7, #1F6F78, #E67E22);
+}
+
+.login-box__badge {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  background: linear-gradient(135deg, #6C5CE7, #1F6F78);
+  box-shadow: 0 10px 24px -8px rgba(108, 92, 231, 0.6);
+}
+
+.login-box__title {
+  text-align: center;
+  background: linear-gradient(90deg, #6C5CE7, #1F6F78);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+}
+
+.login-box__desc {
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin-bottom: 22px;
+}
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Mobile: sidebar ย้ายไปด้านบนแทน */

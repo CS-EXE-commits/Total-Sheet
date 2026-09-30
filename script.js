@@ -400,14 +400,16 @@ window.onGoogleLibraryLoad = function () {
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential,
-    auto_select: true,
+    // auto_select: false — ปิดไว้เพื่อไม่ให้ปุ่มแสดงชื่อ/อีเมลของบัญชี Google ที่ล็อกอินอยู่ในเบราว์เซอร์
+    // (ถ้าเปิดไว้ ปุ่มจะกลายเป็น "ลงชื่อเข้าใช้เป็น <ชื่อ> <อีเมล>" แทนปุ่ม Sign in with Google ปกติ)
+    auto_select: false,
     cancel_on_tap_outside: false,
   });
   google.accounts.id.renderButton(googleSignInButton, {
-    theme: 'outline',
+    theme: 'filled_blue',
     size: 'large',
     text: 'signin_with',
-    shape: 'rectangular',
+    shape: 'pill',
     width: 280,
   });
   // หมายเหตุ: ไม่ได้เรียก google.accounts.id.prompt() (One Tap) เพื่อล็อกอินอัตโนมัติตอนรีเฟรช
