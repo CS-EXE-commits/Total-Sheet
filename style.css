@@ -801,7 +801,8 @@ th.data-table__actions-col {
   right: var(--actions-col-width, 96px);
   z-index: 1;
   background: var(--color-surface);
-  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.06);
+  border-right: 2px solid var(--color-accent);
+  box-shadow: -2px 0 6px rgba(0, 0, 0, 0.12);
 }
 .data-table tbody tr:nth-child(even) .data-table__ticket-col {
   background: color-mix(in srgb, var(--color-row-hover-bg) 55%, var(--color-surface));
