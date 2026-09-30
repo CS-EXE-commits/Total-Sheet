@@ -35,6 +35,8 @@ GitHub Pages โฮสต์ได้เฉพาะไฟล์ static (HTML/CS
 2. ลบโค้ดตัวอย่างเดิมออกให้หมด (รวมถึงบรรทัด `function myFunction() {}`) แล้ววางโค้ดจาก `backend/Code.gs` แทน
 3. รายชื่อไฟล์ตอนนี้เก็บอยู่ใน **Script Properties** ไม่ใช่โค้ดอีกต่อไป (ดูข้อ 4) — ค่า `DEFAULT_SPREADSHEETS` ในโค้ดจะถูกใช้แค่ครั้งแรกที่รันเท่านั้น เพิ่มไฟล์ใหม่ทีหลังทำผ่านปุ่ม "+ เพิ่มไฟล์ใหม่" บนหน้าเว็บได้เลย ไม่ต้องแก้ตรงนี้อีก
 4. ไปที่ **Project Settings** (ไอคอนรูปเฟือง) → **Script Properties** → เพิ่ม property ชื่อ `DASHBOARD_ACCESS_KEY` ค่าเป็นรหัสลับที่ตั้งเอง
+4.1. เพิ่ม property ชื่อ `ALLOWED_EMAILS` ค่าเป็นรายชื่ออีเมล Gmail ที่อนุญาตให้เข้าใช้งาน คั่นด้วย comma เช่น `beer.online2013@gmail.com,someone@gmail.com`
+4.2. เพิ่ม property ชื่อ `GOOGLE_CLIENT_ID` ค่าเป็น Client ID ที่ได้จากขั้นตอน **"ตั้งค่าล็อกอินด้วย Google"** ด้านล่าง (ทำขั้นตอนนั้นก่อนแล้วย้อนกลับมาใส่ค่านี้ก็ได้)
 5. กด **Deploy > New deployment**
    - เลือกประเภท **Web app**
    - **Execute as: Me**
@@ -51,14 +53,39 @@ GitHub Pages โฮสต์ได้เฉพาะไฟล์ static (HTML/CS
 ```js
 const API_URL = 'https://script.google.com/macros/s/xxxxx/exec';
 const ACCESS_KEY = 'รหัสลับเดียวกับที่ตั้งใน DASHBOARD_ACCESS_KEY';
+const GOOGLE_CLIENT_ID = 'xxxxx.apps.googleusercontent.com'; // จากขั้นตอน "ตั้งค่าล็อกอินด้วย Google" ด้านล่าง
 ```
 
-**ข้อควรรู้เรื่องความปลอดภัย:** รหัสลับนี้ฝังอยู่ในไฟล์ JavaScript ฝั่ง frontend ใครก็ตามที่เปิดดูโค้ดหน้าเว็บ (View Source) จะเห็นได้ เหมาะสำหรับกันคนทั่วไปที่ไม่รู้จักเว็บนี้ ไม่เหมาะกับการป้องกันคนในทีมที่ตั้งใจเอาข้อมูลออกไปจริงจัง — เหมาะกับการใช้งานภายในทีมที่ไว้ใจกัน
+**ข้อควรรู้เรื่องความปลอดภัย:** รหัสลับ `ACCESS_KEY` นี้ฝังอยู่ในไฟล์ JavaScript ฝั่ง frontend ใครก็ตามที่เปิดดูโค้ดหน้าเว็บ (View Source) จะเห็นได้ เหมาะสำหรับกันคนทั่วไปที่ไม่รู้จักเว็บนี้ ไม่เหมาะกับการป้องกันคนในทีมที่ตั้งใจเอาข้อมูลออกไปจริงจัง — เหมาะกับการใช้งานภายในทีมที่ไว้ใจกัน ส่วนการเข้าสู่ระบบ (ว่าใครเป็นใคร) ตอนนี้ยืนยันจริงกับ Google แล้ว (ดูหัวข้อถัดไป) แต่คำขอ API หลังจากล็อกอินแล้วยังส่ง email ไปแบบข้อความธรรมดาในแต่ละคำขอ (ไม่มีการเซ็นชื่อซ้ำทุกครั้ง) เพราะ Apps Script ไม่มีระบบ session ฝั่งเซิร์ฟเวอร์จริงๆ — เหมาะกับใช้งานภายในทีมที่ไว้ใจกันเช่นเดิม ไม่ใช่ระดับความปลอดภัยแบบธนาคาร
 
 ## ขั้นตอนที่ 3: อัปโหลดขึ้น GitHub Pages
 
 1. อัปโหลดไฟล์ในโฟลเดอร์ `frontend/` ทั้งหมด (`index.html`, `style.css`, `script.js`, `config.js` ที่ใส่ค่าแล้ว) ไว้ที่ root ของ repo (ทับของเดิม)
 2. รอสักครู่ให้ GitHub Pages อัปเดต แล้วเปิดเว็บไซต์แบบ Ctrl+Shift+R เพื่อล้าง cache เก่า
+3. เว็บไซต์ของคุณจะมีที่อยู่แบบ `https://ชื่อบัญชี.github.io/ชื่อ-repo/` — ดูที่อยู่ที่แน่นอนได้จาก repo บน GitHub → **Settings** → **Pages** (จะมีแสดงลิงก์ไว้ให้ตรงนั้นเลย) จดที่อยู่นี้ไว้ให้แน่ใจ เพราะต้องใช้ในขั้นตอนถัดไป (ตั้งค่าล็อกอินด้วย Google)
+
+## ตั้งค่าล็อกอินด้วย Google
+
+ระบบนี้เปลี่ยนจากการ "พิมพ์อีเมลเอง" (ไม่ได้ยืนยันว่าเป็นเจ้าของอีเมลจริง) มาเป็นการล็อกอินผ่านปุ่ม **Sign in with Google** จริง — ต้องสร้าง OAuth Client ID จาก Google Cloud Console ก่อน 1 ครั้ง ทำตามนี้:
+
+1. ไปที่ [console.cloud.google.com](https://console.cloud.google.com) → ถ้ายังไม่มีโปรเจกต์ ให้กดสร้างโปรเจกต์ใหม่ (หรือใช้โปรเจกต์เดิมที่มีอยู่แล้วก็ได้)
+2. ไปที่เมนู **APIs & Services** → **OAuth consent screen**
+   - เลือก User type เป็น **External** แล้วกด Create
+   - กรอกชื่อแอป (เช่น "Sheet Search"), อีเมลผู้ใช้งาน, อีเมลติดต่อ แล้วกด Save and Continue ไปจนจบ (ขั้นตอน Scopes และ Test users ข้ามได้ ไม่ต้องเพิ่มอะไร)
+   - **หมายเหตุ:** ถ้าปล่อยแอปไว้ในสถานะ "Testing" (ไม่กด Publish) จะมีเฉพาะอีเมลที่เพิ่มไว้ในหน้า "Test users" เท่านั้นที่ล็อกอินผ่านปุ่มนี้ได้ ถ้าต้องการให้ทุกคนใน `ALLOWED_EMAILS` ล็อกอินได้โดยไม่ต้องเพิ่มเป็น Test user ทีละคน ให้กด **Publish App** ในหน้านี้ (สถานะจะเปลี่ยนเป็น "In production" — จะมีคำเตือน "Google hasn't verified this app" โผล่ตอนล็อกอินครั้งแรก ซึ่งเป็นเรื่องปกติสำหรับแอปภายในที่ไม่ได้ยื่นขอ verify เพิ่มเติม ผู้ใช้กด "Continue"/"ไปที่...(ชื่อแอป) (ไม่ปลอดภัย)" ผ่านไปได้ปกติ)
+3. ไปที่เมนู **APIs & Services** → **Credentials** → กด **+ Create Credentials** → **OAuth client ID**
+   - Application type เลือก **Web application**
+   - ตั้งชื่อได้ตามใจ (เช่น "Sheet Search Web")
+   - ที่ **Authorized JavaScript origins** กด **+ Add URI** แล้ววาง origin ของเว็บไซต์คุณ (จากขั้นตอนที่ 3 ด้านบน) โดยตัดส่วนท้ายที่เป็นชื่อ repo ออก ใส่แค่ `https://ชื่อบัญชี.github.io` (ไม่มี path ต่อท้าย ไม่มี `/` ปิดท้าย)
+   - ไม่ต้องกรอก Authorized redirect URIs (เว้นว่างได้ เพราะใช้วิธีแบบปุ่ม ไม่ใช่ redirect)
+   - กด **Create** จะได้ **Client ID** ยาวๆ ลงท้ายด้วย `.apps.googleusercontent.com` มาแสดง — คัดลอกไว้
+4. นำ Client ID ที่ได้ไปวางไว้ 2 ที่:
+   - `frontend/config.js` → ตัวแปร `GOOGLE_CLIENT_ID`
+   - Apps Script → **Project Settings** → **Script Properties** → เพิ่ม property ชื่อ `GOOGLE_CLIENT_ID` ค่าเดียวกัน
+5. ตรวจสอบว่า Script Property `ALLOWED_EMAILS` มีอีเมล Gmail ของทุกคนที่ต้องการให้เข้าใช้งานได้ (คั่นด้วย comma) — คนที่ไม่มีชื่อในนี้ ล็อกอินผ่าน Google สำเร็จแต่ระบบจะปฏิเสธไม่ให้เข้าใช้งาน
+6. อัปโหลดไฟล์ `frontend/` ขึ้น GitHub Pages ใหม่อีกครั้ง (ทับของเดิม) แล้ว Deploy Apps Script เป็น New version ใหม่อีกครั้ง (ตามขั้นตอนที่ 1 ข้อ "เมื่อแก้โค้ดในอนาคต") จากนั้นเปิดเว็บไซต์แบบ Ctrl+Shift+R ก็จะเห็นปุ่ม "Sign in with Google" แทนช่องกรอกอีเมลแบบเดิม
+
+**หมายเหตุ:** ถ้าเว็บไซต์เคยจำอีเมลเดิมไว้ (ล็อกอินอัตโนมัติแบบเงียบๆ ผ่าน Google One Tap) แต่บัญชีนั้นถูกถอดออกจาก `ALLOWED_EMAILS` แล้ว ระบบจะขึ้น error และกลับไปที่ปุ่ม Sign in with Google ให้เลือกบัญชีอื่นแทน
 
 ## API ที่ใช้
 
@@ -66,8 +93,10 @@ const ACCESS_KEY = 'รหัสลับเดียวกับที่ตั
 
 | Action | ตัวอย่าง URL | คืนค่า |
 |---|---|---|
+| เข้าสู่ระบบด้วย Google (จริง) | `?action=loginGoogle&credential=<ID token จาก Google>&key=...` | `{ ok, message, email }` — ตรวจ token กับ Google จริง แล้วเช็คกับ `ALLOWED_EMAILS`; ไม่ต้องส่ง `email` แยกมา (ไม่ใช้ต่อ) |
 | รายชื่อไฟล์ทั้งหมด | `?action=books&key=...` | `{ ok, books: [ชื่อไฟล์, ...] }` — เร็วมาก ไม่แตะเนื้อหาในชีต |
 | เพิ่มไฟล์ใหม่เข้าระบบ | `?action=addBook&name=ชื่อที่จะแสดง&sheetUrl=ลิงก์หรือID&key=...` | `{ ok, message, books }` — ทดสอบเปิดไฟล์จริงก่อนบันทึกเสมอ |
+| สร้างไฟล์ Google Sheet ใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) | `?action=createBook&name=ชื่อไฟล์ใหม่&sheetName=ชื่อแท็บแรก(ไม่จำเป็น)&key=...` | `{ ok, message, books, bookName, url }` — สร้างไฟล์ใน Google Drive ของบัญชีที่รัน Apps Script แล้วเพิ่มเข้าระบบให้อัตโนมัติ |
 | เอาไฟล์ออกจากระบบ | `?action=removeBook&name=ชื่อไฟล์&key=...` | `{ ok, message, books }` — บันทึกไว้ในถังขยะไฟล์ก่อนเสมอ ไม่ได้ลบไฟล์ Google Sheet จริง |
 | ดูถังขยะไฟล์ | `?action=bookTrash&key=...` | `{ ok, items: [{id, name, sheetId, removedAt}] }` |
 | กู้คืนไฟล์จากถังขยะ | `?action=restoreBook&id=...&key=...` | `{ ok, message, books }` |
@@ -78,6 +107,7 @@ const ACCESS_KEY = 'รหัสลับเดียวกับที่ตั
 | ชื่อคอลัมน์ของแท็บ | `?action=headers&book=ชื่อไฟล์&sheet=ชื่อแท็บ&key=...` | `{ ok, headers: [...] }` |
 | เพิ่มแถวข้อมูลใหม่ | `?action=add&book=...&sheet=...&data=<JSON>&key=...` | `{ ok, message, row }` |
 | ลบแถวข้อมูล | `?action=deleteRow&book=...&sheet=...&row=เลขแถว&key=...` | `{ ok, message }` — บันทึกสำเนาไว้ในถังขยะก่อนลบเสมอ |
+| แก้ไขแถวข้อมูล (ทั้งแถวหรือแค่บางคอลัมน์ เช่น สถานะ) | `?action=updateRow&book=...&sheet=...&row=เลขแถว&data=<JSON>&key=...` | `{ ok, message }` — เขียนทับเฉพาะคอลัมน์ที่ส่งมาใน data เท่านั้น บันทึกค่าเดิมไว้ในถังขยะก่อนเขียนทับเสมอ |
 | ลบคอลัมน์ทั้งคอลัมน์ | `?action=deleteColumn&book=...&sheet=...&column=ชื่อคอลัมน์&key=...` | `{ ok, message }` — บันทึกสำเนาไว้ในถังขยะก่อนลบเสมอ |
 | ดูรายการในถังขยะ | `?action=trash&book=...&key=...` | `{ ok, items: [{id, deletedAt, type, sheetName, columnName, preview}] }` |
 | กู้คืนรายการจากถังขยะ | `?action=restore&book=...&id=...&key=...` | `{ ok, message }` — เพิ่มข้อมูลกลับเข้าชีตจริง (ท้ายชีต) แล้วลบออกจากถังขยะ |

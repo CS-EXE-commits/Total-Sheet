@@ -1,7 +1,6 @@
 /* ===== อ้างอิง element ===== */
 const loginModal = document.getElementById('loginModal');
-const loginEmail = document.getElementById('loginEmail');
-const loginSubmit = document.getElementById('loginSubmit');
+const googleSignInButton = document.getElementById('googleSignInButton');
 const loginStatus = document.getElementById('loginStatus');
 const appLayout = document.getElementById('appLayout');
 const topbarAccount = document.getElementById('topbarAccount');
@@ -328,32 +327,51 @@ let displayMode = 'single'; // 'single' = ตารางเต็มคอล�
 let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
 
 document.addEventListener('DOMContentLoaded', () => {
-  const savedEmail = localStorage.getItem('sheetSearchEmail');
-  if (savedEmail) {
-    tryLogin(savedEmail, true);
-  } else {
-    loginModal.hidden = false;
+  loginModal.hidden = false;
+  // ปุ่ม Sign in with Google จะถูกวาดตอน Google Identity Services โหลดเสร็จ (ดู onGoogleLibraryLoad ด้านล่าง)
+});
+
+/* ===== เข้าสู่ระบบ / ออกจากระบบ ด้วย Google Sign-In จริง ===== */
+
+/**
+ * Google Identity Services (สคริปต์ https://accounts.google.com/gsi/client) จะเรียกฟังก์ชันนี้
+ * เองอัตโนมัติทันทีที่โหลดเสร็จ (เป็นชื่อฟังก์ชันที่ไลบรารีนี้กำหนดไว้ ไม่ต้องเรียกเอง)
+ */
+window.onGoogleLibraryLoad = function () {
+  if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.indexOf('ใส่ Client ID') === 0) {
+    setLoginStatus('ผู้ดูแลยังไม่ได้ตั้งค่า GOOGLE_CLIENT_ID ใน config.js', 'error');
+    return;
   }
-});
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential,
+    auto_select: true,
+    cancel_on_tap_outside: false,
+  });
+  google.accounts.id.renderButton(googleSignInButton, {
+    theme: 'outline',
+    size: 'large',
+    text: 'signin_with',
+    shape: 'rectangular',
+    width: 280,
+  });
 
-/* ===== เข้าสู่ระบบ / ออกจากระบบ ===== */
+  // ถ้าเคยล็อกอินสำเร็จในเบราว์เซอร์นี้มาก่อน ให้ลองล็อกอินอัตโนมัติแบบเงียบๆ (Google One Tap)
+  // แต่ยังต้องผ่านการยืนยันกับ Google จริงทุกครั้ง ไม่ได้เชื่ออีเมลที่จำไว้เฉยๆ
+  if (localStorage.getItem('sheetSearchEmail')) {
+    google.accounts.id.prompt();
+  }
+};
 
-loginSubmit.addEventListener('click', () => {
-  const email = loginEmail.value.trim();
-  if (!email) { setLoginStatus('กรุณากรอกอีเมล', 'error'); return; }
-  tryLogin(email, false);
-});
+/** เรียกโดย Google หลังผู้ใช้กดเข้าสู่ระบบสำเร็จ (ปุ่ม Sign in with Google หรือ One Tap) พร้อม ID token ที่เซ็นชื่อมาจริงจาก Google */
+function handleGoogleCredential(response) {
+  tryLoginGoogle(response.credential);
+}
 
-loginEmail.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') loginSubmit.click();
-});
-
-async function tryLogin(email, silent) {
-  loginSubmit.disabled = true;
-  if (!silent) setLoginStatus('กำลังตรวจสอบ...', null);
-
+async function tryLoginGoogle(idToken) {
+  setLoginStatus('กำลังตรวจสอบกับ Google...', null);
   try {
-    const result = await jsonpRequest(rawApiUrl({ action: 'login', email }));
+    const result = await jsonpRequest(rawApiUrl({ action: 'loginGoogle', credential: idToken }));
     if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
     currentUserEmail = result.email;
@@ -368,8 +386,10 @@ async function tryLogin(email, silent) {
     localStorage.removeItem('sheetSearchEmail');
     loginModal.hidden = false;
     setLoginStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
-  } finally {
-    loginSubmit.disabled = false;
+    // ถ้าล็อกอินอัตโนมัติ (One Tap) ล้มเหลว (เช่นอีเมลถูกถอนสิทธิ์ไปแล้ว) ให้เลิกจำไว้ จะได้ไม่วนล็อกอินซ้ำเงียบๆ อีก
+    if (window.google && google.accounts && google.accounts.id) {
+      google.accounts.id.disableAutoSelect();
+    }
   }
 }
 
@@ -382,9 +402,11 @@ logoutButton.addEventListener('click', () => {
   selectedSheet = '';
   appLayout.hidden = true;
   topbarAccount.hidden = true;
-  loginEmail.value = '';
   setLoginStatus('', null);
   loginModal.hidden = false;
+  if (window.google && google.accounts && google.accounts.id) {
+    google.accounts.id.disableAutoSelect();
+  }
 });
 
 /**

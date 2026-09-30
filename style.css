@@ -623,6 +623,7 @@ body {
 
 .grid-editor__toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
 .modal-box__actions { display: flex; justify-content: flex-end; gap: 10px; }
+.google-signin-wrap { display: flex; justify-content: center; margin: 8px 0 4px; }
 .modal-box__status { font-size: 13px; color: var(--color-text-muted); margin: 10px 0 0; text-align: right; }
 .modal-box__status--success { color: var(--color-accent); }
 .modal-box__status--error { color: var(--color-danger); }
