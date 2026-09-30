@@ -327,9 +327,41 @@ let displayMode = 'single'; // 'single' = ตารางเต็มคอล�
 let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
 
 document.addEventListener('DOMContentLoaded', () => {
-  loginModal.hidden = false;
+  const savedEmail = localStorage.getItem('sheetSearchEmail');
+  if (savedEmail) {
+    // เคยล็อกอินผ่าน Google จริงมาก่อนในเบราว์เซอร์นี้แล้ว (ตอนกดปุ่ม Sign in with Google ครั้งแรก)
+    // ตอนรีเฟรชหน้าเว็บ ไม่ต้องให้กดปุ่ม Google ซ้ำทุกครั้ง แค่เช็คว่าอีเมลนี้ยังอยู่ใน
+    // รายชื่อที่อนุญาต (ALLOWED_EMAILS) อยู่ไหมก็พอ (เหมือนตอนก่อนเปลี่ยนมาใช้ Google Sign-In)
+    trySessionRestore(savedEmail);
+  } else {
+    loginModal.hidden = false;
+  }
   // ปุ่ม Sign in with Google จะถูกวาดตอน Google Identity Services โหลดเสร็จ (ดู onGoogleLibraryLoad ด้านล่าง)
+  // ไว้ใช้ตอนล็อกอินครั้งแรก หรือตอน trySessionRestore ด้านบนล้มเหลว (เช่นอีเมลถูกถอนสิทธิ์ไปแล้ว)
 });
+
+/** เช็คอีเมลที่เคยล็อกอินไว้ (จำใน localStorage) กับรายชื่อที่อนุญาตอีกครั้งตอนรีเฟรชหน้าเว็บ โดยไม่ต้องกดปุ่ม Google ซ้ำ */
+async function trySessionRestore(email) {
+  setLoginStatus('กำลังเข้าสู่ระบบ...', null);
+  try {
+    const result = await jsonpRequest(rawApiUrl({ action: 'login', email }));
+    if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+
+    currentUserEmail = result.email;
+    loginModal.hidden = true;
+    topbarAccount.hidden = false;
+    topbarEmail.textContent = currentUserEmail;
+    appLayout.hidden = false;
+    setLoginStatus('', null);
+    const books = await loadBooks();
+    restoreLastView(books);
+  } catch (err) {
+    // อีเมลนี้อาจถูกถอนสิทธิ์ไปแล้ว หรือ session เก่าใช้ไม่ได้แล้ว ให้กลับไปหน้าล็อกอินด้วย Google ปกติ
+    localStorage.removeItem('sheetSearchEmail');
+    loginModal.hidden = false;
+    setLoginStatus('', null);
+  }
+}
 
 /* ===== เข้าสู่ระบบ / ออกจากระบบ ด้วย Google Sign-In จริง ===== */
 
@@ -355,12 +387,9 @@ window.onGoogleLibraryLoad = function () {
     shape: 'rectangular',
     width: 280,
   });
-
-  // ถ้าเคยล็อกอินสำเร็จในเบราว์เซอร์นี้มาก่อน ให้ลองล็อกอินอัตโนมัติแบบเงียบๆ (Google One Tap)
-  // แต่ยังต้องผ่านการยืนยันกับ Google จริงทุกครั้ง ไม่ได้เชื่ออีเมลที่จำไว้เฉยๆ
-  if (localStorage.getItem('sheetSearchEmail')) {
-    google.accounts.id.prompt();
-  }
+  // หมายเหตุ: ไม่ได้เรียก google.accounts.id.prompt() (One Tap) เพื่อล็อกอินอัตโนมัติตอนรีเฟรช
+  // เพราะ One Tap ไม่เสถียร (มีเงื่อนไข/cooldown เยอะ บางเบราว์เซอร์ไม่ขึ้นให้) — ใช้ trySessionRestore()
+  // ด้านบนแทน ซึ่งเช็คกับรายชื่อที่อนุญาตตรงๆ ไม่ต้องพึ่ง Google popup ทุกครั้งที่รีเฟรช
 };
 
 /** เรียกโดย Google หลังผู้ใช้กดเข้าสู่ระบบสำเร็จ (ปุ่ม Sign in with Google หรือ One Tap) พร้อม ID token ที่เซ็นชื่อมาจริงจาก Google */
