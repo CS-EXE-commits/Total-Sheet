@@ -98,6 +98,7 @@ const reportStatus = document.getElementById('reportStatus');
 
 const dashboardDate = document.getElementById('dashboardDate');
 const dashboardCasesToday = document.getElementById('dashboardCasesToday');
+const dashboardNewCasesList = document.getElementById('dashboardNewCasesList');
 const dashboardStatusList = document.getElementById('dashboardStatusList');
 const dashboardStatus = document.getElementById('dashboardStatus');
 
@@ -1539,11 +1540,28 @@ async function loadGlobalDashboard() {
     if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
     dashboardDate.textContent = result.date;
     dashboardCasesToday.textContent = result.casesToday;
+    renderDashboardNewCasesList(result);
     renderDashboardStatusList(result);
     setDashboardStatus('', null);
   } catch (err) {
     setDashboardStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   }
+}
+
+function renderDashboardNewCasesList(result) {
+  const cases = result.newCasesToday || [];
+  if (cases.length === 0) {
+    dashboardNewCasesList.innerHTML = '<p class="sidebar-dashboard__empty">วันนี้ยังไม่มีเคสเข้าใหม่</p>';
+    return;
+  }
+  dashboardNewCasesList.innerHTML = cases.map(c => `
+    <div class="sidebar-dashboard__case">
+      <div class="sidebar-dashboard__case-top">
+        <b>${escapeHtml(c.time)}</b>
+        <span class="sidebar-dashboard__case-status">${escapeHtml(c.status)}</span>
+      </div>
+      <div class="sidebar-dashboard__case-meta">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
+    </div>`).join('') + (result.newCasesTruncated ? '<p class="sidebar-dashboard__empty">แสดงล่าสุด 30 รายการ อาจมีมากกว่านี้</p>' : '');
 }
 
 function renderDashboardStatusList(result) {
