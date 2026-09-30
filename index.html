@@ -20,8 +20,8 @@
 </head>
 <body>
 
-  <!-- หน้าต่างเข้าสู่ระบบ -->
-  <div class="modal-overlay" id="loginModal">
+  <!-- หน้าต่างเข้าสู่ระบบ (ซ่อนไว้ก่อนโดยปริยาย กันไม่ให้กะพริบขึ้นมาตอนรีเฟรชแล้วกำลังเช็ค session เดิมอยู่) -->
+  <div class="modal-overlay" id="loginModal" hidden>
     <div class="modal-box modal-box--narrow">
       <h2 class="modal-box__title">เข้าสู่ระบบ</h2>
       <p class="modal-box__desc">เข้าสู่ระบบด้วยบัญชี Gmail ของคุณ (ต้องเป็นอีเมลที่ผู้ดูแลอนุญาตไว้เท่านั้น)</p>
