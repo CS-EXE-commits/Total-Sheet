@@ -1158,6 +1158,19 @@ function toDateInputValue_(raw) {
   return '';
 }
 
+/**
+ * แปลงกลับจากค่าที่ input type="date" ส่งมา (รูปแบบ yyyy-MM-dd เสมอตามมาตรฐาน HTML)
+ * ให้เป็น dd/MM/yyyy ก่อนบันทึกลงชีตจริง เพื่อให้ตรงกับรูปแบบวันที่ที่ใช้แสดงบนหน้าเว็บ
+ * (ถ้าไม่ใช้ฟังก์ชันนี้ ชีตจะได้ค่าเป็น "2026-09-30" ปนกับแถวเดิมที่เป็น "30/09/2026")
+ */
+function fromDateInputValue_(isoValue) {
+  const str = (isoValue || '').toString().trim();
+  if (!str) return '';
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return str; // ไม่ใช่รูปแบบที่คาด ส่งค่าเดิมกลับไปเผื่อผู้ใช้พิมพ์เอง
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 editCancel.addEventListener('click', () => closeEditModal());
 
 function closeEditModal() {
@@ -1172,7 +1185,7 @@ editSubmit.addEventListener('click', async () => {
   const row = editingRow;
   const data = {};
   editFields.querySelectorAll('input, select').forEach(el => {
-    data[el.dataset.header] = el.value;
+    data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
   });
 
   editSubmit.disabled = true;
@@ -1293,7 +1306,9 @@ function buildFieldInput(header, idPrefix) {
 addSubmitButton.addEventListener('click', async () => {
   if (!selectedSheet) return;
   const data = {};
-  addFields.querySelectorAll('input, select').forEach(el => { data[el.dataset.header] = el.value; });
+  addFields.querySelectorAll('input, select').forEach(el => {
+    data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
+  });
 
   addSubmitButton.disabled = true;
   setAddStatus('กำลังบันทึก...', null);
