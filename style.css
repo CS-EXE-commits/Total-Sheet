@@ -488,10 +488,12 @@ body {
 
 .report-block__presets {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .report-block__preset-btn {
   flex: 1;
+  min-width: 72px;
   padding: 6px 4px;
   font-size: 11.5px;
   font-weight: 600;

@@ -104,6 +104,7 @@ const dashboardStatus = document.getElementById('dashboardStatus');
 
 const dashReportPresetToday = document.getElementById('dashReportPresetToday');
 const dashReportPresetMonth = document.getElementById('dashReportPresetMonth');
+const dashReportPresetYear = document.getElementById('dashReportPresetYear');
 const dashReportFromDate = document.getElementById('dashReportFromDate');
 const dashReportToDate = document.getElementById('dashReportToDate');
 const dashReportViewBtn = document.getElementById('dashReportViewBtn');
@@ -1619,6 +1620,18 @@ if (dashReportPresetMonth) {
     const first = `${y}-${String(m + 1).padStart(2, '0')}-01`;
     const lastDay = new Date(y, m + 1, 0).getDate();
     const last = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    dashReportFromDate.value = first;
+    dashReportToDate.value = last;
+    loadDashboardReport(first, last);
+  });
+}
+
+if (dashReportPresetYear) {
+  dashReportPresetYear.addEventListener('click', () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const first = `${y}-01-01`;
+    const last = `${y}-12-31`;
     dashReportFromDate.value = first;
     dashReportToDate.value = last;
     loadDashboardReport(first, last);
