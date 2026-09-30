@@ -129,11 +129,11 @@ function renderCurrentPage() {
   const pageRows = filteredRows.slice(start, start + pageSize);
 
   if (displayMode === 'single') {
-    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => `<th>${escapeHtml(currentTableHeaders[i])}</th>`).join('') + '<th></th></tr>';
+    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => `<th>${escapeHtml(currentTableHeaders[i])}</th>`).join('') + '<th class="data-table__actions-col"></th></tr>';
     tableBody.innerHTML = '';
     pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
   } else {
-    tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th></th></tr>';
+    tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th class="data-table__actions-col"></th></tr>';
     tableBody.innerHTML = '';
     pageRows.forEach(row => tableBody.appendChild(buildAllRow(row)));
   }
@@ -314,6 +314,7 @@ function buildAllRow(row) {
 /** ช่องปุ่มจัดการท้ายแถว: ปุ่มแก้ไข (แก้ไขข้อมูลในชีตจริง) และปุ่มลบ อยู่ด้วยกัน ใช้ได้ทั้งโหมดแท็บเดียวและโหมดทั้งหมด */
 function buildActionsCell(row, tr) {
   const actionsTd = document.createElement('td');
+  actionsTd.className = 'data-table__actions-col';
   const wrap = document.createElement('div');
   wrap.className = 'data-table__actions';
 
@@ -1100,11 +1101,39 @@ function renderEditFields(headers, fullHeaders, row) {
     const inputEl = buildFieldInput(header, 'edit-field-');
     const colIndex = fullHeaders.indexOf(header.name);
     if (colIndex !== -1) {
-      inputEl.value = (row.cells[colIndex] || '').toString();
+      const rawValue = (row.cells[colIndex] || '').toString();
+      inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue) : rawValue;
     }
     wrap.appendChild(inputEl);
     editFields.appendChild(wrap);
   });
+}
+
+/**
+ * แปลงค่าวันที่ที่อ่านมาจากชีต (ซึ่งอาจแสดงเป็น dd/MM/yyyy, d-M-yyyy หรือรูปแบบอื่นตามการตั้งค่าเซลล์)
+ * ให้เป็นรูปแบบ yyyy-MM-dd ที่ input type="date" ต้องการ ไม่งั้นเบราว์เซอร์จะไม่โชว์ค่าเดิมให้ (ช่องว่างเปล่า)
+ */
+function toDateInputValue_(raw) {
+  const str = (raw || '').toString().trim();
+  if (!str) return '';
+
+  // อยู่ในรูปแบบ yyyy-MM-dd อยู่แล้ว (มีหรือไม่มีเวลาต่อท้าย)
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+
+  // dd/MM/yyyy หรือ dd-MM-yyyy
+  m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+
+  // เผื่อรูปแบบอื่นที่ JavaScript แกะได้เอง (เช่น "Sep 30, 2026")
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const yyyy = parsed.getFullYear();
+    const mm = (parsed.getMonth() + 1).toString().padStart(2, '0');
+    const dd = parsed.getDate().toString().padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return '';
 }
 
 editCancel.addEventListener('click', () => closeEditModal());
