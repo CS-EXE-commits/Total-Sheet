@@ -564,7 +564,7 @@ body {
 .trash-item__restore:hover { background: var(--color-accent-hover); }
 .trash-item__restore:disabled { opacity: 0.6; }
 
-/* ===== แผงรายงานประจำวัน ===== */
+/* ===== แผงประวัติการแก้ไข ===== */
 .report-panel__subhead {
   font-size: 12px;
   font-weight: 700;

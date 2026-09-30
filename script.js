@@ -1160,7 +1160,7 @@ function resetPanels() {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📊 รายงานประจำวัน';
+  reportToggle.textContent = '📝 ประวัติการแก้ไข';
 }
 
 /* ===== แถบเพิ่มข้อมูล ===== */
@@ -1177,7 +1177,7 @@ addToggle.addEventListener('click', () => {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📊 รายงานประจำวัน';
+  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
   addToggle.textContent = isOpen ? '+ เพิ่มข้อมูล' : '× ปิดฟอร์ม';
   if (!isOpen) loadAddFields();
@@ -1279,7 +1279,7 @@ manageToggle.addEventListener('click', () => {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📊 รายงานประจำวัน';
+  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
   manageToggle.textContent = isOpen ? 'จัดการคอลัมน์' : 'ปิดหน้าจัดการ';
   if (!isOpen) loadManageColumns();
@@ -1354,13 +1354,13 @@ trashToggle.addEventListener('click', () => {
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
   reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📊 รายงานประจำวัน';
+  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
   trashToggle.textContent = isOpen ? '🗑 ถังขยะ' : '× ปิดถังขยะ';
   if (!isOpen) loadTrash();
 });
 
-/* ===== รายงานประจำวัน ===== */
+/* ===== แผงประวัติการแก้ไข ===== */
 
 reportToggle.addEventListener('click', () => {
   if (!selectedSheet) { alert('กรุณาเลือกแท็บใดแท็บหนึ่งก่อน'); return; }
@@ -1376,7 +1376,7 @@ reportToggle.addEventListener('click', () => {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   reportToggle.setAttribute('aria-pressed', String(!isOpen));
-  reportToggle.textContent = isOpen ? '📊 รายงานประจำวัน' : '× ปิดรายงาน';
+  reportToggle.textContent = isOpen ? '📝 ประวัติการแก้ไข' : '× ปิดประวัติ';
   if (!isOpen) loadDailyReport();
 });
 
