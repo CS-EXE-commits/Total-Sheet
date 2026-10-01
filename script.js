@@ -1340,7 +1340,7 @@ editSubmit.addEventListener('click', async () => {
     let statusMessage = 'บันทึกการแก้ไขสำเร็จ';
     const colorChanged = !!(editColorToggle && editColorToggle.checked);
     if (editColorToggle && editColorToggle.checked) {
-      const colored = await applyRowColor_(row.sheet, row.row, editColorBg.value, editColorFont.value);
+      const colored = await applyRowColor_(row.sheet, row.row, chosenColor_(editColorBg), chosenColor_(editColorFont));
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
     }
 
@@ -1493,8 +1493,8 @@ if (addColorToggle) {
 }
 if (addColorReset) {
   addColorReset.addEventListener('click', () => {
-    setSwatchColor_('addColorBg', '#ffffff');
-    setSwatchColor_('addColorFont', '#000000');
+    setSwatchColor_('addColorBg', '#ffffff', true);
+    setSwatchColor_('addColorFont', '#000000', true);
     addColorToggle.checked = true;
     addColorPickers.hidden = false;
   });
@@ -1513,8 +1513,8 @@ if (editColorToggle) {
 }
 if (editColorReset) {
   editColorReset.addEventListener('click', () => {
-    setSwatchColor_('editColorBg', '#ffffff');
-    setSwatchColor_('editColorFont', '#000000');
+    setSwatchColor_('editColorBg', '#ffffff', true);
+    setSwatchColor_('editColorFont', '#000000', true);
     editColorToggle.checked = true;
     editColorPickers.hidden = false;
   });
@@ -1531,9 +1531,15 @@ async function applyRowColor_(sheetName, rowNum, bg, font) {
 }
 
 /** ตั้งค่าสีให้ทั้ง input ที่เก็บค่าจริง (hidden) และปุ่มสี่เหลี่ยมที่โชว์สีนั้นให้ตรงกันเสมอ */
-function setSwatchColor_(hiddenInputId, hex) {
+function setSwatchColor_(hiddenInputId, hex, chosenByUser) {
   const hiddenInput = document.getElementById(hiddenInputId);
-  if (hiddenInput) hiddenInput.value = hex;
+  if (hiddenInput) {
+    hiddenInput.value = hex;
+    // จำไว้ว่าผู้ใช้ "ตั้งใจเลือกสีนี้" หรือเป็นแค่ค่าเริ่มต้นที่ยังไม่ได้แตะ
+    // ถ้าไม่แยกตรงนี้ คนที่เลือกแค่สีพื้นหลังจะโดนบังคับสีตัวอักษรเป็นดำไปด้วย
+    // ซึ่งจะไปลบสีของลิงก์และรูปแบบเดิมที่ตั้งไว้ในชีททั้งแถว
+    if (chosenByUser) hiddenInput.dataset.chosen = 'true';
+  }
   const btn = document.querySelector(`.color-swatch-btn[data-target="${hiddenInputId}"]`);
   if (btn) btn.style.background = hex;
 }
@@ -1543,6 +1549,13 @@ function resetColorPicker_(toggleEl, pickersEl, bgEl, fontEl) {
   pickersEl.hidden = true;
   setSwatchColor_(bgEl.id, '#ffffff');
   setSwatchColor_(fontEl.id, '#000000');
+  delete bgEl.dataset.chosen;
+  delete fontEl.dataset.chosen;
+}
+
+/** คืนค่าสีเฉพาะที่ผู้ใช้เลือกจริง ถ้ายังไม่ได้แตะจะคืนค่าว่าง = ไม่ต้องไปเปลี่ยนสีนั้นในชีท */
+function chosenColor_(inputEl) {
+  return (inputEl && inputEl.dataset.chosen === 'true') ? inputEl.value : '';
 }
 
 /* ===== ตัวเลือกสีแบบกำหนดเอง (popover เดียวใช้ร่วมกันทุกปุ่มสี คล้ายตัวเลือกสีใน Excel) ===== */
@@ -1726,7 +1739,7 @@ function resetColorPicker_(toggleEl, pickersEl, bgEl, fontEl) {
   }
 
   okBtn.addEventListener('click', () => {
-    if (targetInputId) setSwatchColor_(targetInputId, currentHex());
+    if (targetInputId) setSwatchColor_(targetInputId, currentHex(), true);
     closePicker();
   });
   cancelBtn.addEventListener('click', closePicker);
@@ -1760,7 +1773,7 @@ addSubmitButton.addEventListener('click', async () => {
 
     let statusMessage = 'บันทึกข้อมูลสำเร็จ';
     if (addColorToggle && addColorToggle.checked && result.row) {
-      const colored = await applyRowColor_(selectedSheet, result.row, addColorBg.value, addColorFont.value);
+      const colored = await applyRowColor_(selectedSheet, result.row, chosenColor_(addColorBg), chosenColor_(addColorFont));
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
       resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
     }
