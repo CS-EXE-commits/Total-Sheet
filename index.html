@@ -159,8 +159,16 @@
               🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
             </label>
             <div class="row-color__pickers" id="addColorPickers" hidden>
-              <label class="row-color__swatch">สีพื้นหลัง <input type="color" id="addColorBg" value="#ffffff"></label>
-              <label class="row-color__swatch">สีตัวอักษร <input type="color" id="addColorFont" value="#000000"></label>
+              <div class="row-color__swatch">
+                <span>สีพื้นหลัง</span>
+                <button type="button" class="color-swatch-btn" data-target="addColorBg" style="background:#ffffff"></button>
+                <input type="hidden" id="addColorBg" value="#ffffff">
+              </div>
+              <div class="row-color__swatch">
+                <span>สีตัวอักษร</span>
+                <button type="button" class="color-swatch-btn" data-target="addColorFont" style="background:#000000"></button>
+                <input type="hidden" id="addColorFont" value="#000000">
+              </div>
               <button type="button" class="row-color__reset-btn" id="addColorReset">ล้างสี</button>
             </div>
           </div>
@@ -261,8 +269,16 @@
           🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
         </label>
         <div class="row-color__pickers" id="editColorPickers" hidden>
-          <label class="row-color__swatch">สีพื้นหลัง <input type="color" id="editColorBg" value="#ffffff"></label>
-          <label class="row-color__swatch">สีตัวอักษร <input type="color" id="editColorFont" value="#000000"></label>
+          <div class="row-color__swatch">
+            <span>สีพื้นหลัง</span>
+            <button type="button" class="color-swatch-btn" data-target="editColorBg" style="background:#ffffff"></button>
+            <input type="hidden" id="editColorBg" value="#ffffff">
+          </div>
+          <div class="row-color__swatch">
+            <span>สีตัวอักษร</span>
+            <button type="button" class="color-swatch-btn" data-target="editColorFont" style="background:#000000"></button>
+            <input type="hidden" id="editColorFont" value="#000000">
+          </div>
           <button type="button" class="row-color__reset-btn" id="editColorReset">ล้างสี</button>
         </div>
       </div>
@@ -272,6 +288,30 @@
         <button type="button" class="toolbar__btn toolbar__btn--accent" id="editSubmit">บันทึกการแก้ไข</button>
       </div>
       <p class="modal-box__status" id="editStatus"></p>
+    </div>
+  </div>
+
+  <!-- ตัวเลือกสีแบบกำหนดเอง (เหมือนใน Excel) ใช้ร่วมกันทุกช่องเลือกสี มีแค่ชุดเดียวในหน้า -->
+  <div class="color-picker-popover" id="colorPickerPopover" hidden>
+    <div class="color-picker__sv" id="colorPickerSV">
+      <div class="color-picker__sv-cursor" id="colorPickerSVCursor"></div>
+    </div>
+    <div class="color-picker__hue" id="colorPickerHue">
+      <div class="color-picker__hue-cursor" id="colorPickerHueCursor"></div>
+    </div>
+    <div class="color-picker__presets" id="colorPickerPresets"></div>
+    <div class="color-picker__preview-row">
+      <span class="color-picker__preview" id="colorPickerPreview"></span>
+      <input type="text" class="color-picker__hex" id="colorPickerHex" maxlength="7" spellcheck="false">
+    </div>
+    <div class="color-picker__rgb">
+      <label>R<input type="text" inputmode="numeric" maxlength="3" id="colorPickerR"></label>
+      <label>G<input type="text" inputmode="numeric" maxlength="3" id="colorPickerG"></label>
+      <label>B<input type="text" inputmode="numeric" maxlength="3" id="colorPickerB"></label>
+    </div>
+    <div class="color-picker__actions">
+      <button type="button" class="color-picker__btn color-picker__btn--cancel" id="colorPickerCancel">ยกเลิก</button>
+      <button type="button" class="color-picker__btn color-picker__btn--ok" id="colorPickerOk">ตกลง</button>
     </div>
   </div>
 

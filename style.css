@@ -1238,3 +1238,163 @@ th.data-table__ticket-col {
   cursor: pointer;
 }
 .row-color__reset-btn:hover { background: var(--color-accent-bg); border-color: var(--color-accent); }
+
+.row-color__swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+/* ปุ่มสี่เหลี่ยมแสดงสีปัจจุบัน กดแล้วเปิดตัวเลือกสีแบบกำหนดเอง */
+.color-swatch-btn {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.color-swatch-btn:hover { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+/* ===== ตัวเลือกสีแบบกำหนดเอง (คล้าย Excel/Google ชีท) ===== */
+.color-picker-popover {
+  position: fixed;
+  z-index: 10000;
+  width: 220px;
+  background: #2b2b2e;
+  border: 1px solid #45454a;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  color: #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.color-picker-popover[hidden] { display: none; }
+
+.color-picker__sv {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  border-radius: 6px;
+  cursor: crosshair;
+  background-image:
+    linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(to right, #fff 0%, rgba(255, 255, 255, 0) 100%);
+  user-select: none;
+}
+.color-picker__sv-cursor {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.color-picker__hue {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: pointer;
+  user-select: none;
+}
+.color-picker__hue-cursor {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.color-picker__presets {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+}
+.color-picker__preset {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.color-picker__preset:hover { outline: 2px solid #fff; outline-offset: 1px; }
+
+.color-picker__preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-picker__preview {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid #565656;
+  flex-shrink: 0;
+}
+.color-picker__hex {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid #565656;
+  border-radius: 5px;
+  background: #1c1c1e;
+  color: #eee;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.color-picker__rgb {
+  display: flex;
+  gap: 6px;
+}
+.color-picker__rgb label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #a6a6a6;
+}
+.color-picker__rgb input {
+  width: 100%;
+  padding: 4px 2px;
+  text-align: center;
+  border: 1px solid #565656;
+  border-radius: 5px;
+  background: #1c1c1e;
+  color: #eee;
+  font-size: 12px;
+}
+
+.color-picker__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.color-picker__btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+.color-picker__btn--ok { background: var(--color-accent); color: #fff; }
+.color-picker__btn--ok:hover { filter: brightness(1.1); }
+.color-picker__btn--cancel { background: #4a4a4e; color: #eee; }
+.color-picker__btn--cancel:hover { background: #58585c; }

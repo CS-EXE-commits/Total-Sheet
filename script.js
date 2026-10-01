@@ -1347,8 +1347,8 @@ if (addColorToggle) {
 }
 if (addColorReset) {
   addColorReset.addEventListener('click', () => {
-    addColorBg.value = '#ffffff';
-    addColorFont.value = '#000000';
+    setSwatchColor_('addColorBg', '#ffffff');
+    setSwatchColor_('addColorFont', '#000000');
     addColorToggle.checked = true;
     addColorPickers.hidden = false;
   });
@@ -1367,8 +1367,8 @@ if (editColorToggle) {
 }
 if (editColorReset) {
   editColorReset.addEventListener('click', () => {
-    editColorBg.value = '#ffffff';
-    editColorFont.value = '#000000';
+    setSwatchColor_('editColorBg', '#ffffff');
+    setSwatchColor_('editColorFont', '#000000');
     editColorToggle.checked = true;
     editColorPickers.hidden = false;
   });
@@ -1384,12 +1384,220 @@ async function applyRowColor_(sheetName, rowNum, bg, font) {
   }
 }
 
+/** ตั้งค่าสีให้ทั้ง input ที่เก็บค่าจริง (hidden) และปุ่มสี่เหลี่ยมที่โชว์สีนั้นให้ตรงกันเสมอ */
+function setSwatchColor_(hiddenInputId, hex) {
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (hiddenInput) hiddenInput.value = hex;
+  const btn = document.querySelector(`.color-swatch-btn[data-target="${hiddenInputId}"]`);
+  if (btn) btn.style.background = hex;
+}
+
 function resetColorPicker_(toggleEl, pickersEl, bgEl, fontEl) {
   toggleEl.checked = false;
   pickersEl.hidden = true;
-  bgEl.value = '#ffffff';
-  fontEl.value = '#000000';
+  setSwatchColor_(bgEl.id, '#ffffff');
+  setSwatchColor_(fontEl.id, '#000000');
 }
+
+/* ===== ตัวเลือกสีแบบกำหนดเอง (popover เดียวใช้ร่วมกันทุกปุ่มสี คล้ายตัวเลือกสีใน Excel) ===== */
+(function initColorPickerPopover_() {
+  const popover = document.getElementById('colorPickerPopover');
+  if (!popover) return;
+  const svBox = document.getElementById('colorPickerSV');
+  const svCursor = document.getElementById('colorPickerSVCursor');
+  const hueBox = document.getElementById('colorPickerHue');
+  const hueCursor = document.getElementById('colorPickerHueCursor');
+  const presetsBox = document.getElementById('colorPickerPresets');
+  const preview = document.getElementById('colorPickerPreview');
+  const hexInput = document.getElementById('colorPickerHex');
+  const rInput = document.getElementById('colorPickerR');
+  const gInput = document.getElementById('colorPickerG');
+  const bInput = document.getElementById('colorPickerB');
+  const okBtn = document.getElementById('colorPickerOk');
+  const cancelBtn = document.getElementById('colorPickerCancel');
+
+  const PRESETS = [
+    '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
+    '#f4c7c3', '#fce8b2', '#fff2cc', '#d9ead3', '#b7e1cd', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9c2e9', '#ead1dc',
+    '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd', '#e06666',
+    '#f6b26b', '#ffd966', '#93c47d', '#76a5af', '#6d9eeb', '#6fa8dc', '#8e7cc3', '#c27ba0', '#cc0000', '#e69138',
+    '#f1c232', '#6aa84f', '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79', '#990000', '#b45f06', '#bf9000'
+  ];
+
+  let hue = 0, sat = 0, val = 1;
+  let targetInputId = null;
+  let targetBtn = null;
+
+  const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+  function hsvToRgb(h, s, v) {
+    const c = v * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = v - c;
+    let r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+  }
+
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = (((g - b) / d) % 6);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    const s = max === 0 ? 0 : d / max;
+    return { h, s, v: max };
+  }
+
+  function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(n => clamp(Math.round(n), 0, 255).toString(16).padStart(2, '0')).join('');
+  }
+
+  function hexToRgb(hex) {
+    const cleaned = (hex || '').trim().replace('#', '');
+    if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) return null;
+    return { r: parseInt(cleaned.slice(0, 2), 16), g: parseInt(cleaned.slice(2, 4), 16), b: parseInt(cleaned.slice(4, 6), 16) };
+  }
+
+  function currentHex() {
+    const { r, g, b } = hsvToRgb(hue, sat, val);
+    return rgbToHex(r, g, b);
+  }
+
+  function renderFromHsv() {
+    const { r, g, b } = hsvToRgb(hue, sat, val);
+    const hex = rgbToHex(r, g, b);
+    preview.style.background = hex;
+    hexInput.value = hex;
+    rInput.value = r;
+    gInput.value = g;
+    bInput.value = b;
+    svBox.style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
+    svCursor.style.left = (sat * 100) + '%';
+    svCursor.style.top = ((1 - val) * 100) + '%';
+    hueCursor.style.left = (hue / 360 * 100) + '%';
+  }
+
+  function setFromHex(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return;
+    const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+    hue = hsv.s === 0 ? hue : hsv.h;
+    sat = hsv.s;
+    val = hsv.v;
+    renderFromHsv();
+  }
+
+  function setFromRgbInputs() {
+    const r = clamp(parseInt(rInput.value, 10) || 0, 0, 255);
+    const g = clamp(parseInt(gInput.value, 10) || 0, 0, 255);
+    const b = clamp(parseInt(bInput.value, 10) || 0, 0, 255);
+    const hsv = rgbToHsv(r, g, b);
+    hue = hsv.h; sat = hsv.s; val = hsv.v;
+    renderFromHsv();
+  }
+
+  PRESETS.forEach(hex => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-picker__preset';
+    btn.style.background = hex;
+    btn.title = hex;
+    btn.addEventListener('click', () => setFromHex(hex));
+    presetsBox.appendChild(btn);
+  });
+
+  function svPointerToValue(evt) {
+    const rect = svBox.getBoundingClientRect();
+    sat = clamp((evt.clientX - rect.left) / rect.width, 0, 1);
+    val = 1 - clamp((evt.clientY - rect.top) / rect.height, 0, 1);
+    renderFromHsv();
+  }
+
+  function huePointerToValue(evt) {
+    const rect = hueBox.getBoundingClientRect();
+    hue = clamp((evt.clientX - rect.left) / rect.width, 0, 1) * 360;
+    renderFromHsv();
+  }
+
+  function bindDrag(el, onMove) {
+    el.addEventListener('pointerdown', (evt) => {
+      evt.preventDefault();
+      onMove(evt);
+      const move = (e) => onMove(e);
+      const up = () => {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+      };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    });
+  }
+  bindDrag(svBox, svPointerToValue);
+  bindDrag(hueBox, huePointerToValue);
+
+  hexInput.addEventListener('change', () => {
+    let hex = hexInput.value.trim();
+    if (hex && hex[0] !== '#') hex = '#' + hex;
+    if (hexToRgb(hex)) setFromHex(hex);
+    else hexInput.value = currentHex();
+  });
+  [rInput, gInput, bInput].forEach(inp => inp.addEventListener('change', setFromRgbInputs));
+
+  function openPicker(triggerBtn, hiddenInputId) {
+    targetInputId = hiddenInputId;
+    targetBtn = triggerBtn;
+    const hiddenInput = document.getElementById(hiddenInputId);
+    setFromHex((hiddenInput && hiddenInput.value) || '#ffffff');
+
+    popover.hidden = false;
+    const rect = triggerBtn.getBoundingClientRect();
+    const popW = popover.offsetWidth || 220;
+    const popH = popover.offsetHeight || 340;
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+    if (top + popH > window.innerHeight - 8) top = rect.top - popH - 6;
+    popover.style.left = Math.max(8, left) + 'px';
+    popover.style.top = Math.max(8, top) + 'px';
+  }
+
+  function closePicker() {
+    popover.hidden = true;
+    targetInputId = null;
+    targetBtn = null;
+  }
+
+  okBtn.addEventListener('click', () => {
+    if (targetInputId) setSwatchColor_(targetInputId, currentHex());
+    closePicker();
+  });
+  cancelBtn.addEventListener('click', closePicker);
+
+  document.addEventListener('mousedown', (evt) => {
+    if (popover.hidden) return;
+    if (popover.contains(evt.target) || (targetBtn && targetBtn.contains(evt.target))) return;
+    closePicker();
+  });
+
+  document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+    btn.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      openPicker(btn, btn.dataset.target);
+    });
+  });
+})();
 
 addSubmitButton.addEventListener('click', async () => {
   if (!selectedSheet) return;
