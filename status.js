@@ -79,6 +79,18 @@ function isLikelyUrl(value) {
  * ลิงก์จริงมัก "ซ่อน" อยู่หลังข้อความ (เซลล์โชว์ว่า "Ticket #283838" แต่ผูกไฮเปอร์ลิงก์ไว้)
  * ฝั่ง backend จึงอ่าน URL จริงมาส่งให้ใน row.links — ถ้าไม่มี ค่อยเช็กว่าข้อความในเซลล์เป็น URL ตรงๆ หรือเปล่า
  */
+/**
+ * ตัดชื่อโดเมนท้ายข้อความออก เช่น "Ticket #877505 (exe.in.th)" -> "Ticket #877505"
+ * เพื่อให้เลขที่ Ticket อ่านง่ายและแสดงได้ครบในคอลัมน์ที่กว้างจำกัด (URL เต็มยังดูได้จากการชี้เมาส์ค้าง)
+ *
+ * ตัดเฉพาะวงเล็บที่ "หน้าตาเป็นโดเมน" จริงๆ (มีจุดคั่น ไม่มีเว้นวรรค) เท่านั้น
+ * วงเล็บที่เป็นหมายเหตุ เช่น "Ticket #123 (ด่วน)" จะไม่ถูกตัดทิ้ง
+ */
+function shortenTicketLabel(value) {
+  const shortened = value.replace(/\s*\((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\)\s*$/, '').trim();
+  return shortened || value; // กันกรณีตัดแล้วเหลือข้อความว่าง
+}
+
 function buildCellHtml(cellValue, columnIndex, headerName, rowLinks) {
   const value = (cellValue || '').toString();
   if (!isTicketColumn(headerName)) return escapeHtml(value);
@@ -87,7 +99,7 @@ function buildCellHtml(cellValue, columnIndex, headerName, rowLinks) {
   if (!linkUrl) return escapeHtml(value);
 
   // ถ้าข้อความในเซลล์อ่านง่ายอยู่แล้ว (ไม่ใช่ URL ดิบๆ) ให้โชว์ข้อความนั้นเป็นตัวลิงก์เลย
-  const label = value && !isLikelyUrl(value) ? value : 'เปิด Ticket ↗';
+  const label = value && !isLikelyUrl(value) ? shortenTicketLabel(value) : 'เปิด Ticket ↗';
   return `<a class="ticket-link" href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(linkUrl)}">${escapeHtml(label)}</a>`;
 }
 
