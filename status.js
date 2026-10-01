@@ -63,6 +63,34 @@ function escapeHtml(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** คอลัมน์ที่ชื่อมีคำว่า Ticket ถือเป็นคอลัมน์ลิงก์ (ใช้เกณฑ์เดียวกับหน้าหลักและฝั่ง backend) */
+function isTicketColumn(headerName) {
+  return /ticket/i.test((headerName || '').toString());
+}
+
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test((value || '').toString().trim());
+}
+
+/**
+ * สร้างเนื้อหาในช่องตาราง 1 ช่อง
+ * ถ้าเป็นคอลัมน์ Ticket และมีลิงก์ จะทำเป็นลิงก์กดเปิดแท็บใหม่ได้ เหมือนตารางในหน้าหลัก
+ *
+ * ลิงก์จริงมัก "ซ่อน" อยู่หลังข้อความ (เซลล์โชว์ว่า "Ticket #283838" แต่ผูกไฮเปอร์ลิงก์ไว้)
+ * ฝั่ง backend จึงอ่าน URL จริงมาส่งให้ใน row.links — ถ้าไม่มี ค่อยเช็กว่าข้อความในเซลล์เป็น URL ตรงๆ หรือเปล่า
+ */
+function buildCellHtml(cellValue, columnIndex, headerName, rowLinks) {
+  const value = (cellValue || '').toString();
+  if (!isTicketColumn(headerName)) return escapeHtml(value);
+
+  const linkUrl = (rowLinks && rowLinks[columnIndex]) || (isLikelyUrl(value) ? value.trim() : null);
+  if (!linkUrl) return escapeHtml(value);
+
+  // ถ้าข้อความในเซลล์อ่านง่ายอยู่แล้ว (ไม่ใช่ URL ดิบๆ) ให้โชว์ข้อความนั้นเป็นตัวลิงก์เลย
+  const label = value && !isLikelyUrl(value) ? value : 'เปิด Ticket ↗';
+  return `<a class="ticket-link" href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(linkUrl)}">${escapeHtml(label)}</a>`;
+}
+
 function setPageStatus(message, type) {
   pageStatusEl.textContent = message;
   pageStatusEl.className = 'status-page__status' + (type ? ` status-page__status--${type}` : '');
@@ -239,7 +267,7 @@ function renderGroup(result, expectedCount) {
           ${result.rows.map(r => `
             <tr>
               <td class="status-group__rownum">${r.row}</td>
-              ${r.cells.map(c => `<td>${escapeHtml(c)}</td>`).join('')}
+              ${r.cells.map((c, i) => `<td>${buildCellHtml(c, i, result.headers[i], r.links)}</td>`).join('')}
             </tr>`).join('')}
         </tbody>
       </table>
