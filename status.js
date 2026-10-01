@@ -261,13 +261,13 @@ function renderGroup(result, expectedCount) {
     <div class="status-group__table-wrap">
       <table class="status-group__table">
         <thead>
-          <tr><th>แถวที่</th>${result.headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
+          <tr><th>แถวที่</th>${result.headers.map(h => `<th${isTicketColumn(h) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(h)}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${result.rows.map(r => `
             <tr>
               <td class="status-group__rownum">${r.row}</td>
-              ${r.cells.map((c, i) => `<td>${buildCellHtml(c, i, result.headers[i], r.links)}</td>`).join('')}
+              ${r.cells.map((c, i) => `<td${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${buildCellHtml(c, i, result.headers[i], r.links)}</td>`).join('')}
             </tr>`).join('')}
         </tbody>
       </table>

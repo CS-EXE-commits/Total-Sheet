@@ -1719,6 +1719,26 @@ th.data-table__ticket-col {
   font-variant-numeric: tabular-nums;
 }
 
+/* ตรึงคอลัมน์ Ticket ไว้ชิดขวาเสมอ เลื่อนตารางซ้าย-ขวาแล้วยังกดลิงก์ได้ทันที
+   (ตารางหน้านี้ไม่มีคอลัมน์ปุ่มต่อท้ายเหมือนหน้าหลัก คอลัมน์นี้จึงอยู่ขวาสุดได้เลย right: 0) */
+.status-group__ticket-col {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--color-surface);
+  border-left: 2px solid var(--color-accent);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.14);
+}
+.status-group__table tbody tr:hover .status-group__ticket-col {
+  background: var(--color-row-hover-bg, var(--color-accent-bg));
+}
+/* หัวตารางของคอลัมน์นี้ต้องตรึงทั้งบนและขวาพร้อมกัน จึงต้องอยู่ชั้นบนสุด */
+.status-group__table thead th.status-group__ticket-col {
+  top: 0;
+  z-index: 4;
+  box-shadow: inset 0 -1px 0 var(--color-border), -4px 0 8px rgba(0, 0, 0, 0.14);
+}
+
 /* แถวสถานะใน Dashboard ที่คลิกเปิดหน้ารายละเอียดได้ */
 .sidebar-dashboard__row--clickable { cursor: pointer; }
 .sidebar-dashboard__row--clickable:hover .sidebar-dashboard__row-name {
