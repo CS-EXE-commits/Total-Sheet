@@ -7,6 +7,9 @@
  */
 
 const JSONP_TIMEOUT_MS = 60000; // สถานะที่มีเป็นพันเคสต้องไล่อ่านหลายแท็บ จึงเผื่อเวลาไว้มากกว่าหน้าหลัก
+// คำสั่งที่ต้องไล่นับทุกไฟล์ทุกแท็บ (globalDashboard / statusSummary) รอบแรกที่แคชฝั่งเซิร์ฟเวอร์
+// ยังว่างอาจใช้เวลานานเป็นนาที จึงต้องเผื่อเวลาให้มากกว่าคำสั่งทั่วไป
+const SLOW_SCAN_TIMEOUT_MS = 150000;
 let jsonpCounter = 0;
 
 const statusNameEl = document.getElementById('statusName');
@@ -28,7 +31,7 @@ let loadSeq = 0;
 
 /* ===== เครื่องมือกลาง (สำเนาแบบย่อจาก script.js ให้หน้านี้ทำงานได้ด้วยตัวเอง) ===== */
 
-function jsonpRequest(url) {
+function jsonpRequest(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const callbackName = `statusCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
@@ -43,7 +46,7 @@ function jsonpRequest(url) {
     timer = setTimeout(() => {
       cleanup();
       reject(new Error('เซิร์ฟเวอร์ไม่ตอบกลับภายในเวลาที่กำหนด กรุณาลองใหม่อีกครั้ง'));
-    }, JSONP_TIMEOUT_MS);
+    }, timeoutMs || JSONP_TIMEOUT_MS);
     script.src = `${url}&callback=${callbackName}`;
     document.body.appendChild(script);
   });
@@ -117,7 +120,7 @@ function setPageStatus(message, type) {
  */
 async function loadStatusSidebar() {
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }));
+    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), SLOW_SCAN_TIMEOUT_MS);
     if (!result.ok) throw new Error(result.error || 'โหลดรายการสถานะไม่สำเร็จ');
     renderStatusSidebar(result.statusBreakdown || []);
   } catch (err) {
@@ -188,7 +191,7 @@ async function loadStatus(status, pushUrl) {
 
   try {
     setPageStatus('กำลังค้นหาว่าสถานะนี้อยู่ที่ไฟล์ไหนบ้าง...', null);
-    const summary = await jsonpRequest(apiUrl({ action: 'statusSummary', status }));
+    const summary = await jsonpRequest(apiUrl({ action: 'statusSummary', status }), SLOW_SCAN_TIMEOUT_MS);
     if (requestId !== loadSeq) return; // ผู้ใช้กดสถานะอื่นไปแล้ว ทิ้งผลนี้
     if (!summary.ok) throw new Error(summary.error || 'โหลดสรุปไม่สำเร็จ');
 

@@ -1361,6 +1361,16 @@ th.data-table__ticket-col {
   color: var(--color-text-muted);
   word-break: break-word;
 }
+/* รายการคอลัมน์ที่ถูกแก้ไข แสดงบรรทัดละคอลัมน์ให้อ่านง่าย */
+.case-modal__changes {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+.case-modal__changes li {
+  margin-bottom: 2px;
+  word-break: break-word;
+}
 .case-modal__empty {
   margin: 0;
   font-size: 12.5px;

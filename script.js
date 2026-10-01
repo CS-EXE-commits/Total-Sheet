@@ -610,7 +610,7 @@ const JSONP_TIMEOUT_MS = 30000; // เผื่อคำสั่งที่ใ
  * หรือ deployment หมดอายุ) มันจะไม่เรียก callback และ onerror ก็ไม่ทำงาน (เพราะ HTTP 200)
  * Promise จะค้างตลอดกาล ทำให้ปุ่มขึ้น "กำลังโหลด..." ค้างและกดอะไรไม่ได้อีกเลยจนกว่าจะรีเฟรช
  */
-function jsonpRequest(url) {
+function jsonpRequest(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const callbackName = `jsonpCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
@@ -625,7 +625,7 @@ function jsonpRequest(url) {
     timer = setTimeout(() => {
       cleanup();
       reject(new Error('เซิร์ฟเวอร์ไม่ตอบกลับภายในเวลาที่กำหนด อาจใช้เวลานานเกินไปหรือระบบมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง'));
-    }, JSONP_TIMEOUT_MS);
+    }, timeoutMs || JSONP_TIMEOUT_MS);
     script.src = `${url}&callback=${callbackName}`;
     document.body.appendChild(script);
   });
@@ -1979,6 +1979,15 @@ function setReportStatus(message, type) {
 
 const GLOBAL_DASHBOARD_REFRESH_MS = 90 * 1000; // รีเฟรชทุก 90 วิ ให้พอดีกับ cache ฝั่งเซิร์ฟเวอร์
 let globalDashboardTimer = null;
+let globalDashboardLoading = false; // กันการยิงซ้อนกัน ถ้ารอบก่อนยังไม่เสร็จแล้วตัวตั้งเวลาทำงานอีก
+let globalDashboardLoadedOnce = false;
+
+/**
+ * Dashboard ภาพรวมต้องไล่นับทุกไฟล์ทุกแท็บ รอบแรกของวัน (ตอนแคชฝั่งเซิร์ฟเวอร์ยังว่าง) อาจใช้เวลา
+ * เกิน 30 วินาทีได้ จึงให้เวลามากกว่าคำสั่งอื่น — ส่วนนี้โหลดอยู่เบื้องหลัง ไม่ได้ขัดขวางการใช้งานหน้าเว็บ
+ * รอบต่อๆ ไปจะได้ค่าจากแคชรายแท็บ จึงเร็วมาก
+ */
+const GLOBAL_DASHBOARD_TIMEOUT_MS = 150000;
 
 /** เรียกครั้งเดียวตอนล็อกอินสำเร็จ: โหลดข้อมูลทันที แล้วตั้งเวลารีเฟรชอัตโนมัติต่อเนื่อง */
 function initGlobalDashboard() {
@@ -1988,17 +1997,24 @@ function initGlobalDashboard() {
 }
 
 async function loadGlobalDashboard() {
-  setDashboardStatus('กำลังโหลด...', null);
+  if (globalDashboardLoading) return; // รอบก่อนยังโหลดไม่เสร็จ ข้ามรอบนี้ไป ไม่ยิงซ้อน
+  globalDashboardLoading = true;
+  // รอบแรกบอกว่ากำลังโหลด รอบถัดๆ ไปบอกว่ากำลังอัปเดต เพื่อให้รู้ว่าตัวเลขที่เห็นอยู่คือค่าก่อนหน้า
+  setDashboardStatus(globalDashboardLoadedOnce ? 'กำลังอัปเดต...' : 'กำลังโหลด... (ครั้งแรกอาจใช้เวลาสักครู่)', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }));
+    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), GLOBAL_DASHBOARD_TIMEOUT_MS);
     if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
     dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
     renderDashboardNewCasesList(result);
     renderDashboardStatusList(result);
+    globalDashboardLoadedOnce = true;
     setDashboardStatus('', null);
   } catch (err) {
-    setDashboardStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    // ตัวเลขรอบก่อนยังคาหน้าจออยู่ ไม่ล้างทิ้ง เพราะดีกว่าเห็นว่างเปล่า
+    setDashboardStatus('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
+  } finally {
+    globalDashboardLoading = false;
   }
 }
 
@@ -2404,6 +2420,7 @@ function renderCaseModal(result) {
 
   // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน)
   const timeline = (result.timeline || []).slice().reverse();
+  // (ฟังก์ชันแยกบรรทัดอยู่ที่ formatEventDetail_ ด้านล่าง)
   if (timeline.length === 0) {
     caseModalTimeline.innerHTML = '<p class="case-modal__empty">ยังไม่มีประวัติของเคสนี้ใน Log (อาจเป็นเคสที่กรอกในชีทโดยตรง ไม่ได้ผ่านหน้าเว็บ)</p>';
   } else {
@@ -2414,7 +2431,7 @@ function renderCaseModal(result) {
           <span class="case-modal__event-time">${escapeHtml(ev.time)}</span>
           <span class="case-modal__event-editor">โดย ${escapeHtml(ev.editor)}</span>
         </div>
-        <div class="case-modal__event-detail">${escapeHtml(ev.detail)}</div>
+        <div class="case-modal__event-detail">${formatEventDetail_(ev.detail)}</div>
       </div>`).join('');
   }
 
@@ -2425,6 +2442,20 @@ function renderCaseModal(result) {
   }
 
   caseModalBody.hidden = false;
+}
+
+/**
+ * จัดรูปแบบข้อความรายละเอียดใน Log ให้อ่านง่าย
+ * ฝั่งเซิร์ฟเวอร์เก็บการเปลี่ยนแปลงแต่ละคอลัมน์คั่นด้วย " | " เพราะในชีทเก็บได้แค่บรรทัดเดียวต่อ 1 เซลล์
+ * พอมาแสดงบนหน้าเว็บจึงแยกกลับเป็นบรรทัดละคอลัมน์ ไม่ต้องอ่านยาวติดกันเป็นพืด
+ */
+function formatEventDetail_(detail) {
+  const text = (detail || '').toString();
+  const parts = text.split(' | ');
+  if (parts.length <= 1) return escapeHtml(text);
+  const head = parts.shift();
+  return `<div>${escapeHtml(head)}</div>`
+    + `<ul class="case-modal__changes">${parts.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`;
 }
 
 function setCaseModalStatus(message, type) {
