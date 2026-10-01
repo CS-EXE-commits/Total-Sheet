@@ -294,7 +294,10 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
   try {
     const data = {};
     data[headerName] = newValue;
-    const result = await jsonpRequest(apiUrl({ action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row, data: JSON.stringify(data) }));
+    const result = await jsonpRequest(apiUrl({
+      action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
+      data: JSON.stringify(data), fp: rowFingerprint_(row.cells)
+    }));
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
 
     if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
@@ -328,7 +331,11 @@ function buildAllRow(row) {
   tr.appendChild(rowTd);
 
   const dataTd = document.createElement('td');
-  dataTd.innerHTML = row.cells.filter(c => c.trim() !== '').map(c => highlightMatch(c, lastKeyword)).join(' &middot; ');
+  dataTd.innerHTML = row.cells
+    .map(c => (c === null || c === undefined) ? '' : c.toString())
+    .filter(c => c.trim() !== '')
+    .map(c => highlightMatch(c, lastKeyword))
+    .join(' &middot; ');
   tr.appendChild(dataTd);
 
   tr.appendChild(buildActionsCell(row, tr));
@@ -518,6 +525,12 @@ logoutButton.addEventListener('click', () => {
   topbarAccount.hidden = true;
   setLoginStatus('', null);
   loginModal.hidden = false;
+  // ต้องหยุดตัวจับเวลารีเฟรช Dashboard ด้วย ไม่งั้นมันจะยิง request ต่อไปเรื่อยๆ ทั้งที่ออกจากระบบแล้ว
+  // และ error ที่เกิดขึ้นจะไปโผล่ซ้อนอยู่หลังหน้าจอเข้าสู่ระบบ
+  if (globalDashboardTimer) {
+    clearInterval(globalDashboardTimer);
+    globalDashboardTimer = null;
+  }
   if (window.google && google.accounts && google.accounts.id) {
     google.accounts.id.disableAutoSelect();
   }
@@ -546,16 +559,48 @@ function setLoginStatus(message, type) {
 
 /* ===== เครื่องมือกลาง ===== */
 
+const JSONP_TIMEOUT_MS = 30000; // เผื่อคำสั่งที่ใช้เวลานาน เช่น Dashboard ที่ต้องไล่อ่านทุกไฟล์
+
+/**
+ * ยิง request ไปหา Apps Script แบบ JSONP (ใช้แทน fetch เพราะติดปัญหา CORS)
+ *
+ * สำคัญ: ต้องมี timeout เสมอ เพราะถ้า Apps Script ตอบกลับมาเป็นหน้า HTML (เช่น โควตาหมด
+ * หรือ deployment หมดอายุ) มันจะไม่เรียก callback และ onerror ก็ไม่ทำงาน (เพราะ HTTP 200)
+ * Promise จะค้างตลอดกาล ทำให้ปุ่มขึ้น "กำลังโหลด..." ค้างและกดอะไรไม่ได้อีกเลยจนกว่าจะรีเฟรช
+ */
 function jsonpRequest(url) {
   return new Promise((resolve, reject) => {
     const callbackName = `jsonpCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
-    const cleanup = () => { delete window[callbackName]; script.remove(); };
+    let timer = null;
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+      delete window[callbackName];
+      script.remove();
+    };
     window[callbackName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error('เชื่อมต่อ API ไม่สำเร็จ')); };
+    script.onerror = () => { cleanup(); reject(new Error('เชื่อมต่อ API ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่')); };
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('เซิร์ฟเวอร์ไม่ตอบกลับภายในเวลาที่กำหนด อาจใช้เวลานานเกินไปหรือระบบมีปัญหาชั่วคราว กรุณาลองใหม่อีกครั้ง'));
+    }, JSONP_TIMEOUT_MS);
     script.src = `${url}&callback=${callbackName}`;
     document.body.appendChild(script);
   });
+}
+
+/**
+ * สร้าง "ลายนิ้วมือ" ของแถวจากค่าในทุกเซลล์ ส่งไปให้ backend ตรวจก่อนลบ/แก้ไข
+ * ว่าแถวนั้นยังเป็นแถวเดียวกับที่เห็นบนหน้าจอจริงไหม (กันกรณีมีคนอื่นลบแถวข้างบนไปแล้วแถวเลื่อน)
+ * ต้องใช้สูตรเดียวกันเป๊ะกับฝั่ง backend (ฟังก์ชัน rowFingerprint_ ใน Code.gs)
+ */
+function rowFingerprint_(cells) {
+  const str = (cells || []).map(c => (c === null || c === undefined) ? '' : c.toString().trim()).join('\u0001');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
 }
 
 function rawApiUrl(params) {
@@ -1077,13 +1122,16 @@ async function deleteRow(row, rowEl, buttonEl) {
 
   buttonEl.disabled = true;
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row }));
+    const result = await jsonpRequest(apiUrl({
+      action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row, fp: rowFingerprint_(row.cells)
+    }));
     if (!result.ok) throw new Error(result.error || 'ลบไม่สำเร็จ');
 
-    const matches = (r) => r.sheet === row.sheet && r.row === row.row;
-    currentRows = currentRows.filter(r => !matches(r));
-    filteredRows = filteredRows.filter(r => !matches(r));
-    renderCurrentPage();
+    // ต้องโหลดข้อมูลใหม่ทั้งหมด ห้ามแค่ลบแถวนั้นออกจากตารางในหน่วยความจำ
+    // เพราะการลบแถวในชีททำให้แถวที่อยู่ข้างล่างเลื่อนขึ้นมาทั้งหมด เลขแถวที่ค้างอยู่บนหน้าจอจะผิดทันที
+    // (ถ้าไม่โหลดใหม่ การกดลบ/แก้ไขครั้งถัดไปจะไปโดนข้อมูลของเคสอื่น)
+    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
+    else await loadAllTabsView(lastKeyword);
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
     buttonEl.disabled = false;
@@ -1214,7 +1262,10 @@ editSubmit.addEventListener('click', async () => {
   editSubmit.disabled = true;
   setEditStatus('กำลังบันทึก...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row, data: JSON.stringify(data) }));
+    const result = await jsonpRequest(apiUrl({
+      action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
+      data: JSON.stringify(data), fp: rowFingerprint_(row.cells)
+    }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
     let statusMessage = 'บันทึกการแก้ไขสำเร็จ';
