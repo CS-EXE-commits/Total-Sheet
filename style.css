@@ -1728,6 +1728,27 @@ th.data-table__ticket-col {
   background: var(--color-surface);
   border-left: 2px solid var(--color-accent);
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.14);
+
+  /* ความกว้างตายตัว เท่ากันทุกตาราง
+     เหตุผล: ตารางเป็น width:100% ถ้าแท็บไหนมีคอลัมน์น้อย พื้นที่ที่เหลือจะถูกยัดให้คอลัมน์สุดท้าย
+     (คือคอลัมน์นี้) จนบานออกกินพื้นที่ว่างทั้งแถบ และถ้าปล่อยให้กว้างตามเนื้อหา แต่ละตาราง
+     ก็จะไม่เท่ากันอีก เพราะข้อความ Ticket ยาวไม่เท่ากัน — จึงล็อกความกว้างไว้ตายตัว */
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+  white-space: nowrap;
+}
+/* ย่อชิปในคอลัมน์นี้ให้กะทัดรัดกว่าปกติ เพื่อให้ "เลขที่ Ticket" แสดงครบในความกว้างที่จำกัด
+   ส่วนที่เกิน (ชื่อโดเมนท้ายข้อความ) จะถูกตัดด้วย … ซึ่งไม่กระทบการใช้งาน
+   เพราะเลขที่อยู่ต้นข้อความ และ URL เต็มดูได้จากการชี้เมาส์ค้าง */
+.status-group__ticket-col .ticket-link {
+  max-width: 100%;
+  padding: 3px 7px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
 }
 .status-group__table tbody tr:hover .status-group__ticket-col {
   background: var(--color-row-hover-bg, var(--color-accent-bg));
