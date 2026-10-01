@@ -1497,3 +1497,155 @@ th.data-table__ticket-col {
 .color-picker__btn--ok:hover { filter: brightness(1.1); }
 .color-picker__btn--cancel { background: #4a4a4e; color: #eee; }
 .color-picker__btn--cancel:hover { background: #58585c; }
+
+/* ===== หน้ารายละเอียดตามสถานะ (status.html) ===== */
+.status-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 18px 48px;
+}
+.status-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+.status-page__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.status-page__badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-weight: 700;
+}
+.status-page__meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.status-page__actions { margin-left: auto; }
+
+.status-page__status {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  min-height: 18px;
+}
+.status-page__status--error { color: var(--color-danger, #d93025); }
+
+.status-page__section { margin-top: 26px; }
+.status-page__section-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.status-page__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.status-summary__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.status-summary__table th,
+.status-summary__table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.status-summary__table thead th {
+  background: var(--color-surface-alt, var(--color-surface));
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.status-summary__table tfoot td {
+  font-weight: 700;
+  background: var(--color-accent-bg);
+  border-bottom: none;
+}
+.status-summary__num { text-align: right; }
+
+.status-group { margin-bottom: 26px; }
+.status-group__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.status-group__count {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.status-group__warn {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.status-group__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  max-height: 460px;
+  overflow-y: auto;
+}
+.status-group__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.status-group__table th,
+.status-group__table td {
+  padding: 7px 11px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.status-group__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+.status-group__rownum {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* แถวสถานะใน Dashboard ที่คลิกเปิดหน้ารายละเอียดได้ */
+.sidebar-dashboard__row--clickable { cursor: pointer; }
+.sidebar-dashboard__row--clickable:hover .sidebar-dashboard__row-name {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+@media (max-width: 860px) {
+  .status-page { padding: 16px 12px 40px; }
+  .status-page__actions { margin-left: 0; }
+}

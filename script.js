@@ -1972,10 +1972,20 @@ function renderDashboardStatusList(result) {
     return;
   }
   dashboardStatusList.innerHTML = result.statusBreakdown.map(s => `
-    <div class="sidebar-dashboard__row">
+    <div class="sidebar-dashboard__row sidebar-dashboard__row--clickable"
+         data-status="${escapeHtml(s.status)}"
+         title="คลิกเพื่อดูว่าสถานะนี้อยู่ไฟล์ไหน แท็บไหนบ้าง (เปิดแท็บใหม่)">
       <span class="sidebar-dashboard__row-name">${escapeHtml(s.status)}</span>
       <span class="sidebar-dashboard__row-count">${s.count}</span>
     </div>`).join('') + `<p class="sidebar-dashboard__total">รวมทั้งหมด ${result.totalRows} เคส (${result.sheetsScanned} แท็บ)</p>`;
+
+  // คลิกสถานะ = เปิดหน้ารายละเอียดในแท็บใหม่ของเบราว์เซอร์
+  // (แท็บใหม่ใช้ตั๋วเข้าใช้งานตัวเดียวกัน เพราะ localStorage ใช้ร่วมกันทุกแท็บของเว็บเดียวกัน)
+  dashboardStatusList.querySelectorAll('.sidebar-dashboard__row--clickable').forEach(el => {
+    el.addEventListener('click', () => {
+      window.open(`status.html?status=${encodeURIComponent(el.dataset.status)}`, '_blank');
+    });
+  });
 }
 
 function setDashboardStatus(message, type) {

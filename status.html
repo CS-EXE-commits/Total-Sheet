@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายละเอียดตามสถานะ · Data Search and Recording System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
+  (function () {
+    try {
+      if (localStorage.getItem('sheetSearchTheme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__logo">🗂️</span>
+      <div class="topbar__brand-text">
+        <h1 class="topbar__title">รายละเอียดตามสถานะ</h1>
+        <span class="topbar__subtitle">Data Search and Recording System</span>
+      </div>
+    </div>
+    <div class="topbar__actions">
+      <a class="toolbar__btn toolbar__btn--muted" href="index.html">← กลับหน้าหลัก</a>
+    </div>
+  </header>
+
+  <main class="status-page">
+    <div class="status-page__head">
+      <h2 class="status-page__title">
+        สถานะ: <span class="status-page__badge" id="statusName">—</span>
+      </h2>
+      <p class="status-page__meta" id="statusMeta">กำลังโหลด...</p>
+      <div class="status-page__actions">
+        <button type="button" class="toolbar__btn toolbar__btn--accent" id="downloadBtn" hidden>⬇️ ดาวน์โหลด Excel</button>
+      </div>
+    </div>
+
+    <p class="status-page__status" id="pageStatus"></p>
+
+    <!-- สรุปว่าอยู่ไฟล์ไหน แท็บไหน กี่เคส -->
+    <section class="status-page__section" id="summarySection" hidden>
+      <h3 class="status-page__section-title">สรุปตามไฟล์และแท็บ</h3>
+      <div class="status-summary" id="summaryTable"></div>
+    </section>
+
+    <!-- รายการเคสจริง แยกตามแท็บ -->
+    <section class="status-page__section" id="detailSection" hidden>
+      <h3 class="status-page__section-title">รายการเคสทั้งหมด</h3>
+      <div id="detailGroups"></div>
+    </section>
+  </main>
+
+  <!-- ใช้สร้างไฟล์ Excel (.xlsx) ฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <script src="status.js"></script>
+</body>
+</html>
