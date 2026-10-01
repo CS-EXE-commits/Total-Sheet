@@ -64,14 +64,33 @@
       <div class="topmenu">
         <button type="button" class="topbtn" id="addFileToggle">+ เพิ่มไฟล์</button>
         <div class="topmenu__panel" id="addFilePanel" hidden>
+          <!-- เลือกว่าจะเอาไฟล์มาจากไหน: วางลิงก์ Google Sheet ที่มีอยู่แล้ว หรือแนบไฟล์จากเครื่อง -->
+          <div class="seg" role="tablist">
+            <button type="button" class="seg__btn" id="addModeLink" data-active="true">🔗 วางลิงก์ชีท</button>
+            <button type="button" class="seg__btn" id="addModeFile">📎 แนบไฟล์จากเครื่อง</button>
+          </div>
+
           <div class="add-field">
             <label for="addBookName">ชื่อที่อยากให้แสดง</label>
             <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
           </div>
-          <div class="add-field">
+
+          <div class="add-field" id="addBookUrlField">
             <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
             <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
           </div>
+
+          <div class="add-field" id="addBookFileField" hidden>
+            <label for="addBookFile">ไฟล์จากเครื่อง (.xlsx .xls .csv)</label>
+            <input type="file" id="addBookFile" accept=".xlsx,.xls,.csv">
+            <p class="add-field__hint">ระบบจะสร้างไฟล์ Google Sheet ใหม่แล้วคัดลอกข้อมูลเข้าไปให้ (ไฟล์ต้นฉบับในเครื่องไม่ถูกแก้ไข)</p>
+          </div>
+
+          <div class="add-field">
+            <label for="addBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
+            <select id="addBookFolder"></select>
+          </div>
+
           <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
           <p class="sidebar-panel__status" id="addBookStatus"></p>
         </div>
@@ -88,6 +107,10 @@
           <div class="add-field">
             <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
             <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
+          </div>
+          <div class="add-field">
+            <label for="createBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
+            <select id="createBookFolder"></select>
           </div>
           <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
           <p class="sidebar-panel__status" id="createBookStatus"></p>

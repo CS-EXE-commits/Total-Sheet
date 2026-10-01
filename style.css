@@ -1306,25 +1306,43 @@ th.data-table__ticket-col {
 }
 
 .case-modal__fields {
-  display: grid;
-  grid-template-columns: minmax(110px, 1fr) 2fr;
-  gap: 1px;
-  background: var(--color-border);
+  max-height: 340px;
+  overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
-  max-height: 260px;
-  overflow-y: auto;
 }
-.case-modal__field-name,
-.case-modal__field-value {
-  padding: 7px 10px;
+
+/* ตารางข้อมูลเคส 2 คอลัมน์ (ชื่อคอลัมน์ / ค่า)
+   ใช้ <table> จริงเพื่อให้ชื่อกับค่าอยู่แถวเดียวกันเสมอ แม้ค่าจะยาวหลายบรรทัด */
+.case-fields {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 12.5px;
-  background: var(--color-surface);
-  word-break: break-word;
+  table-layout: fixed;
 }
-.case-modal__field-name { color: var(--color-text-muted); font-weight: 600; }
-.case-modal__field-value { color: var(--color-text); }
+.case-fields th,
+.case-fields td {
+  padding: 8px 11px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+  border-bottom: 1px solid var(--color-border);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.case-fields tr:last-child th,
+.case-fields tr:last-child td { border-bottom: none; }
+.case-fields th {
+  width: 38%;
+  max-width: 190px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-table-header-bg);
+  border-right: 1px solid var(--color-border);
+}
+.case-fields td { color: var(--color-text); background: var(--color-surface); }
+.case-fields tbody tr:hover td { background: var(--color-row-hover-bg); }
+.case-fields__empty { opacity: 0.45; font-style: italic; }
 
 .case-modal__timeline {
   display: flex;
@@ -2015,35 +2033,18 @@ th.data-table__ticket-col {
   font-variant-numeric: tabular-nums;
 }
 
-/* ปุ่มดูข้อมูลทั้งแถว (หน้าหลัก) */
-.data-table__view {
-  padding: 4px 8px;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.data-table__view:hover { background: var(--color-btn-hover-bg); }
+/* กดที่แถวไหนก็ได้เพื่อดูข้อมูลทั้งแถว (ใช้แทนปุ่มดูข้อมูลเดิม) */
+.data-table__row--clickable,
+.status-group__row--clickable { cursor: pointer; }
+.data-table__row--clickable:hover > td,
+.status-group__row--clickable:hover > td { background: var(--color-row-hover-bg); }
 
-/* ปุ่มดูข้อมูลทั้งแถว (หน้าติดตามสถานะ) */
-.status-group__view-col { width: 44px; }
-.status-group__view {
-  padding: 3px 7px;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.status-group__view:hover { background: var(--color-btn-hover-bg); }
+/* ช่องที่กดแล้วทำอย่างอื่น (ปุ่มแก้ไข/ลบ, ลิงก์ Ticket) ใช้เคอร์เซอร์ปกติของตัวเอง */
+.data-table__row--clickable .data-table__actions-col { cursor: default; }
+.data-table__row--clickable a,
+.status-group__row--clickable a { cursor: pointer; }
 
 /* ค่าว่างในกล่องรายละเอียด */
-.case-modal__empty-value { color: var(--color-text-muted); font-style: italic; }
 
 /* ===== แถบโฟลเดอร์ด้านบน (จัดกลุ่มไฟล์ชีตตามเกม/ประเภท) ===== */
 
@@ -2226,4 +2227,51 @@ th.data-table__ticket-col {
   .folder-bar { justify-content: flex-start; }
   .topbtn { padding: 5px 9px; font-size: 11.5px; }
   .topmenu__panel { width: calc(100vw - 32px); right: auto; left: 0; }
+}
+
+/* สลับโหมดในฟอร์มเพิ่มไฟล์ (วางลิงก์ / แนบไฟล์จากเครื่อง) */
+.seg {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+.seg__btn {
+  flex: 1 1 0;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-radius: 999px;
+}
+.seg__btn[data-active="true"] {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.seg__btn:hover:not([data-active="true"]) { color: var(--color-text); }
+
+.add-field select,
+.add-field input[type="file"] {
+  width: 100%;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.add-field__hint {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }

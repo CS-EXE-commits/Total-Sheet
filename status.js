@@ -281,13 +281,13 @@ function renderGroup(result, expectedCount) {
     <div class="status-group__table-wrap">
       <table class="status-group__table">
         <thead>
-          <tr><th>แถวที่</th><th class="status-group__view-col"></th>${shown.map(i => `<th${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(result.headers[i])}</th>`).join('')}</tr>
+          <tr><th>แถวที่</th>${shown.map(i => `<th${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(result.headers[i])}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${result.rows.map(r => `
-            <tr>
+            <tr class="status-group__row--clickable" title="คลิกเพื่อดูข้อมูลทั้งหมดของแถวนี้"
+                data-view-book="${escapeHtml(result.book)}" data-view-sheet="${escapeHtml(result.sheet)}" data-view-row="${r.row}">
               <td class="status-group__rownum">${r.row}</td>
-              <td class="status-group__view-col"><button type="button" class="status-group__view" data-view-book="${escapeHtml(result.book)}" data-view-sheet="${escapeHtml(result.sheet)}" data-view-row="${r.row}" title="ดูข้อมูลทั้งหมดของแถวนี้">👁</button></td>
               ${shown.map(i => `<td${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${buildCellHtml(r.cells[i], i, result.headers[i], r.links)}</td>`).join('')}
             </tr>`).join('')}
         </tbody>
@@ -392,11 +392,7 @@ async function openCaseModal(target) {
 
     const fields = result.fields || [];
     caseModalFields.innerHTML = fields.length
-      ? fields.map(f => `
-        <div class="case-modal__field">
-          <span class="case-modal__field-name">${escapeHtml(f.name)}</span>
-          <span class="case-modal__field-value">${buildDetailValueHtml(f.value)}</span>
-        </div>`).join('')
+      ? buildCaseFieldsTable(fields)
       : '<p class="case-modal__empty">ไม่พบข้อมูลของแถวนี้ (อาจถูกลบไปแล้ว)</p>';
 
     const timeline = (result.timeline || []).slice().reverse();
@@ -424,10 +420,21 @@ async function openCaseModal(target) {
   }
 }
 
+/**
+ * สร้างตารางแสดงข้อมูลทุกคอลัมน์ของเคส แบบ 2 คอลัมน์ (ชื่อคอลัมน์ / ค่า)
+ * ใช้ <table> จริง ให้ชื่อคอลัมน์กับค่าอยู่ตรงแถวเดียวกันเสมอ แม้ค่าจะยาวหลายบรรทัด
+ * ต้องให้เหมือนกับ buildCaseFieldsTable_ ใน script.js เพื่อให้ 2 หน้าหน้าตาตรงกัน
+ */
+function buildCaseFieldsTable(fields) {
+  return '<table class="case-fields"><tbody>' + (fields || []).map(f =>
+    `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${buildDetailValueHtml(f.value)}</td></tr>`
+  ).join('') + '</tbody></table>';
+}
+
 /** ค่าที่เป็น URL ให้กดเปิดได้เลย */
 function buildDetailValueHtml(value) {
   const text = (value || '').toString();
-  if (!text) return '<span class="case-modal__empty-value">(ว่าง)</span>';
+  if (!text) return '<span class="case-fields__empty">(ว่าง)</span>';
   if (isLikelyUrl(text)) {
     return `<a class="ticket-link" href="${escapeHtml(text)}" target="_blank" rel="noopener noreferrer">${escapeHtml(shortenTicketLabel(text))}</a>`;
   }
@@ -452,14 +459,17 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !caseModal.hidden) closeCaseModal();
 });
 
-// ปุ่ม 👁 ถูกสร้างใหม่ทุกครั้งที่ render ตาราง จึงดักคลิกที่ตัวครอบแทนการผูกทีละปุ่ม
+// แถวถูกสร้างใหม่ทุกครั้งที่ render ตาราง จึงดักคลิกที่ตัวครอบแทนการผูกทีละแถว
 detailGroups.addEventListener('click', (e) => {
-  const btn = e.target.closest('.status-group__view');
-  if (!btn) return;
+  // กดลิงก์ Ticket = เปิด Ticket ไม่ใช่เปิดกล่องรายละเอียด
+  if (e.target.closest('a')) return;
+
+  const tr = e.target.closest('.status-group__row--clickable');
+  if (!tr) return;
   openCaseModal({
-    book: btn.dataset.viewBook,
-    sheet: btn.dataset.viewSheet,
-    row: parseInt(btn.dataset.viewRow, 10)
+    book: tr.dataset.viewBook,
+    sheet: tr.dataset.viewSheet,
+    row: parseInt(tr.dataset.viewRow, 10)
   });
 });
 

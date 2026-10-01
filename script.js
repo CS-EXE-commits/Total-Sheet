@@ -47,6 +47,13 @@ applyThemeToggleIcon();
 
 const booksHint = document.getElementById('booksHint');
 const addFileToggle = document.getElementById('addFileToggle');
+const addModeLink = document.getElementById('addModeLink');
+const addModeFile = document.getElementById('addModeFile');
+const addBookUrlField = document.getElementById('addBookUrlField');
+const addBookFileField = document.getElementById('addBookFileField');
+const addBookFile = document.getElementById('addBookFile');
+const addBookFolder = document.getElementById('addBookFolder');
+const createBookFolder = document.getElementById('createBookFolder');
 const addFilePanel = document.getElementById('addFilePanel');
 const addBookName = document.getElementById('addBookName');
 const addBookUrl = document.getElementById('addBookUrl');
@@ -283,6 +290,22 @@ function shortenTicketLabel(value) {
   return shortened || text; // กันกรณีตัดแล้วเหลือข้อความว่าง
 }
 
+/**
+ * ทำให้ทั้งแถวกดได้ เพื่อเปิดรายละเอียดข้อมูลทั้งแถว (ใช้แทนปุ่มดูข้อมูลเดิม)
+ *
+ * ช่องที่กดแล้วต้องทำอย่างอื่น (ปุ่มแก้ไข/ลบ, ลิงก์ Ticket, dropdown สถานะ)
+ * หยุดการส่งต่อคลิกไว้เองด้วย stopPropagation จึงยังใช้งานได้ตามปกติ
+ */
+function makeRowClickable_(tr, row) {
+  tr.classList.add('data-table__row--clickable');
+  tr.title = 'คลิกเพื่อดูข้อมูลทั้งหมดของแถวนี้';
+  tr.addEventListener('click', () => openCaseModal({
+    book: row.book || currentBook,
+    sheet: row.sheet || selectedSheet,
+    row: row.row
+  }));
+}
+
 function buildSingleRow(row) {
   const tr = document.createElement('tr');
 
@@ -298,6 +321,7 @@ function buildSingleRow(row) {
     const cellValue = (row.cells[i] || '').toString();
 
     if (i === statusColIndex) {
+      td.addEventListener('click', (e) => e.stopPropagation()); // ช่องนี้มี dropdown ให้แก้สถานะ
       td.appendChild(buildStatusCell(row, cellValue));
     } else if (isTicketColumn(h)) {
       td.className = 'data-table__ticket-col';
@@ -314,6 +338,7 @@ function buildSingleRow(row) {
         const label = cellValue && !isLikelyUrl(cellValue) ? shortenTicketLabel(cellValue) : 'เปิด Ticket ↗';
         link.innerHTML = highlightMatch(label, lastKeyword);
         link.title = linkUrl;
+        link.addEventListener('click', (e) => e.stopPropagation()); // กดลิงก์ = เปิด Ticket ไม่ใช่เปิดกล่องรายละเอียด
         td.appendChild(link);
       } else {
         td.innerHTML = highlightMatch(cellValue, lastKeyword);
@@ -325,6 +350,7 @@ function buildSingleRow(row) {
     tr.appendChild(td);
   });
   tr.appendChild(buildActionsCell(row, tr));
+  makeRowClickable_(tr, row);
   return tr;
 }
 
@@ -480,6 +506,7 @@ function buildAllRow(row) {
   tr.appendChild(dataTd);
 
   tr.appendChild(buildActionsCell(row, tr));
+  makeRowClickable_(tr, row);
   return tr;
 }
 
@@ -487,20 +514,9 @@ function buildAllRow(row) {
 function buildActionsCell(row, tr) {
   const actionsTd = document.createElement('td');
   actionsTd.className = 'data-table__actions-col';
+  actionsTd.addEventListener('click', (e) => e.stopPropagation()); // กดปุ่มแก้ไข/ลบ ไม่ต้องเปิดกล่องรายละเอียด
   const wrap = document.createElement('div');
   wrap.className = 'data-table__actions';
-
-  // ปุ่มดูข้อมูล: ตารางแสดงแค่ไม่กี่คอลัมน์ ปุ่มนี้จึงดึงข้อมูลทั้งแถวมาแสดงให้ครบ
-  const viewBtn = document.createElement('button');
-  viewBtn.type = 'button';
-  viewBtn.className = 'data-table__view';
-  viewBtn.textContent = '👁';
-  viewBtn.title = 'ดูข้อมูลทั้งหมดของแถวนี้';
-  // ใช้กล่อง "รายละเอียดเคส" ตัวเดิม ซึ่งแสดงครบทุกคอลัมน์พร้อมประวัติการแก้ไขของแถวนั้นอยู่แล้ว
-  viewBtn.addEventListener('click', () => openCaseModal({
-    book: row.book || currentBook, sheet: row.sheet || selectedSheet, row: row.row
-  }));
-  wrap.appendChild(viewBtn);
 
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
@@ -860,8 +876,24 @@ async function loadBooks() {
  * การจัดกลุ่มมาจากฝั่งเซิร์ฟเวอร์ (Script Property "BOOK_FOLDERS_JSON")
  * ไฟล์ที่เพิ่มเข้ามาใหม่และยังไม่ได้จัดกลุ่ม จะไปอยู่ในโฟลเดอร์ "อื่นๆ" ให้เอง ไม่หายไปไหน
  */
+let knownFolders = []; // รายชื่อโฟลเดอร์ล่าสุด ใช้เติมกล่องเลือกโฟลเดอร์ในฟอร์มเพิ่ม/สร้างไฟล์
+
+/** เติมตัวเลือกโฟลเดอร์ในฟอร์ม โดยคงค่าที่ผู้ใช้เลือกไว้ถ้ายังมีโฟลเดอร์นั้นอยู่ */
+function fillFolderSelects_() {
+  [addBookFolder, createBookFolder].forEach(select => {
+    if (!select) return;
+    const previous = select.value;
+    const names = knownFolders.map(f => f.name);
+    select.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+      + '<option value="">(ยังไม่จัดโฟลเดอร์)</option>';
+    select.value = names.indexOf(previous) !== -1 ? previous : (names[0] || '');
+  });
+}
+
 function renderFolderBar(folders) {
   if (!folderBar || !folderList) return;
+  knownFolders = folders || [];
+  fillFolderSelects_();
   if (!folders.length) {
     folderBar.hidden = true;
     return;
@@ -1025,29 +1057,209 @@ addFileToggle.addEventListener('click', () => {
   createBookPanel.hidden = true;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   addFileToggle.textContent = isOpen ? '+ เพิ่มไฟล์' : '× ปิดฟอร์ม';
-  if (!isOpen) { addBookName.value = ''; addBookUrl.value = ''; setAddBookStatus('', null); }
+  if (!isOpen) {
+    addBookName.value = ''; addBookUrl.value = '';
+    if (addBookFile) addBookFile.value = '';
+    setAddMode_('link');
+  }
 });
+
+/* ===== เพิ่มไฟล์: เลือกได้ว่าจะวางลิงก์ หรือแนบไฟล์จากเครื่อง ===== */
+
+let addMode = 'link'; // 'link' = วางลิงก์ Google Sheet | 'file' = แนบไฟล์ .xlsx/.xls/.csv จากเครื่อง
+
+function setAddMode_(mode) {
+  addMode = mode;
+  const isFile = mode === 'file';
+  addModeLink.dataset.active = String(!isFile);
+  addModeFile.dataset.active = String(isFile);
+  addBookUrlField.hidden = isFile;
+  addBookFileField.hidden = !isFile;
+  addBookSubmit.textContent = isFile ? 'นำเข้าไฟล์' : 'เพิ่มไฟล์';
+  setAddBookStatus('', null);
+}
+
+addModeLink.addEventListener('click', () => setAddMode_('link'));
+addModeFile.addEventListener('click', () => setAddMode_('file'));
+
+// ชื่อไฟล์ว่างอยู่ ให้เติมชื่อไฟล์ที่แนบมาให้อัตโนมัติ (ตัดนามสกุลออก)
+addBookFile.addEventListener('change', () => {
+  const file = addBookFile.files && addBookFile.files[0];
+  if (file && !addBookName.value.trim()) {
+    addBookName.value = file.name.replace(/\.(xlsx|xls|csv)$/i, '');
+  }
+});
+
+/**
+ * ความยาวสูงสุดของข้อมูลต่อ 1 คำขอตอนนำเข้าไฟล์ นับเป็น "ความยาวหลังเข้ารหัสใส่ URL"
+ *
+ * ระบบนี้คุยกับ Apps Script ด้วย JSONP ซึ่งส่งข้อมูลผ่าน URL จึงส่งไฟล์ทั้งก้อนไม่ได้
+ * หน้าเว็บจึงอ่านไฟล์เองในเบราว์เซอร์ แล้วทยอยส่งข้อมูลเป็นชุดๆ
+ *
+ * สำคัญ: ต้องวัดความยาว "หลัง encodeURIComponent" ไม่ใช่ความยาวข้อความดิบ
+ * เพราะภาษาไทย 1 ตัวอักษรกลายเป็น 9 ตัวอักษรใน URL (เช่น ก → %E0%B8%81)
+ * ถ้าวัดจากข้อความดิบ ข้อมูลภาษาไทย 5,000 ตัวอักษรจะกลายเป็น URL ยาวเกือบ 40,000 ตัวอักษร
+ * ซึ่งเกินเพดานของเซิร์ฟเวอร์ไปมาก และคำขอจะล้มเหลวทั้งชุด
+ */
+const UPLOAD_CHUNK_URL_CHARS = 6000; // เผื่อที่ให้ส่วนอื่นของ URL (token, key, ชื่อไฟล์) อีกราว 2,000
+const UPLOAD_MAX_ROWS_PER_CALL = 200; // ต้องไม่เกินค่าเดียวกันที่ฝั่ง Code.gs กำหนดไว้
+
+/** ความยาวจริงของข้อความนี้เมื่อใส่ลงไปใน URL */
+function urlLength_(text) {
+  return encodeURIComponent(text).length;
+}
+
+/**
+ * แบ่งแถวเป็นชุดๆ ให้แต่ละชุดไม่ยาวเกินขีดจำกัดของ URL และไม่เกินจำนวนแถวต่อครั้ง
+ * ถ้ามีแถวเดียวที่ยาวเกินขีดจำกัด จะ throw ออกไปพร้อมบอกว่าเป็นแถวที่เท่าไหร่
+ * (ส่งต่อไปก็ล้มเหลวอยู่ดี บอกให้ชัดดีกว่าปล่อยให้พังแบบไม่รู้สาเหตุ)
+ */
+function chunkRowsForUpload_(rows) {
+  const chunks = [];
+  let current = [];
+  // เริ่มที่ 6 เพราะวงเล็บก้ามปูเปิด-ปิดของ JSON array กลายเป็น %5B และ %5D อย่างละ 3 ตัวอักษร
+  const BRACKETS = 6;
+  const COMMA = 3; // เครื่องหมายจุลภาคคั่นแถว กลายเป็น %2C
+  let size = BRACKETS;
+
+  for (let i = 0; i < rows.length; i++) {
+    const len = urlLength_(JSON.stringify(rows[i])) + COMMA;
+    if (len + BRACKETS > UPLOAD_CHUNK_URL_CHARS) {
+      throw new Error(`แถวที่ ${i + 1} ของไฟล์มีข้อมูลยาวเกินไป (ส่งผ่านระบบนี้ได้ไม่เกินราว ${UPLOAD_CHUNK_URL_CHARS} ตัวอักษรต่อแถว) กรุณาย่อข้อมูลแถวนั้นก่อน`);
+    }
+    if (current.length > 0 && (size + len > UPLOAD_CHUNK_URL_CHARS || current.length >= UPLOAD_MAX_ROWS_PER_CALL)) {
+      chunks.push(current);
+      current = [];
+      size = BRACKETS;
+    }
+    current.push(rows[i]);
+    size += len;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
+/** อ่านไฟล์ Excel/CSV ในเบราว์เซอร์ แล้วคืนรายการแถวของแท็บแรก */
+function readSpreadsheetFile_(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+    if (typeof XLSX === 'undefined') {
+      // ไลบรารีอ่านไฟล์ Excel โหลดมาจาก CDN ภายนอก ถ้าเน็ตมีปัญหาหรือถูกบล็อกจะไม่มีตัวนี้
+      reject(new Error('ตัวอ่านไฟล์ Excel ยังโหลดไม่เสร็จหรือถูกบล็อก กรุณารีเฟรชหน้าเว็บแล้วลองใหม่ หรือใช้วิธีวางลิงก์ Google Sheet แทน'));
+      return;
+    }
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        if (!firstSheetName) throw new Error('ไฟล์นี้ไม่มีแท็บข้อมูล');
+        // defval: '' เพื่อให้ช่องว่างยังนับเป็นคอลัมน์ ไม่ทำให้คอลัมน์เลื่อน
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header: 1, defval: '', raw: false });
+        const trimmed = rows.filter(r => r.some(c => (c || '').toString().trim() !== ''));
+        if (trimmed.length === 0) throw new Error('ไฟล์นี้ไม่มีข้อมูล');
+        resolve({ sheetName: firstSheetName, rows: trimmed, totalSheets: wb.SheetNames.length });
+      } catch (err) {
+        reject(new Error('อ่านไฟล์ไม่สำเร็จ: ' + err.message));
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 addBookSubmit.addEventListener('click', async () => {
   const name = addBookName.value.trim();
+  const folder = addBookFolder ? addBookFolder.value : '';
+
+  if (!name) { setAddBookStatus('กรุณากรอกชื่อไฟล์', 'error'); return; }
+
+  if (addMode === 'file') {
+    await importBookFromFile_(name, folder);
+    return;
+  }
+
   const sheetUrl = addBookUrl.value.trim();
-  if (!name || !sheetUrl) { setAddBookStatus('กรุณากรอกทั้งชื่อไฟล์และลิงก์', 'error'); return; }
+  if (!sheetUrl) { setAddBookStatus('กรุณาวางลิงก์ Google Sheet', 'error'); return; }
 
   addBookSubmit.disabled = true;
   setAddBookStatus('กำลังตรวจสอบและเพิ่มไฟล์...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'addBook', name, sheetUrl }));
+    const result = await jsonpRequest(apiUrl({ action: 'addBook', name, sheetUrl, folder }));
     if (!result.ok) throw new Error(result.error || 'เพิ่มไฟล์ไม่สำเร็จ');
 
     setAddBookStatus(result.message, 'success');
     addBookName.value = ''; addBookUrl.value = '';
-    await loadBooks(); // ไฟล์ใหม่ต้องไปโผล่ในโฟลเดอร์ด้านบนทันที (ไปอยู่โฟลเดอร์ "อื่นๆ" ถ้ายังไม่ได้จัดกลุ่ม)
+    await loadBooks(); // ไฟล์ใหม่ต้องไปโผล่ในโฟลเดอร์ด้านบนทันที
   } catch (err) {
     setAddBookStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   } finally {
     addBookSubmit.disabled = false;
   }
 });
+
+/**
+ * นำเข้าไฟล์จากเครื่อง: อ่านไฟล์ในเบราว์เซอร์ → สร้างไฟล์ Google Sheet ใหม่ → ทยอยส่งข้อมูลเข้าไป
+ *
+ * ถ้าส่งข้อมูลไม่ครบกลางคัน ไฟล์ที่สร้างไว้จะยังอยู่พร้อมข้อมูลเท่าที่ส่งไปได้
+ * จึงต้องบอกผู้ใช้ให้ชัดว่าเข้าไปได้กี่แถว ไม่ใช่แจ้งแค่ว่าล้มเหลวเฉยๆ
+ */
+async function importBookFromFile_(name, folder) {
+  const file = addBookFile.files && addBookFile.files[0];
+  if (!file) { setAddBookStatus('กรุณาเลือกไฟล์จากเครื่องก่อน', 'error'); return; }
+
+  addBookSubmit.disabled = true;
+  let createdBook = '';
+  let sent = 0;
+  try {
+    setAddBookStatus('กำลังอ่านไฟล์...', null);
+    const parsed = await readSpreadsheetFile_(file);
+    const chunks = chunkRowsForUpload_(parsed.rows);
+
+    // ข้อมูลต้องส่งทีละชุดผ่าน URL ไฟล์ใหญ่จึงใช้เวลานาน บอกให้ผู้ใช้ตัดสินใจก่อน
+    if (chunks.length > 40) {
+      const minutes = Math.ceil(chunks.length * 1.5 / 60);
+      const go = confirm(
+        `ไฟล์นี้มี ${parsed.rows.length.toLocaleString()} แถว ต้องส่งข้อมูล ${chunks.length} รอบ ` +
+        `คาดว่าใช้เวลาประมาณ ${minutes} นาที\n\nระหว่างนี้ห้ามปิดหน้าเว็บ ต้องการทำต่อหรือไม่?`
+      );
+      if (!go) { setAddBookStatus('ยกเลิกการนำเข้าแล้ว', null); addBookSubmit.disabled = false; return; }
+    }
+
+    setAddBookStatus('กำลังสร้างไฟล์ Google Sheet ใหม่...', null);
+    const created = await jsonpRequest(apiUrl({
+      action: 'createBook', name, sheetName: parsed.sheetName, folder
+    }));
+    if (!created.ok) throw new Error(created.error || 'สร้างไฟล์ไม่สำเร็จ');
+    createdBook = created.bookName || name;
+    const targetSheet = created.sheetName || parsed.sheetName;
+
+    for (let i = 0; i < chunks.length; i++) {
+      setAddBookStatus(`กำลังนำเข้าข้อมูล... ${sent.toLocaleString()} / ${parsed.rows.length.toLocaleString()} แถว`, null);
+      const res = await jsonpRequest(apiUrl({
+        action: 'uploadRows', book: createdBook, sheet: targetSheet, rows: JSON.stringify(chunks[i])
+      }));
+      if (!res.ok) throw new Error(res.error || 'นำเข้าข้อมูลไม่สำเร็จ');
+      sent += chunks[i].length;
+    }
+
+    const note = parsed.totalSheets > 1
+      ? ` (ไฟล์ต้นฉบับมี ${parsed.totalSheets} แท็บ ระบบนำเข้าให้เฉพาะแท็บแรก)`
+      : '';
+    setAddBookStatus(`นำเข้าไฟล์ "${createdBook}" สำเร็จ ${sent.toLocaleString()} แถว${note}`, 'success');
+    addBookName.value = '';
+    addBookFile.value = '';
+    await loadBooks();
+  } catch (err) {
+    if (createdBook) {
+      setAddBookStatus(`นำเข้าได้ ${sent.toLocaleString()} แถวแล้วหยุดเพราะ: ${err.message} — ไฟล์ "${createdBook}" ถูกสร้างไว้แล้ว ตรวจสอบแล้วลองนำเข้าส่วนที่เหลือเองได้`, 'error');
+      await loadBooks();
+    } else {
+      setAddBookStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    }
+  } finally {
+    addBookSubmit.disabled = false;
+  }
+}
 
 function setAddBookStatus(message, type) {
   addBookStatus.textContent = message;
@@ -1075,7 +1287,10 @@ createBookSubmit.addEventListener('click', async () => {
   createBookSubmit.disabled = true;
   setCreateBookStatus('กำลังสร้างไฟล์ Google Sheet ใหม่...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'createBook', name, sheetName }));
+    const result = await jsonpRequest(apiUrl({
+      action: 'createBook', name, sheetName,
+      folder: createBookFolder ? createBookFolder.value : ''
+    }));
     if (!result.ok) throw new Error(result.error || 'สร้างไฟล์ไม่สำเร็จ');
 
     createBookStatus.innerHTML = `${escapeHtml(result.message)} — <a href="${result.url}" target="_blank" rel="noopener noreferrer">เปิดไฟล์ใน Google Sheets ↗</a>`;
@@ -2708,6 +2923,25 @@ function bindCaseDetailClicks_(container) {
   });
 }
 
+/**
+ * สร้างตารางแสดงข้อมูลทุกคอลัมน์ของเคส แบบ 2 คอลัมน์ (ชื่อคอลัมน์ / ค่า)
+ *
+ * ต้องเป็น <table> จริง ไม่ใช่ grid เพราะค่าบางช่องยาวมาก (เช่น ข้อหาแบน)
+ * ถ้าใช้ grid แล้วห่อแต่ละคู่ด้วย div ซ้อนอีกชั้น คู่ชื่อ-ค่าจะหลุดออกจากคอลัมน์
+ * กลายเป็นข้อความไหลปนกันจนอ่านไม่ออก (เป็นอาการที่เกิดขึ้นในหน้าติดตามสถานะ)
+ */
+function buildCaseFieldsTable_(fields) {
+  return '<table class="case-fields"><tbody>' + (fields || []).map(f => {
+    const value = (f.value || '').toString().trim();
+    const cell = value
+      ? (/^https?:\/\/\S+$/i.test(value)
+          ? `<a class="ticket-link" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
+          : escapeHtml(value))
+      : '<span class="case-fields__empty">(ว่าง)</span>';
+    return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}</td></tr>`;
+  }).join('') + '</tbody></table>';
+}
+
 async function openCaseModal(target) {
   caseModalTarget = target;
   caseModalMeta.textContent = `${target.book} · ${target.sheet} · แถวที่ ${target.row}`;
@@ -2734,16 +2968,11 @@ async function openCaseModal(target) {
 function renderCaseModal(result) {
   // ข้อมูลปัจจุบันของเคส
   if (!result.rowExists) {
-    caseModalFields.innerHTML = '<div class="case-modal__field-name">—</div>' +
-      '<div class="case-modal__field-value">แถวนี้ไม่มีอยู่ในชีทแล้ว (อาจถูกลบไปแล้ว) แต่ยังดูประวัติย้อนหลังได้ด้านล่าง</div>';
+    caseModalFields.innerHTML = '<p class="case-modal__empty">แถวนี้ไม่มีอยู่ในชีทแล้ว (อาจถูกลบไปแล้ว) แต่ยังดูประวัติย้อนหลังได้ด้านล่าง</p>';
   } else if (result.fields.length === 0) {
-    caseModalFields.innerHTML = '<div class="case-modal__field-name">—</div>' +
-      '<div class="case-modal__field-value">แท็บนี้ไม่มีคอลัมน์ที่ตั้งชื่อไว้</div>';
+    caseModalFields.innerHTML = '<p class="case-modal__empty">แท็บนี้ไม่มีคอลัมน์ที่ตั้งชื่อไว้</p>';
   } else {
-    caseModalFields.innerHTML = result.fields.map(f => `
-      <div class="case-modal__field-name">${escapeHtml(f.name)}</div>
-      <div class="case-modal__field-value">${escapeHtml(f.value) || '<span style="opacity:.5">(ว่าง)</span>'}</div>
-    `).join('');
+    caseModalFields.innerHTML = buildCaseFieldsTable_(result.fields);
   }
 
   // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน)
