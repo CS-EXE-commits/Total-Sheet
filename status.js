@@ -267,6 +267,11 @@ function renderGroup(result, expectedCount) {
     ? `<span class="status-group__warn">แสดง ${result.rows.length.toLocaleString()} จาก ${result.matched.toLocaleString()} เคส</span>`
     : '';
 
+  // แสดงเฉพาะคอลัมน์ที่เซิร์ฟเวอร์เลือกมา (วันที่ / EXE ID / Ticket) ที่เหลือดูได้จากปุ่ม "ดูข้อมูล"
+  const shown = (result.listColumns && result.listColumns.length)
+    ? result.listColumns
+    : result.headers.map((h, i) => i);
+
   wrap.innerHTML = `
     <h4 class="status-group__title">
       ${escapeHtml(result.book)} · ${escapeHtml(result.sheet)}
@@ -276,13 +281,14 @@ function renderGroup(result, expectedCount) {
     <div class="status-group__table-wrap">
       <table class="status-group__table">
         <thead>
-          <tr><th>แถวที่</th>${result.headers.map(h => `<th${isTicketColumn(h) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(h)}</th>`).join('')}</tr>
+          <tr><th>แถวที่</th><th class="status-group__view-col"></th>${shown.map(i => `<th${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(result.headers[i])}</th>`).join('')}</tr>
         </thead>
         <tbody>
           ${result.rows.map(r => `
             <tr>
               <td class="status-group__rownum">${r.row}</td>
-              ${r.cells.map((c, i) => `<td${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${buildCellHtml(c, i, result.headers[i], r.links)}</td>`).join('')}
+              <td class="status-group__view-col"><button type="button" class="status-group__view" data-view-book="${escapeHtml(result.book)}" data-view-sheet="${escapeHtml(result.sheet)}" data-view-row="${r.row}" title="ดูข้อมูลทั้งหมดของแถวนี้">👁</button></td>
+              ${shown.map(i => `<td${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${buildCellHtml(r.cells[i], i, result.headers[i], r.links)}</td>`).join('')}
             </tr>`).join('')}
         </tbody>
       </table>
@@ -357,5 +363,104 @@ function init() {
   }
   loadStatus(status, false);
 }
+
+/* ===== กล่องรายละเอียดทั้งแถว (เปิดจากปุ่ม 👁 ในตาราง) ===== */
+
+const caseModal = document.getElementById('caseModal');
+const caseModalMeta = document.getElementById('caseModalMeta');
+const caseModalStatus = document.getElementById('caseModalStatus');
+const caseModalBody = document.getElementById('caseModalBody');
+const caseModalWarn = document.getElementById('caseModalWarn');
+const caseModalFields = document.getElementById('caseModalFields');
+const caseModalTimeline = document.getElementById('caseModalTimeline');
+const caseModalClose = document.getElementById('caseModalClose');
+
+async function openCaseModal(target) {
+  caseModalMeta.textContent = `${target.book} · ${target.sheet} · แถวที่ ${target.row}`;
+  caseModalBody.hidden = true;
+  caseModalWarn.hidden = true;
+  caseModalFields.innerHTML = '';
+  caseModalTimeline.innerHTML = '';
+  caseModalStatus.textContent = 'กำลังโหลดรายละเอียด...';
+  caseModal.hidden = false;
+
+  try {
+    const result = await jsonpRequest(apiUrl({
+      action: 'caseDetail', book: target.book, sheet: target.sheet, row: target.row
+    }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายละเอียดไม่สำเร็จ');
+
+    const fields = result.fields || [];
+    caseModalFields.innerHTML = fields.length
+      ? fields.map(f => `
+        <div class="case-modal__field">
+          <span class="case-modal__field-name">${escapeHtml(f.name)}</span>
+          <span class="case-modal__field-value">${buildDetailValueHtml(f.value)}</span>
+        </div>`).join('')
+      : '<p class="case-modal__empty">ไม่พบข้อมูลของแถวนี้ (อาจถูกลบไปแล้ว)</p>';
+
+    const timeline = (result.timeline || []).slice().reverse();
+    caseModalTimeline.innerHTML = timeline.length
+      ? timeline.map(ev => `
+        <div class="case-modal__event">
+          <div class="case-modal__event-top">
+            <span class="case-modal__event-action">${escapeHtml(ev.action)}</span>
+            <span class="case-modal__event-time">${escapeHtml(ev.time)}</span>
+            <span class="case-modal__event-editor">โดย ${escapeHtml(ev.editor)}</span>
+          </div>
+          <div class="case-modal__event-detail">${formatEventDetail(ev.detail)}</div>
+        </div>`).join('')
+      : '<p class="case-modal__empty">ยังไม่มีประวัติของเคสนี้ใน Log</p>';
+
+    if (result.hasDeletionInSheet && timeline.length > 0) {
+      caseModalWarn.textContent = 'หมายเหตุ: แท็บนี้เคยมีการลบแถว ซึ่งทำให้เลขแถวเลื่อน ประวัติด้านล่างจับคู่จากเลขแถว จึงอาจมีรายการของเคสอื่นปนมาได้';
+      caseModalWarn.hidden = false;
+    }
+
+    caseModalBody.hidden = false;
+    caseModalStatus.textContent = '';
+  } catch (err) {
+    caseModalStatus.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+  }
+}
+
+/** ค่าที่เป็น URL ให้กดเปิดได้เลย */
+function buildDetailValueHtml(value) {
+  const text = (value || '').toString();
+  if (!text) return '<span class="case-modal__empty-value">(ว่าง)</span>';
+  if (isLikelyUrl(text)) {
+    return `<a class="ticket-link" href="${escapeHtml(text)}" target="_blank" rel="noopener noreferrer">${escapeHtml(shortenTicketLabel(text))}</a>`;
+  }
+  return escapeHtml(text);
+}
+
+/** แยกรายการคอลัมน์ที่ถูกแก้ไขเป็นบรรทัดละคอลัมน์ (เซิร์ฟเวอร์คั่นมาด้วย " | ") */
+function formatEventDetail(detail) {
+  const text = (detail || '').toString();
+  const parts = text.split(' | ');
+  if (parts.length <= 1) return escapeHtml(text);
+  const head = parts.shift();
+  return `<div>${escapeHtml(head)}</div>`
+    + `<ul class="case-modal__changes">${parts.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`;
+}
+
+function closeCaseModal() { caseModal.hidden = true; }
+
+caseModalClose.addEventListener('click', closeCaseModal);
+caseModal.addEventListener('click', (e) => { if (e.target === caseModal) closeCaseModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !caseModal.hidden) closeCaseModal();
+});
+
+// ปุ่ม 👁 ถูกสร้างใหม่ทุกครั้งที่ render ตาราง จึงดักคลิกที่ตัวครอบแทนการผูกทีละปุ่ม
+detailGroups.addEventListener('click', (e) => {
+  const btn = e.target.closest('.status-group__view');
+  if (!btn) return;
+  openCaseModal({
+    book: btn.dataset.viewBook,
+    sheet: btn.dataset.viewSheet,
+    row: parseInt(btn.dataset.viewRow, 10)
+  });
+});
 
 init();

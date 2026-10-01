@@ -128,6 +128,7 @@ const tableToolbar = document.getElementById('tableToolbar');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
 const tabLoadProgress = document.getElementById('tabLoadProgress');
+const folderBar = document.getElementById('folderBar');
 
 let filteredRows = []; // ผลลัพธ์หลังกรองสถานะ (โหมดแท็บเดียว) หรือผลค้นหาทั้งหมด (โหมดทั้งหมด) — ใช้แบ่งหน้า
 
@@ -158,7 +159,7 @@ function renderCurrentPage() {
   const pageRows = filteredRows.slice(start, start + pageSize);
 
   if (displayMode === 'single') {
-    tableHead.innerHTML = '<tr>' + visibleColumnIndices.map(i => {
+    tableHead.innerHTML = '<tr>' + '<th class="data-table__rownum-col">แถวที่</th>' + visibleColumnIndices.map(i => {
       const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
       return `<th${cls}>${escapeHtml(currentTableHeaders[i])}</th>`;
     }).join('') + '<th class="data-table__actions-col"></th></tr>';
@@ -270,6 +271,13 @@ function renderPaginationControls(totalPages) {
 
 function buildSingleRow(row) {
   const tr = document.createElement('tr');
+
+  // ช่องแรกคือเลขแถวจริงในชีต ช่วยให้อ้างอิงกลับไปหาแถวในชีตได้ตรงกัน
+  const rowNumTd = document.createElement('td');
+  rowNumTd.className = 'data-table__rownum-col';
+  rowNumTd.textContent = row.row;
+  tr.appendChild(rowNumTd);
+
   visibleColumnIndices.forEach(i => {
     const h = currentTableHeaders[i];
     const td = document.createElement('td');
@@ -378,12 +386,35 @@ function applyRowEditLocally_(row, data, headerNames) {
   return changed;
 }
 
+/**
+ * ดึงข้อมูล "ทั้งแถว" มาเติมให้ครบก่อนใช้งาน
+ *
+ * จำเป็นเพราะตารางรายการส่งมาแค่ไม่กี่คอลัมน์ (วันที่ / EXE ID / Ticket) เพื่อให้โหลดเร็ว
+ * ช่องที่เหลือจึงเป็นค่าว่าง ถ้าเอาไปคำนวณลายนิ้วมือแถว (rowFingerprint_) จะได้ค่าที่ไม่ตรงกับในชีต
+ * แล้วการแก้ไข/ลบจะถูกปฏิเสธด้วยข้อความ "ข้อมูลแถวนี้เปลี่ยนไปแล้ว" ทั้งที่ไม่มีใครแก้อะไรเลย
+ *
+ * ดึงมาแล้วเก็บไว้กับแถวนั้น (__fullLoaded) ครั้งต่อไปไม่ต้องดึงซ้ำ
+ */
+async function ensureFullRow_(row) {
+  if (row.__fullLoaded) return row;
+  const result = await jsonpRequest(apiUrl({
+    action: 'rowFull', book: currentBook, sheet: row.sheet, row: row.row
+  }));
+  if (!result.ok) throw new Error(result.error || 'โหลดข้อมูลทั้งแถวไม่สำเร็จ');
+  row.cells = result.cells;
+  row.links = result.links || {};
+  row.__fullHeaders = result.headers;
+  row.__fullLoaded = true;
+  return row;
+}
+
 async function updateStatusQuick(row, headerName, newValue, selectEl) {
   const confirmed = confirm(`ยืนยันเปลี่ยนสถานะแถวที่ ${row.row} เป็น "${newValue}" ?`);
   if (!confirmed) { selectEl.value = ''; return; }
 
   selectEl.disabled = true;
   try {
+    await ensureFullRow_(row); // ต้องมีข้อมูลครบทุกคอลัมน์ก่อน ไม่งั้นลายนิ้วมือแถวจะไม่ตรง
     const data = {};
     data[headerName] = newValue;
     const result = await jsonpRequest(apiUrl({
@@ -444,6 +475,18 @@ function buildActionsCell(row, tr) {
   actionsTd.className = 'data-table__actions-col';
   const wrap = document.createElement('div');
   wrap.className = 'data-table__actions';
+
+  // ปุ่มดูข้อมูล: ตารางแสดงแค่ไม่กี่คอลัมน์ ปุ่มนี้จึงดึงข้อมูลทั้งแถวมาแสดงให้ครบ
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'data-table__view';
+  viewBtn.textContent = '👁';
+  viewBtn.title = 'ดูข้อมูลทั้งหมดของแถวนี้';
+  // ใช้กล่อง "รายละเอียดเคส" ตัวเดิม ซึ่งแสดงครบทุกคอลัมน์พร้อมประวัติการแก้ไขของแถวนั้นอยู่แล้ว
+  viewBtn.addEventListener('click', () => openCaseModal({
+    book: row.book || currentBook, sheet: row.sheet || selectedSheet, row: row.row
+  }));
+  wrap.appendChild(viewBtn);
 
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
@@ -632,6 +675,7 @@ logoutButton.addEventListener('click', () => {
   selectedSheet = '';
   appLayout.hidden = true;
   topbarAccount.hidden = true;
+  if (folderBar) { folderBar.hidden = true; folderBar.innerHTML = ''; }
   setAdminLinkVisible(false);
   setLoginStatus('', null);
   loginModal.hidden = false;
@@ -785,12 +829,114 @@ async function loadBooks() {
     if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
     booksHint.textContent = '';
     renderBookList(result.books);
+    renderFolderBar(result.folders || []);
     return result.books;
   } catch (err) {
     booksHint.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
     return [];
   }
 }
+
+
+/* ===== แถบโฟลเดอร์ด้านบน ===== */
+
+/**
+ * แถบโฟลเดอร์จัดกลุ่มไฟล์ชีตตามเกม/ประเภท (เติมเงิน / Zone 4 / TOSM / 9Yin)
+ * กดที่โฟลเดอร์แล้วจะมีรายชื่อไฟล์ในโฟลเดอร์นั้นเลื่อนลงมาให้เลือก
+ *
+ * การจัดกลุ่มมาจากฝั่งเซิร์ฟเวอร์ (Script Property "BOOK_FOLDERS_JSON")
+ * ไฟล์ที่เพิ่มเข้ามาใหม่และยังไม่ได้จัดกลุ่ม จะไปอยู่ในโฟลเดอร์ "อื่นๆ" ให้เอง ไม่หายไปไหน
+ */
+function renderFolderBar(folders) {
+  if (!folderBar) return;
+  if (!folders.length) {
+    folderBar.hidden = true;
+    return;
+  }
+
+  folderBar.innerHTML = '';
+  folders.forEach(folder => {
+    const wrap = document.createElement('div');
+    wrap.className = 'folder';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'folder__btn';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = `<span class="folder__icon">📁</span><span class="folder__name"></span>`
+      + `<span class="folder__count">${folder.books.length}</span><span class="folder__caret">▾</span>`;
+    btn.querySelector('.folder__name').textContent = folder.name;
+    wrap.appendChild(btn);
+
+    const menu = document.createElement('div');
+    menu.className = 'folder__menu';
+    menu.hidden = true;
+
+    if (folder.books.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'folder__empty';
+      empty.textContent = 'ยังไม่มีไฟล์ในโฟลเดอร์นี้';
+      menu.appendChild(empty);
+    } else {
+      folder.books.forEach(book => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'folder__item';
+        item.textContent = book;
+        item.dataset.book = book;
+        item.addEventListener('click', () => {
+          closeAllFolders();
+          openBook(book);
+        });
+        menu.appendChild(item);
+      });
+    }
+
+    wrap.appendChild(menu);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = menu.hidden;
+      closeAllFolders();
+      if (willOpen) {
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        wrap.setAttribute('data-open', 'true');
+      }
+    });
+
+    folderBar.appendChild(wrap);
+  });
+
+  folderBar.hidden = false;
+  markActiveFolderItem();
+}
+
+function closeAllFolders() {
+  if (!folderBar) return;
+  folderBar.querySelectorAll('.folder__menu').forEach(m => { m.hidden = true; });
+  folderBar.querySelectorAll('.folder__btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  folderBar.querySelectorAll('.folder').forEach(f => f.removeAttribute('data-open'));
+}
+
+/** ไฮไลต์ไฟล์ที่กำลังเปิดอยู่ และโฟลเดอร์ที่ไฟล์นั้นอยู่ */
+function markActiveFolderItem() {
+  if (!folderBar) return;
+  folderBar.querySelectorAll('.folder__item').forEach(item => {
+    const isActive = item.dataset.book === currentBook;
+    item.setAttribute('data-active', String(isActive));
+    const folder = item.closest('.folder');
+    if (isActive && folder) folder.setAttribute('data-active', 'true');
+  });
+  folderBar.querySelectorAll('.folder').forEach(folder => {
+    const has = Array.from(folder.querySelectorAll('.folder__item'))
+      .some(i => i.dataset.book === currentBook);
+    if (!has) folder.removeAttribute('data-active');
+  });
+}
+
+// คลิกที่อื่นในหน้าเว็บให้ปิดเมนูโฟลเดอร์ที่เปิดค้างอยู่
+document.addEventListener('click', () => closeAllFolders());
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllFolders(); });
 
 function renderBookList(books) {
   bookList.innerHTML = '';
@@ -1023,6 +1169,7 @@ async function openBook(book, initialSheet) {
     const isThis = item.querySelector('.book-item__main').textContent === book;
     item.setAttribute('data-active', String(isThis));
   });
+  markActiveFolderItem();
 
   resetPanels();
   statusFilter.hidden = true;
@@ -1115,7 +1262,7 @@ async function loadSingleTabView(sheetName, keyword) {
     // เดิมยิง 3 คำขอเรียงต่อกัน ต้องรอทีละอัน ทำให้ช้ากว่านี้ประมาณ 3 เท่า
     const viewResult = await jsonpRequest(apiUrl({
       action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-      offset: 0, limit: TAB_CHUNK_SIZE
+      offset: 0, limit: TAB_CHUNK_SIZE, slim: 1
     }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
@@ -1137,9 +1284,11 @@ async function loadSingleTabView(sheetName, keyword) {
     }
 
     // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
-    visibleColumnIndices = currentTableHeaders
-      .map((h, i) => i)
-      .filter(i => currentTableHeaders[i].trim() !== '');
+    // ตารางรายการแสดงแค่คอลัมน์ที่เซิร์ฟเวอร์ส่งมา (วันที่ / EXE ID / Ticket)
+    // คอลัมน์ที่เหลือดูได้จากปุ่ม "ดูข้อมูล" ของแต่ละแถว
+    visibleColumnIndices = (viewResult.listColumns && viewResult.listColumns.length)
+      ? viewResult.listColumns.filter(i => (currentTableHeaders[i] || '').trim() !== '')
+      : currentTableHeaders.map((h, i) => i).filter(i => currentTableHeaders[i].trim() !== '');
 
     setupStatusFilter();
     currentPage = 1;
@@ -1175,7 +1324,7 @@ async function loadRemainingTabChunks_(sheetName, keyword, requestId, startOffse
 
       const chunk = await jsonpRequest(apiUrl({
         action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-        offset: offset, limit: TAB_CHUNK_SIZE
+        offset: offset, limit: TAB_CHUNK_SIZE, slim: 1
       }), BIG_TAB_TIMEOUT_MS);
 
       if (requestId !== loadRequestSeq) return;
@@ -1340,6 +1489,7 @@ async function deleteRow(row, rowEl, buttonEl) {
 
   buttonEl.disabled = true;
   try {
+    await ensureFullRow_(row); // ต้องมีข้อมูลครบทุกคอลัมน์ก่อน ไม่งั้นลายนิ้วมือแถวจะไม่ตรง
     const result = await jsonpRequest(apiUrl({
       action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row, fp: rowFingerprint_(row.cells)
     }));
@@ -1383,9 +1533,11 @@ async function openEditModal(row) {
   editModal.hidden = false;
 
   try {
+    // ดึงข้อมูลทั้งแถวมาด้วย เพราะตารางรายการมีแค่ไม่กี่คอลัมน์
     const [headersResult, tableHeadersResult] = await Promise.all([
       jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: row.sheet })),
-      jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: row.sheet }))
+      jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: row.sheet })),
+      ensureFullRow_(row)
     ]);
     if (!headersResult.ok) throw new Error(headersResult.error || 'โหลดคอลัมน์ไม่สำเร็จ');
     if (!tableHeadersResult.ok) throw new Error(tableHeadersResult.error || 'โหลดหัวตารางไม่สำเร็จ');

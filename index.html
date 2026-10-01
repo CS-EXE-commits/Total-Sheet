@@ -51,6 +51,9 @@
     </div>
   </header>
 
+  <!-- แถบโฟลเดอร์ด้านบน: จัดกลุ่มไฟล์ชีตตามเกม/ประเภท กดแล้วมีรายชื่อไฟล์ให้เลือก -->
+  <nav class="folder-bar" id="folderBar" hidden></nav>
+
   <div class="layout" id="appLayout" hidden>
 
     <!-- ซ้าย: รายชื่อไฟล์ทั้งหมด -->
@@ -208,6 +211,9 @@
           </div>
           <p class="report-panel__status" id="reportStatus"></p>
         </section>
+
+        <!-- แถบบอกความคืบหน้าตอนแท็บใหญ่กำลังทยอยโหลดข้อมูลส่วนที่เหลือ -->
+        <p class="tab-progress" id="tabLoadProgress" hidden></p>
 
         <div class="table-toolbar" id="tableToolbar" hidden>
           <label for="pageSizeSelect">แสดงหน้าละ</label>

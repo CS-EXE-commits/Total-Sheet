@@ -1990,3 +1990,158 @@ th.data-table__ticket-col {
   .admin-page { padding-left: 12px; padding-right: 12px; }
   .admin-table-wrap { max-width: 100%; }
 }
+
+/* แถบบอกความคืบหน้าตอนแท็บใหญ่ทยอยโหลดข้อมูลส่วนที่เหลือ */
+.tab-progress {
+  margin: 0 0 10px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-radius: var(--radius-sm);
+}
+.tab-progress--error {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* ===== ตารางแบบย่อ: แสดงแค่ แถวที่ / วันที่ / EXE ID / Ticket ===== */
+
+.data-table__rownum-col {
+  width: 70px;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ปุ่มดูข้อมูลทั้งแถว (หน้าหลัก) */
+.data-table__view {
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.data-table__view:hover { background: var(--color-btn-hover-bg); }
+
+/* ปุ่มดูข้อมูลทั้งแถว (หน้าติดตามสถานะ) */
+.status-group__view-col { width: 44px; }
+.status-group__view {
+  padding: 3px 7px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.status-group__view:hover { background: var(--color-btn-hover-bg); }
+
+/* ค่าว่างในกล่องรายละเอียด */
+.case-modal__empty-value { color: var(--color-text-muted); font-style: italic; }
+
+/* ===== แถบโฟลเดอร์ด้านบน (จัดกลุ่มไฟล์ชีตตามเกม/ประเภท) ===== */
+
+.folder-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  /* ไม่ใช้ sticky เพราะแถบหัวเว็บ (.topbar) ตรึงไว้ที่ top:0 อยู่แล้ว
+     ถ้าตรึงซ้อนกันทั้งคู่ แถบโฟลเดอร์จะมุดหายไปใต้แถบหัวเว็บตอนเลื่อนหน้าจอ */
+  position: relative;
+  z-index: 15;
+}
+
+.folder { position: relative; }
+
+.folder__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+.folder__btn:hover { background: var(--color-btn-hover-bg); }
+.folder[data-open] > .folder__btn,
+.folder[data-active] > .folder__btn {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+}
+
+.folder__icon { font-size: 14px; line-height: 1; }
+.folder__count {
+  min-width: 18px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.folder__caret { font-size: 10px; opacity: 0.7; }
+.folder[data-open] .folder__caret { transform: rotate(180deg); }
+
+.folder__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 230px;
+  max-width: 340px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+
+.folder__item {
+  display: block;
+  width: 100%;
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+.folder__item:hover { background: var(--color-btn-hover-bg); }
+.folder__item[data-active="true"] {
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.folder__empty {
+  margin: 0;
+  padding: 10px 11px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .folder-bar { padding: 8px 12px; gap: 6px; }
+  .folder__btn { padding: 6px 10px; font-size: 12.5px; }
+  .folder__menu { min-width: 200px; }
+}
