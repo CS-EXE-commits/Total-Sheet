@@ -91,7 +91,10 @@
             <select id="addBookFolder"></select>
           </div>
 
-          <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
+            <button type="button" class="sidebar-btn" id="addBookCancel">ยกเลิก</button>
+          </div>
           <p class="sidebar-panel__status" id="addBookStatus"></p>
         </div>
       </div>
@@ -112,7 +115,10 @@
             <label for="createBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
             <select id="createBookFolder"></select>
           </div>
-          <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
+            <button type="button" class="sidebar-btn" id="createBookCancel">ยกเลิก</button>
+          </div>
           <p class="sidebar-panel__status" id="createBookStatus"></p>
         </div>
       </div>
@@ -123,6 +129,9 @@
           <p class="sidebar-panel__hint">ไฟล์ที่เอาออกจากระบบล่าสุด</p>
           <div class="trash-list" id="bookTrashList"></div>
           <p class="sidebar-panel__status" id="bookTrashStatus"></p>
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn" id="bookTrashClose">ปิด</button>
+          </div>
         </div>
       </div>
     </div>
@@ -214,6 +223,7 @@
 
           <div class="add-panel__actions">
             <button type="button" class="toolbar__btn toolbar__btn--accent" id="addSubmitButton">บันทึกข้อมูล</button>
+            <button type="button" class="toolbar__btn toolbar__btn--muted" id="addPanelClose">ยกเลิก</button>
             <p class="add-panel__status" id="addStatus"></p>
           </div>
         </section>
@@ -222,12 +232,18 @@
           <p class="manage-panel__label">คอลัมน์ในแท็บนี้ — กด × เพื่อลบทั้งคอลัมน์ออกจากชีตจริง</p>
           <div class="manage-panel__chips" id="manageChips"></div>
           <p class="manage-panel__status" id="manageStatus"></p>
+          <div class="panel-close-row">
+            <button type="button" class="toolbar__btn toolbar__btn--muted" id="managePanelClose">ปิด</button>
+          </div>
         </section>
 
         <section class="trash-panel" id="trashPanel" hidden>
           <p class="trash-panel__label">รายการที่ลบล่าสุดในไฟล์นี้</p>
           <div class="trash-list" id="trashList"></div>
           <p class="trash-panel__status" id="trashStatus"></p>
+          <div class="panel-close-row">
+            <button type="button" class="toolbar__btn toolbar__btn--muted" id="trashPanelClose">ปิด</button>
+          </div>
         </section>
 
         <section class="report-panel" id="reportPanel" hidden>
@@ -244,6 +260,9 @@
             </div>
           </div>
           <p class="report-panel__status" id="reportStatus"></p>
+          <div class="panel-close-row">
+            <button type="button" class="toolbar__btn toolbar__btn--muted" id="reportPanelClose">ปิด</button>
+          </div>
         </section>
 
         <!-- แถบบอกความคืบหน้าตอนแท็บใหญ่กำลังทยอยโหลดข้อมูลส่วนที่เหลือ -->

@@ -53,6 +53,8 @@ const addBookUrlField = document.getElementById('addBookUrlField');
 const addBookFileField = document.getElementById('addBookFileField');
 const addBookFile = document.getElementById('addBookFile');
 const addBookFolder = document.getElementById('addBookFolder');
+const addBookCancel = document.getElementById('addBookCancel');
+const createBookCancel = document.getElementById('createBookCancel');
 const createBookFolder = document.getElementById('createBookFolder');
 const addFilePanel = document.getElementById('addFilePanel');
 const addBookName = document.getElementById('addBookName');
@@ -884,8 +886,7 @@ function fillFolderSelects_() {
     if (!select) return;
     const previous = select.value;
     const names = knownFolders.map(f => f.name);
-    select.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
-      + '<option value="">(ยังไม่จัดโฟลเดอร์)</option>';
+    select.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
     select.value = names.indexOf(previous) !== -1 ? previous : (names[0] || '');
   });
 }
@@ -1050,19 +1051,32 @@ async function removeBook(book, itemEl) {
 
 /* ===== เพิ่มไฟล์ใหม่ ===== */
 
+/** ปิดฟอร์มเพิ่มไฟล์ แล้วล้างค่าที่กรอกไว้ (ใช้ร่วมกันทั้งปุ่มบนแถบด้านบนและปุ่มยกเลิกในฟอร์ม) */
+function closeAddFilePanel_() {
+  addFilePanel.hidden = true;
+  addFileToggle.textContent = '+ เพิ่มไฟล์';
+  addBookName.value = '';
+  addBookUrl.value = '';
+  if (addBookFile) addBookFile.value = '';
+  setAddMode_('link');
+}
+
 addFileToggle.addEventListener('click', () => {
   const isOpen = !addFilePanel.hidden;
-  addFilePanel.hidden = isOpen;
+  if (isOpen) { closeAddFilePanel_(); return; }
+
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
-  addFileToggle.textContent = isOpen ? '+ เพิ่มไฟล์' : '× ปิดฟอร์ม';
-  if (!isOpen) {
-    addBookName.value = ''; addBookUrl.value = '';
-    if (addBookFile) addBookFile.value = '';
-    setAddMode_('link');
-  }
+  addFilePanel.hidden = false;
+  addFileToggle.textContent = '+ เพิ่มไฟล์';
+  addBookName.value = '';
+  addBookUrl.value = '';
+  if (addBookFile) addBookFile.value = '';
+  setAddMode_('link');
 });
+
+if (addBookCancel) addBookCancel.addEventListener('click', closeAddFilePanel_);
 
 /* ===== เพิ่มไฟล์: เลือกได้ว่าจะวางลิงก์ หรือแนบไฟล์จากเครื่อง ===== */
 
@@ -1268,16 +1282,31 @@ function setAddBookStatus(message, type) {
 
 /* ===== สร้างไฟล์ Google Sheet ใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) ===== */
 
+/** ปิดฟอร์มสร้างไฟล์ใหม่ แล้วล้างค่าที่กรอกไว้ */
+function closeCreateBookPanel_() {
+  createBookPanel.hidden = true;
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
+  createBookName.value = '';
+  createBookSheetName.value = '';
+  setCreateBookStatus('', null);
+}
+
 createBookToggle.addEventListener('click', () => {
   const isOpen = !createBookPanel.hidden;
-  createBookPanel.hidden = isOpen;
+  if (isOpen) { closeCreateBookPanel_(); return; }
+
   addFilePanel.hidden = true;
   bookTrashPanel.hidden = true;
   addFileToggle.textContent = '+ เพิ่มไฟล์';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
-  createBookToggle.textContent = isOpen ? '+ สร้างไฟล์ Google Sheet' : '× ปิดฟอร์ม';
-  if (!isOpen) { createBookName.value = ''; createBookSheetName.value = ''; setCreateBookStatus('', null); }
+  createBookPanel.hidden = false;
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
+  createBookName.value = '';
+  createBookSheetName.value = '';
+  setCreateBookStatus('', null);
 });
+
+if (createBookCancel) createBookCancel.addEventListener('click', closeCreateBookPanel_);
 
 createBookSubmit.addEventListener('click', async () => {
   const name = createBookName.value.trim();
@@ -1318,7 +1347,7 @@ bookTrashToggle.addEventListener('click', () => {
   createBookPanel.hidden = true;
   addFileToggle.textContent = '+ เพิ่มไฟล์';
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
-  bookTrashToggle.textContent = isOpen ? '🗑 ถังขยะไฟล์' : '× ปิดถังขยะไฟล์';
+  bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   if (!isOpen) loadBookTrash();
 });
 
@@ -1962,7 +1991,7 @@ addToggle.addEventListener('click', () => {
   reportToggle.setAttribute('aria-pressed', 'false');
   reportToggle.textContent = '📝 ประวัติการแก้ไข';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
-  addToggle.textContent = isOpen ? '+ เพิ่มข้อมูล' : '× ปิดฟอร์ม';
+  addToggle.textContent = '+ เพิ่มข้อมูล'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
   if (!isOpen) loadAddFields();
 });
 
@@ -2353,7 +2382,7 @@ manageToggle.addEventListener('click', () => {
   reportToggle.setAttribute('aria-pressed', 'false');
   reportToggle.textContent = '📝 ประวัติการแก้ไข';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
-  manageToggle.textContent = isOpen ? 'จัดการคอลัมน์' : 'ปิดหน้าจัดการ';
+  manageToggle.textContent = 'จัดการคอลัมน์';
   if (!isOpen) loadManageColumns();
 });
 
@@ -2428,7 +2457,7 @@ trashToggle.addEventListener('click', () => {
   reportToggle.setAttribute('aria-pressed', 'false');
   reportToggle.textContent = '📝 ประวัติการแก้ไข';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
-  trashToggle.textContent = isOpen ? '🗑 ถังขยะ' : '× ปิดถังขยะ';
+  trashToggle.textContent = '🗑 ถังขยะ';
   if (!isOpen) loadTrash();
 });
 
@@ -2448,7 +2477,7 @@ reportToggle.addEventListener('click', () => {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   reportToggle.setAttribute('aria-pressed', String(!isOpen));
-  reportToggle.textContent = isOpen ? '📝 ประวัติการแก้ไข' : '× ปิดประวัติ';
+  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   if (!isOpen) loadDailyReport();
 });
 
@@ -3037,3 +3066,18 @@ document.addEventListener('keydown', (evt) => {
   if (evt.key === 'Escape' && !caseModal.hidden) closeCaseModal();
 });
 
+/* ===== ปุ่มปิดในแต่ละพาเนล =====
+ * ปุ่มบนแถบด้านบนและแถบเครื่องมือจะคงข้อความเดิมเสมอ (ไม่สลับเป็น "× ปิด...")
+ * การปิดทำผ่านปุ่มปิดที่อยู่ในพาเนลนั้นๆ แทน จะได้รู้ทันทีว่าปุ่มไหนทำอะไร
+ */
+[
+  ['addPanelClose', addPanel],
+  ['managePanelClose', managePanel],
+  ['trashPanelClose', trashPanel],
+  ['reportPanelClose', reportPanel],
+  ['bookTrashClose', bookTrashPanel]
+].forEach(([id, panel]) => {
+  const btn = document.getElementById(id);
+  if (!btn || !panel) return;
+  btn.addEventListener('click', () => { panel.hidden = true; });
+});
