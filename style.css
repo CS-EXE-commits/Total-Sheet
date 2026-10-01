@@ -746,7 +746,7 @@ body {
   border-radius: 8px;
 }
 
-.add-panel__actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.add-panel__actions { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
 .add-panel__status, .manage-panel__status, .trash-panel__status {
   font-size: 13px;
   margin: 8px 0 0;
@@ -2276,16 +2276,23 @@ th.data-table__ticket-col {
   color: var(--color-text-muted);
 }
 
-/* แถวปุ่มท้ายฟอร์มในเมนูด้านบน (บันทึก + ยกเลิก) */
+/* แถวปุ่มท้ายฟอร์มในเมนูด้านบน (บันทึก + ยกเลิก) — จัดให้อยู่กึ่งกลาง */
 .panel-actions {
   display: flex;
+  justify-content: center;
   gap: 6px;
+  margin-top: 10px;
 }
-.panel-actions .sidebar-btn { flex: 1 1 0; margin: 0; }
+.panel-actions .sidebar-btn {
+  flex: 1 1 0;
+  margin: 0;
+  /* .sidebar-btn ตั้ง text-align: left ไว้สำหรับปุ่มเมนู ปุ่มในแถวนี้ต้องกลาง */
+  text-align: center;
+}
 
-/* แถวปุ่มปิดท้ายพาเนลในพื้นที่ทำงาน */
+/* แถวปุ่มปิดท้ายพาเนลในพื้นที่ทำงาน — จัดให้อยู่กึ่งกลาง */
 .panel-close-row {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
+  justify-content: center;
+  margin-top: 12px;
 }
