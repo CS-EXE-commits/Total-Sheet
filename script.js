@@ -286,6 +286,33 @@ function buildStatusCell(row, currentValue) {
 }
 
 /** เปลี่ยนแค่ค่าในคอลัมน์สถานะของแถวนี้ แล้วเขียนกลับเข้าชีตจริงทันที */
+/**
+ * อัปเดตค่าของแถวที่เพิ่งแก้ไข "ในหน่วยความจำ" แล้ววาดตารางใหม่ทันที
+ * แทนการโหลดข้อมูลทั้งแท็บใหม่จากเซิร์ฟเวอร์ (ซึ่งกินเวลาหลายวินาที)
+ *
+ * ปลอดภัยเพราะการ "แก้ไข" ไม่ทำให้ลำดับแถวขยับ (ต่างจากการลบที่ทำให้แถวข้างล่างเลื่อนขึ้น
+ * ซึ่งยังต้องโหลดใหม่เสมอ) และ backend ก็ตรวจลายนิ้วมือแถวก่อนเขียนอยู่แล้ว
+ *
+ * @param {Object} row แถวที่แก้ไข (อ้างอิงเดียวกับที่อยู่ใน currentRows)
+ * @param {Object} data ค่าที่เพิ่งบันทึก { ชื่อคอลัมน์: ค่าใหม่ }
+ * @param {Array} headerNames ชื่อคอลัมน์เรียงตามตำแหน่งจริงในชีทของแท็บนั้น
+ */
+function applyRowEditLocally_(row, data, headerNames) {
+  if (!row || !Array.isArray(headerNames)) return false;
+  let changed = false;
+  headerNames.forEach((name, index) => {
+    if (data[name] === undefined) return;
+    while (row.cells.length <= index) row.cells.push('');
+    row.cells[index] = data[name];
+    changed = true;
+  });
+  // วาดเฉพาะหน้าปัจจุบันใหม่ โดยคงโหมดการแสดงผลและหน้าที่ผู้ใช้อยู่ไว้เหมือนเดิม
+  // (ห้ามเรียก applyStatusFilterAndRender เพราะมันบังคับกลับไปโหมดแท็บเดียวและเด้งกลับหน้า 1)
+  // row.cells เป็น object เดียวกับที่อยู่ใน currentRows/filteredRows อยู่แล้ว ค่าใหม่จึงขึ้นทันที
+  if (changed) renderCurrentPage();
+  return changed;
+}
+
 async function updateStatusQuick(row, headerName, newValue, selectEl) {
   const confirmed = confirm(`ยืนยันเปลี่ยนสถานะแถวที่ ${row.row} เป็น "${newValue}" ?`);
   if (!confirmed) { selectEl.value = ''; return; }
@@ -300,8 +327,12 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
     }));
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
 
-    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
-    else await loadAllTabsView(lastKeyword);
+    // อัปเดตเฉพาะแถวนี้ในหน้าจอทันที ไม่ต้องรอโหลดทั้งแท็บใหม่
+    const applied = applyRowEditLocally_(row, data, currentTableHeaders);
+    if (!applied) {
+      if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
+      else await loadAllTabsView(lastKeyword);
+    }
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
     selectEl.disabled = false;
@@ -986,32 +1017,17 @@ async function loadSingleTabView(sheetName, keyword) {
   const requestId = ++loadRequestSeq;
 
   try {
-    const headerResult = await jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: sheetName }));
+    // ขอข้อมูลทั้งหมดที่ต้องใช้ในคำขอเดียว (หัวตาราง + ตัวเลือก dropdown + ผลค้นหา)
+    // เดิมยิง 3 คำขอเรียงต่อกัน ต้องรอทีละอัน ทำให้ช้ากว่านี้ประมาณ 3 เท่า
+    const viewResult = await jsonpRequest(apiUrl({ action: 'tabView', book: currentBook, sheet: sheetName, q: keyword }));
     if (requestId !== loadRequestSeq) return;
-    if (!headerResult.ok) throw new Error(headerResult.error || 'โหลดหัวตารางไม่สำเร็จ');
+    if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
 
-    currentTableHeaders = headerResult.headers;
-    statusColIndex = headerResult.statusIndex;
-
-    if (statusColIndex !== -1) {
-      try {
-        const headersMetaResult = await jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: sheetName }));
-        if (requestId !== loadRequestSeq) return;
-        currentHeadersMeta = headersMetaResult.ok ? headersMetaResult.headers : [];
-      } catch (e) {
-        if (requestId !== loadRequestSeq) return;
-        currentHeadersMeta = [];
-      }
-    } else {
-      currentHeadersMeta = [];
-    }
-
-    const searchResult = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook, sheet: sheetName }));
-    if (requestId !== loadRequestSeq) return;
-    if (!searchResult.ok) throw new Error(searchResult.error || 'ค้นหาไม่สำเร็จ');
-
-    currentRows = searchResult.results;
-    lastTruncated = !!searchResult.truncated;
+    currentTableHeaders = viewResult.headers;
+    statusColIndex = viewResult.statusIndex;
+    currentHeadersMeta = viewResult.headersMeta || [];
+    currentRows = viewResult.results;
+    lastTruncated = !!viewResult.truncated;
 
     // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
     // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
@@ -1176,6 +1192,7 @@ const editSubmit = document.getElementById('editSubmit');
 const editStatus = document.getElementById('editStatus');
 
 let editingRow = null; // แถวที่กำลังแก้ไขอยู่ (เก็บ book/sheet/row ไว้ใช้ตอนบันทึก)
+let editingRowHeaders = []; // ชื่อคอลัมน์ของแท็บนั้น เรียงตามตำแหน่งจริง ใช้อัปเดตแถวในหน้าจอหลังบันทึก
 
 /**
  * เปิดหน้าต่างแก้ไขข้อมูลแถว: โหลดรายชื่อคอลัมน์ + ตัวเลือก dropdown จริงของแท็บนั้น (action=headers)
@@ -1200,6 +1217,7 @@ async function openEditModal(row) {
     if (!tableHeadersResult.ok) throw new Error(tableHeadersResult.error || 'โหลดหัวตารางไม่สำเร็จ');
 
     const fullHeaders = tableHeadersResult.headers;
+    editingRowHeaders = fullHeaders; // เก็บไว้ใช้อัปเดตแถวในหน้าจอทันทีหลังบันทึก
     renderEditFields(headersResult.headers, fullHeaders, row);
     editSubmit.disabled = false;
     setEditStatus('', null);
@@ -1274,6 +1292,7 @@ editCancel.addEventListener('click', () => closeEditModal());
 function closeEditModal() {
   editModal.hidden = true;
   editingRow = null;
+  editingRowHeaders = [];
   editFields.innerHTML = '';
   setEditStatus('', null);
   if (editColorToggle) resetColorPicker_(editColorToggle, editColorPickers, editColorBg, editColorFont);
@@ -1297,15 +1316,22 @@ editSubmit.addEventListener('click', async () => {
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
     let statusMessage = 'บันทึกการแก้ไขสำเร็จ';
+    const colorChanged = !!(editColorToggle && editColorToggle.checked);
     if (editColorToggle && editColorToggle.checked) {
       const colored = await applyRowColor_(row.sheet, row.row, editColorBg.value, editColorFont.value);
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
     }
 
     setEditStatus(statusMessage, 'success');
-    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
-    else await loadAllTabsView(lastKeyword);
+
+    // อัปเดตแถวในหน้าจอทันที ไม่ต้องรอโหลดข้อมูลทั้งแท็บใหม่
+    // (ถ้ามีการเปลี่ยนสีแถวด้วย ต้องโหลดใหม่ เพราะสีมาจากข้อมูลฝั่งชีท)
+    const appliedLocally = !colorChanged && applyRowEditLocally_(row, data, editingRowHeaders);
     closeEditModal();
+    if (!appliedLocally) {
+      if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
+      else await loadAllTabsView(lastKeyword);
+    }
   } catch (err) {
     setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   } finally {
