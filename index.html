@@ -108,18 +108,12 @@
         <!-- รายงานย้อนหลัง: เลือกช่วงวันที่เอง แล้วดาวน์โหลดเป็น Excel ได้ -->
         <div class="report-block">
           <p class="sidebar-dashboard__subhead">📄 รายงานย้อนหลัง</p>
-          <div class="report-block__presets">
-            <button type="button" class="report-block__preset-btn" id="dashReportPresetToday">รายงานวันนี้</button>
-            <button type="button" class="report-block__preset-btn" id="dashReportPresetMonth">รายงานเดือนนี้</button>
-            <button type="button" class="report-block__preset-btn" id="dashReportPresetYear">รายงานปีนี้</button>
-          </div>
-          <div class="report-block__custom">
-            <label class="report-block__date-label">จาก
-              <input type="date" id="dashReportFromDate">
-            </label>
-            <label class="report-block__date-label">ถึง
-              <input type="date" id="dashReportToDate">
-            </label>
+          <div class="report-block__row">
+            <button type="button" class="report-block__preset-btn" id="dashReportPresetToday">วันนี้</button>
+            <button type="button" class="report-block__preset-btn" id="dashReportPresetMonth">เดือนนี้</button>
+            <button type="button" class="report-block__preset-btn" id="dashReportPresetYear">ปีนี้</button>
+            <input type="date" id="dashReportFromDate" class="report-block__date-input" title="จากวันที่">
+            <input type="date" id="dashReportToDate" class="report-block__date-input" title="ถึงวันที่">
             <button type="button" class="report-block__view-btn" id="dashReportViewBtn">ดูข้อมูล</button>
           </div>
           <p class="sidebar-dashboard__status" id="dashReportStatus"></p>
