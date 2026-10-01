@@ -33,31 +33,43 @@
     </div>
   </header>
 
-  <main class="status-page">
-    <div class="status-page__head">
-      <h2 class="status-page__title">
-        สถานะ: <span class="status-page__badge" id="statusName">—</span>
-      </h2>
-      <p class="status-page__meta" id="statusMeta">กำลังโหลด...</p>
-      <div class="status-page__actions">
-        <button type="button" class="toolbar__btn toolbar__btn--accent" id="downloadBtn" hidden>⬇️ ดาวน์โหลด Excel</button>
+  <div class="status-layout">
+
+    <!-- แถบเลือกสถานะด้านซ้าย: กดสลับดูสถานะอื่นได้ทันทีโดยไม่ต้องกลับหน้าหลัก -->
+    <aside class="status-sidebar">
+      <p class="status-sidebar__label">เลือกสถานะ</p>
+      <div class="status-sidebar__list" id="statusSidebarList">
+        <p class="status-sidebar__loading">กำลังโหลดรายการสถานะ...</p>
       </div>
-    </div>
+    </aside>
 
-    <p class="status-page__status" id="pageStatus"></p>
+    <main class="status-page">
+      <div class="status-page__head">
+        <h2 class="status-page__title">
+          สถานะ: <span class="status-page__badge" id="statusName">—</span>
+        </h2>
+        <p class="status-page__meta" id="statusMeta"></p>
+        <div class="status-page__actions">
+          <button type="button" class="toolbar__btn toolbar__btn--accent" id="downloadBtn" hidden>⬇️ ดาวน์โหลด Excel</button>
+        </div>
+      </div>
 
-    <!-- สรุปว่าอยู่ไฟล์ไหน แท็บไหน กี่เคส -->
-    <section class="status-page__section" id="summarySection" hidden>
-      <h3 class="status-page__section-title">สรุปตามไฟล์และแท็บ</h3>
-      <div class="status-summary" id="summaryTable"></div>
-    </section>
+      <p class="status-page__status" id="pageStatus"></p>
 
-    <!-- รายการเคสจริง แยกตามแท็บ -->
-    <section class="status-page__section" id="detailSection" hidden>
-      <h3 class="status-page__section-title">รายการเคสทั้งหมด</h3>
-      <div id="detailGroups"></div>
-    </section>
-  </main>
+      <!-- สรุปว่าอยู่ไฟล์ไหน แท็บไหน กี่เคส -->
+      <section class="status-page__section" id="summarySection" hidden>
+        <h3 class="status-page__section-title">สรุปตามไฟล์และแท็บ</h3>
+        <div class="status-summary" id="summaryTable"></div>
+      </section>
+
+      <!-- รายการเคสจริง แยกตามแท็บ -->
+      <section class="status-page__section" id="detailSection" hidden>
+        <h3 class="status-page__section-title">รายการเคสทั้งหมด</h3>
+        <div id="detailGroups"></div>
+      </section>
+    </main>
+
+  </div>
 
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
