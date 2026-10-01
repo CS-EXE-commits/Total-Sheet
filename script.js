@@ -412,15 +412,20 @@ let loadRequestSeq = 0; // ตัวนับคำขอโหลดข้อ�
 let currentPage = 1;
 let pageSize = 20; // ตัวเลือก: 20 / 50 / 100
 let displayMode = 'single'; // 'single' = ตารางเต็มคอลัมน์, 'all' = ตาราง 3 คอลัมน์รวมทุกแท็บ
-let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้
+let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้ (ใช้แสดงผลเท่านั้น)
+// ตั๋วที่ระบบออกให้หลังยืนยันตัวตนกับ Google สำเร็จ ต้องแนบไปกับทุกคำสั่ง
+// (ของเดิมส่งแค่อีเมลเปล่าๆ ซึ่งใครก็พิมพ์สวมรอยได้)
+let currentSessionToken = '';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const savedEmail = localStorage.getItem('sheetSearchEmail');
-  if (savedEmail) {
+  // ล้างข้อมูลล็อกอินแบบเก่า (เก็บแค่อีเมล) ทิ้ง เพราะใช้ไม่ได้กับระบบตั๋วแล้ว
+  localStorage.removeItem('sheetSearchEmail');
+  const savedToken = localStorage.getItem('sheetSearchToken');
+  if (savedToken) {
     // เคยล็อกอินผ่าน Google จริงมาก่อนในเบราว์เซอร์นี้แล้ว (ตอนกดปุ่ม Sign in with Google ครั้งแรก)
     // ตอนรีเฟรชหน้าเว็บ ไม่ต้องให้กดปุ่ม Google ซ้ำทุกครั้ง แค่เช็คว่าอีเมลนี้ยังอยู่ใน
     // รายชื่อที่อนุญาต (ALLOWED_EMAILS) อยู่ไหมก็พอ (เหมือนตอนก่อนเปลี่ยนมาใช้ Google Sign-In)
-    trySessionRestore(savedEmail);
+    trySessionRestore(savedToken);
   } else {
     loginModal.hidden = false;
   }
@@ -429,12 +434,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /** เช็คอีเมลที่เคยล็อกอินไว้ (จำใน localStorage) กับรายชื่อที่อนุญาตอีกครั้งตอนรีเฟรชหน้าเว็บ โดยไม่ต้องกดปุ่ม Google ซ้ำ */
-async function trySessionRestore(email) {
+async function trySessionRestore(token) {
   setLoginStatus('กำลังเข้าสู่ระบบ...', null);
   try {
-    const result = await jsonpRequest(rawApiUrl({ action: 'login', email }));
+    const result = await jsonpRequest(rawApiUrl({ action: 'session', token }));
     if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
+    currentSessionToken = token;
     currentUserEmail = result.email;
     loginModal.hidden = true;
     topbarAccount.hidden = false;
@@ -446,7 +452,8 @@ async function trySessionRestore(email) {
     initGlobalDashboard();
   } catch (err) {
     // อีเมลนี้อาจถูกถอนสิทธิ์ไปแล้ว หรือ session เก่าใช้ไม่ได้แล้ว ให้กลับไปหน้าล็อกอินด้วย Google ปกติ
-    localStorage.removeItem('sheetSearchEmail');
+    localStorage.removeItem('sheetSearchToken');
+    currentSessionToken = '';
     loginModal.hidden = false;
     setLoginStatus('', null);
   }
@@ -494,8 +501,10 @@ async function tryLoginGoogle(idToken) {
     const result = await jsonpRequest(rawApiUrl({ action: 'loginGoogle', credential: idToken }));
     if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
 
+    if (!result.token) throw new Error('ระบบไม่ได้ออกตั๋วเข้าใช้งานมาให้ กรุณาตรวจสอบว่าได้ Deploy โค้ดฝั่ง Apps Script เวอร์ชันล่าสุดแล้ว');
+    currentSessionToken = result.token;
     currentUserEmail = result.email;
-    localStorage.setItem('sheetSearchEmail', currentUserEmail);
+    localStorage.setItem('sheetSearchToken', currentSessionToken);
     loginModal.hidden = true;
     topbarAccount.hidden = false;
     setTopbarAccountEmail(currentUserEmail);
@@ -504,7 +513,8 @@ async function tryLoginGoogle(idToken) {
     restoreLastView(books);
     initGlobalDashboard();
   } catch (err) {
-    localStorage.removeItem('sheetSearchEmail');
+    localStorage.removeItem('sheetSearchToken');
+    currentSessionToken = '';
     loginModal.hidden = false;
     setLoginStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
     // ถ้าล็อกอินอัตโนมัติ (One Tap) ล้มเหลว (เช่นอีเมลถูกถอนสิทธิ์ไปแล้ว) ให้เลิกจำไว้ จะได้ไม่วนล็อกอินซ้ำเงียบๆ อีก
@@ -515,7 +525,8 @@ async function tryLoginGoogle(idToken) {
 }
 
 logoutButton.addEventListener('click', () => {
-  localStorage.removeItem('sheetSearchEmail');
+  localStorage.removeItem('sheetSearchToken');
+  currentSessionToken = '';
   localStorage.removeItem('sheetSearchLastBook');
   localStorage.removeItem('sheetSearchLastSheet');
   currentUserEmail = '';
@@ -612,7 +623,7 @@ function rawApiUrl(params) {
 }
 
 function apiUrl(params) {
-  return rawApiUrl(Object.assign({ email: currentUserEmail }, params));
+  return rawApiUrl(Object.assign({ token: currentSessionToken }, params));
 }
 
 function escapeHtml(value) {
@@ -627,9 +638,26 @@ function highlightMatch(text, keyword) {
   return safeText.replace(regex, '<mark>$1</mark>');
 }
 
+/**
+ * แปลงวันที่ให้แสดงผลเป็น วัน/เดือน/ปี (dd/MM/yyyy) เสมอทั้งเว็บ
+ * รับได้ทั้งรูปแบบ yyyy-MM-dd ที่ backend ส่งมา และค่าที่ <input type="date"> ให้มา
+ * (เก็บค่าจริงไว้เป็น yyyy-MM-dd เหมือนเดิม เปลี่ยนแค่ตอนแสดงผล)
+ */
+function formatDateDisplay(value) {
+  const str = (value || '').toString().trim();
+  if (!str) return '';
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  return str;
+}
+
+/** แปลงวันที่+เวลา ให้เป็น วัน/เดือน/ปี เวลา (ใช้ปี ค.ศ. ให้ตรงกับที่อื่นทั้งเว็บ) */
 function formatDateTime(isoString) {
   try {
-    return new Date(isoString).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   } catch (e) {
     return isoString;
   }
@@ -1809,7 +1837,7 @@ async function loadDailyReport() {
   try {
     const result = await jsonpRequest(apiUrl({ action: 'dailyReport', book: currentBook, sheet: selectedSheet }));
     if (!result.ok) throw new Error(result.error || 'โหลดรายงานไม่สำเร็จ');
-    reportPanelDate.textContent = result.date;
+    reportPanelDate.textContent = formatDateDisplay(result.date);
     renderReportStats(result);
     renderReportStatusList(result);
     renderReportLogList(result);
@@ -1884,7 +1912,7 @@ async function loadGlobalDashboard() {
   try {
     const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }));
     if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
-    dashboardDate.textContent = result.date;
+    dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
     renderDashboardNewCasesList(result);
     renderDashboardStatusList(result);
@@ -1901,13 +1929,15 @@ function renderDashboardNewCasesList(result) {
     return;
   }
   dashboardNewCasesList.innerHTML = cases.map(c => `
-    <div class="sidebar-dashboard__case">
+    <div class="sidebar-dashboard__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
+         ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
       <div class="sidebar-dashboard__case-top">
         <b>${escapeHtml(c.time)}</b>
         <span class="sidebar-dashboard__case-status">${escapeHtml(c.status)}</span>
       </div>
       <div class="sidebar-dashboard__case-meta">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
     </div>`).join('') + (result.newCasesTruncated ? '<p class="sidebar-dashboard__empty">แสดงล่าสุด 30 รายการ อาจมีมากกว่านี้</p>' : '');
+  bindCaseDetailClicks_(dashboardNewCasesList);
 }
 
 function renderDashboardStatusList(result) {
@@ -2000,7 +2030,7 @@ async function loadDashboardReport(from, to) {
 }
 
 function renderDashboardReport(result) {
-  dashReportSummary.textContent = `ช่วงวันที่ ${result.from} ถึง ${result.to} — พบทั้งหมด ${result.totalCases} เคส` +
+  dashReportSummary.textContent = `ช่วงวันที่ ${formatDateDisplay(result.from)} ถึง ${formatDateDisplay(result.to)} — พบทั้งหมด ${result.totalCases} เคส` +
     (result.truncated ? ' (ข้อมูลเยอะเกินขีดจำกัด แสดงไม่ครบทุกรายการ)' : '');
 
   if (!result.statusBreakdown || result.statusBreakdown.length === 0) {
@@ -2017,13 +2047,15 @@ function renderDashboardReport(result) {
     dashReportCasesList.innerHTML = '';
   } else {
     dashReportCasesList.innerHTML = result.cases.map(c => `
-      <div class="sidebar-dashboard__case">
+      <div class="sidebar-dashboard__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
+           ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
         <div class="sidebar-dashboard__case-top">
           <b>${escapeHtml(c.date)} ${escapeHtml(c.time)}</b>
           <span class="sidebar-dashboard__case-status">${escapeHtml(c.status)}</span>
         </div>
         <div class="sidebar-dashboard__case-meta">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
       </div>`).join('');
+    bindCaseDetailClicks_(dashReportCasesList);
   }
 
   dashReportResult.hidden = false;
@@ -2067,7 +2099,7 @@ function downloadDashboardReportAsExcel_(result) {
   const wsSummary = XLSX.utils.json_to_sheet(summaryRows.length ? summaryRows : [{ 'หมายเหตุ': 'ไม่มีข้อมูล' }]);
   XLSX.utils.book_append_sheet(wb, wsSummary, 'สรุปตามสถานะ');
 
-  const filename = `รายงาน_${result.from}_ถึง_${result.to}.xlsx`;
+  const filename = `รายงาน_${formatDateDisplay(result.from).replace(/\//g, '-')}_ถึง_${formatDateDisplay(result.to).replace(/\//g, '-')}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
 
@@ -2213,3 +2245,124 @@ function setCreateSheetStatus(message, type) {
   createSheetStatus.textContent = message;
   createSheetStatus.className = 'modal-box__status' + (type ? ` modal-box__status--${type}` : '');
 }
+
+/* ===== รายละเอียดเคส (คลิกจาก Dashboard หรือรายงานย้อนหลัง) ===== */
+
+const caseModal = document.getElementById('caseModal');
+const caseModalMeta = document.getElementById('caseModalMeta');
+const caseModalStatus = document.getElementById('caseModalStatus');
+const caseModalBody = document.getElementById('caseModalBody');
+const caseModalWarn = document.getElementById('caseModalWarn');
+const caseModalFields = document.getElementById('caseModalFields');
+const caseModalTimeline = document.getElementById('caseModalTimeline');
+const caseModalClose = document.getElementById('caseModalClose');
+const caseModalGoto = document.getElementById('caseModalGoto');
+
+let caseModalTarget = null; // เคสที่กำลังเปิดดูอยู่ ใช้ตอนกดปุ่ม "เปิดแท็บนี้"
+
+/** ผูกการคลิกให้รายการเคสในกล่องที่ระบุ (เรียกใหม่ทุกครั้งที่ render รายการใหม่) */
+function bindCaseDetailClicks_(container) {
+  if (!container) return;
+  container.querySelectorAll('.sidebar-dashboard__case--clickable').forEach(el => {
+    el.addEventListener('click', () => {
+      openCaseModal({
+        book: el.dataset.caseBook,
+        sheet: el.dataset.caseSheet,
+        row: parseInt(el.dataset.caseRow, 10)
+      });
+    });
+  });
+}
+
+async function openCaseModal(target) {
+  caseModalTarget = target;
+  caseModalMeta.textContent = `${target.book} · ${target.sheet} · แถวที่ ${target.row}`;
+  caseModalBody.hidden = true;
+  caseModalWarn.hidden = true;
+  caseModalFields.innerHTML = '';
+  caseModalTimeline.innerHTML = '';
+  setCaseModalStatus('กำลังโหลดรายละเอียด...', null);
+  caseModal.hidden = false;
+
+  try {
+    const result = await jsonpRequest(apiUrl({
+      action: 'caseDetail', book: target.book, sheet: target.sheet, row: target.row
+    }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายละเอียดไม่สำเร็จ');
+
+    renderCaseModal(result);
+    setCaseModalStatus('', null);
+  } catch (err) {
+    setCaseModalStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+}
+
+function renderCaseModal(result) {
+  // ข้อมูลปัจจุบันของเคส
+  if (!result.rowExists) {
+    caseModalFields.innerHTML = '<div class="case-modal__field-name">—</div>' +
+      '<div class="case-modal__field-value">แถวนี้ไม่มีอยู่ในชีทแล้ว (อาจถูกลบไปแล้ว) แต่ยังดูประวัติย้อนหลังได้ด้านล่าง</div>';
+  } else if (result.fields.length === 0) {
+    caseModalFields.innerHTML = '<div class="case-modal__field-name">—</div>' +
+      '<div class="case-modal__field-value">แท็บนี้ไม่มีคอลัมน์ที่ตั้งชื่อไว้</div>';
+  } else {
+    caseModalFields.innerHTML = result.fields.map(f => `
+      <div class="case-modal__field-name">${escapeHtml(f.name)}</div>
+      <div class="case-modal__field-value">${escapeHtml(f.value) || '<span style="opacity:.5">(ว่าง)</span>'}</div>
+    `).join('');
+  }
+
+  // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน)
+  const timeline = (result.timeline || []).slice().reverse();
+  if (timeline.length === 0) {
+    caseModalTimeline.innerHTML = '<p class="case-modal__empty">ยังไม่มีประวัติของเคสนี้ใน Log (อาจเป็นเคสที่กรอกในชีทโดยตรง ไม่ได้ผ่านหน้าเว็บ)</p>';
+  } else {
+    caseModalTimeline.innerHTML = timeline.map(ev => `
+      <div class="case-modal__event">
+        <div class="case-modal__event-top">
+          <span class="case-modal__event-action">${escapeHtml(ev.action)}</span>
+          <span class="case-modal__event-time">${escapeHtml(ev.time)}</span>
+          <span class="case-modal__event-editor">โดย ${escapeHtml(ev.editor)}</span>
+        </div>
+        <div class="case-modal__event-detail">${escapeHtml(ev.detail)}</div>
+      </div>`).join('');
+  }
+
+  // เตือนตามความเป็นจริง: ถ้าแท็บนี้เคยมีการลบแถว ประวัติที่จับคู่ด้วยเลขแถวอาจคลาดเคลื่อนได้
+  if (result.hasDeletionInSheet && timeline.length > 0) {
+    caseModalWarn.textContent = 'หมายเหตุ: แท็บนี้เคยมีการลบแถว ซึ่งทำให้เลขแถวของเคสที่อยู่ข้างล่างเลื่อนขึ้น ประวัติด้านล่างจับคู่จากเลขแถว จึงอาจมีรายการของเคสอื่นที่เคยอยู่เลขแถวเดียวกันปนมาได้';
+    caseModalWarn.hidden = false;
+  }
+
+  caseModalBody.hidden = false;
+}
+
+function setCaseModalStatus(message, type) {
+  caseModalStatus.textContent = message;
+  caseModalStatus.className = 'case-modal__status' + (type ? ` case-modal__status--${type}` : '');
+}
+
+function closeCaseModal() {
+  caseModal.hidden = true;
+  caseModalTarget = null;
+}
+
+caseModalClose.addEventListener('click', closeCaseModal);
+
+// คลิกพื้นหลังนอกกล่องเพื่อปิด (คลิกในกล่องไม่ปิด)
+caseModal.addEventListener('click', (evt) => {
+  if (evt.target === caseModal) closeCaseModal();
+});
+
+// กด Escape ปิดหน้าต่างรายละเอียดเคส
+document.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Escape' && !caseModal.hidden) closeCaseModal();
+});
+
+// เปิดแท็บที่เคสนี้อยู่ เพื่อไปดู/แก้ไขข้อมูลจริงต่อได้ทันที
+caseModalGoto.addEventListener('click', () => {
+  if (!caseModalTarget) return;
+  const target = caseModalTarget;
+  closeCaseModal();
+  openBook(target.book, target.sheet);
+});

@@ -291,6 +291,30 @@
     </div>
   </div>
 
+  <!-- รายละเอียดเคส: เปิดจากการคลิกเคสใน Dashboard หรือรายงานย้อนหลัง -->
+  <div class="modal-overlay" id="caseModal" hidden>
+    <div class="modal-box modal-box--wide">
+      <h2 class="modal-box__title">รายละเอียดเคส</h2>
+      <p class="add-panel__label" id="caseModalMeta"></p>
+      <p class="case-modal__status" id="caseModalStatus"></p>
+
+      <div id="caseModalBody" hidden>
+        <p class="case-modal__warn" id="caseModalWarn" hidden></p>
+
+        <h3 class="case-modal__heading">ข้อมูลเคส</h3>
+        <div class="case-modal__fields" id="caseModalFields"></div>
+
+        <h3 class="case-modal__heading">ประวัติการทำงาน</h3>
+        <div class="case-modal__timeline" id="caseModalTimeline"></div>
+      </div>
+
+      <div class="modal-box__actions">
+        <button type="button" class="toolbar__btn toolbar__btn--muted" id="caseModalClose">ปิด</button>
+        <button type="button" class="toolbar__btn toolbar__btn--accent" id="caseModalGoto">เปิดแท็บนี้</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ตัวเลือกสีแบบกำหนดเอง (เหมือนใน Excel) ใช้ร่วมกันทุกช่องเลือกสี มีแค่ชุดเดียวในหน้า -->
   <div class="color-picker-popover" id="colorPickerPopover" hidden>
     <div class="color-picker__sv" id="colorPickerSV">

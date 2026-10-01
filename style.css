@@ -1258,6 +1258,105 @@ th.data-table__ticket-col {
 }
 .color-swatch-btn:hover { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 
+/* ===== รายละเอียดเคส (เปิดจาก Dashboard / รายงานย้อนหลัง) ===== */
+.modal-box--wide { max-width: 720px; width: 100%; }
+
+.sidebar-dashboard__case--clickable { cursor: pointer; }
+.sidebar-dashboard__case--clickable:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+.case-modal__status {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+.case-modal__status--error { color: var(--color-danger, #d93025); }
+
+.case-modal__warn {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.case-modal__heading {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.case-modal__fields {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 2fr;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.case-modal__field-name,
+.case-modal__field-value {
+  padding: 7px 10px;
+  font-size: 12.5px;
+  background: var(--color-surface);
+  word-break: break-word;
+}
+.case-modal__field-name { color: var(--color-text-muted); font-weight: 600; }
+.case-modal__field-value { color: var(--color-text); }
+
+.case-modal__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.case-modal__event {
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.case-modal__event-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.case-modal__event-action {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+.case-modal__event-time { color: var(--color-text-muted); }
+.case-modal__event-editor {
+  margin-left: auto;
+  color: var(--color-text);
+  font-weight: 600;
+}
+.case-modal__event-detail {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  word-break: break-word;
+}
+.case-modal__empty {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
 /* ===== ตัวเลือกสีแบบกำหนดเอง (คล้าย Excel/Google ชีท) ===== */
 .color-picker-popover {
   position: fixed;
