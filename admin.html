@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตรวจสอบการใช้งาน · Data Search and Recording System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
+  (function () {
+    try {
+      if (localStorage.getItem('sheetSearchTheme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__logo">🛡️</span>
+      <div class="topbar__brand-text">
+        <h1 class="topbar__title">ตรวจสอบการใช้งาน</h1>
+        <span class="topbar__subtitle">สำหรับผู้ดูแลระบบเท่านั้น</span>
+      </div>
+    </div>
+    <div class="topbar__actions">
+      <span class="admin-who" id="adminWho"></span>
+      <a class="toolbar__btn toolbar__btn--muted" href="index.html">← กลับหน้าหลัก</a>
+    </div>
+  </header>
+
+  <main class="admin-page">
+
+    <!-- ข้อความตอนไม่มีสิทธิ์เข้าหน้านี้ -->
+    <section class="admin-denied" id="deniedBox" hidden>
+      <h2>ไม่มีสิทธิ์เข้าถึง</h2>
+      <p id="deniedText">หน้านี้สำหรับผู้ดูแลระบบเท่านั้น</p>
+      <a class="toolbar__btn toolbar__btn--accent" href="index.html">กลับหน้าหลัก</a>
+    </section>
+
+    <div id="adminContent" hidden>
+
+      <!-- ตัวกรอง -->
+      <section class="admin-filters">
+        <div class="admin-filters__row">
+          <label class="admin-field">
+            <span>ตั้งแต่วันที่</span>
+            <input type="date" id="fromDate">
+          </label>
+          <label class="admin-field">
+            <span>ถึงวันที่</span>
+            <input type="date" id="toDate">
+          </label>
+          <label class="admin-field">
+            <span>อีเมลผู้ทำ</span>
+            <select id="emailFilter"><option value="">ทุกคน</option></select>
+          </label>
+          <label class="admin-field">
+            <span>ประเภทการกระทำ</span>
+            <select id="actionFilter"><option value="">ทุกประเภท</option></select>
+          </label>
+          <label class="admin-field">
+            <span>ไฟล์</span>
+            <select id="bookFilter"><option value="">ทุกไฟล์</option></select>
+          </label>
+          <label class="admin-field admin-field--grow">
+            <span>ค้นหาในรายละเอียด</span>
+            <input type="search" id="keywordFilter" placeholder="เช่น เลข Ticket, UID, ชื่อแท็บ">
+          </label>
+        </div>
+        <div class="admin-filters__row admin-filters__row--buttons">
+          <button type="button" class="toolbar__btn toolbar__btn--accent" id="searchBtn">🔍 ค้นหา</button>
+          <button type="button" class="toolbar__btn" data-preset="today">วันนี้</button>
+          <button type="button" class="toolbar__btn" data-preset="week">7 วันล่าสุด</button>
+          <button type="button" class="toolbar__btn" data-preset="month">เดือนนี้</button>
+          <button type="button" class="toolbar__btn toolbar__btn--muted" id="resetBtn">ล้างตัวกรอง</button>
+          <button type="button" class="toolbar__btn toolbar__btn--accent" id="exportBtn" hidden>⬇️ ดาวน์โหลด Excel</button>
+        </div>
+      </section>
+
+      <p class="status-page__status" id="pageStatus"></p>
+
+      <!-- สรุปว่าใครทำไปกี่ครั้ง -->
+      <section class="status-page__section" id="summarySection" hidden>
+        <h3 class="status-page__section-title">สรุปจำนวนครั้งแยกตามผู้ใช้</h3>
+        <div class="admin-summary" id="summaryList"></div>
+      </section>
+
+      <!-- ตารางประวัติ -->
+      <section class="status-page__section" id="logSection" hidden>
+        <h3 class="status-page__section-title" id="logTitle">ประวัติการใช้งาน</h3>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th class="admin-table__time">วันเวลา</th>
+                <th class="admin-table__who">ผู้ทำ</th>
+                <th class="admin-table__act">การกระทำ</th>
+                <th class="admin-table__where">ไฟล์ / แท็บ</th>
+                <th>รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+        <div class="admin-more">
+          <button type="button" class="toolbar__btn" id="moreBtn" hidden>โหลดเพิ่ม</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ใช้สร้างไฟล์ Excel (.xlsx) ฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

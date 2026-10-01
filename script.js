@@ -13,6 +13,15 @@ function setTopbarAccountEmail(email) {
   topbarAvatar.textContent = (email || '?').trim().charAt(0).toUpperCase();
 }
 const logoutButton = document.getElementById('logoutButton');
+const adminLink = document.getElementById('adminLink');
+
+/**
+ * โชว์/ซ่อนลิงก์หน้าตรวจสอบการใช้งาน ตามว่าบัญชีนี้เป็นผู้ดูแลระบบหรือไม่
+ * การซ่อนลิงก์เป็นแค่ความสะดวก ไม่ใช่ความปลอดภัย — ฝั่งเซิร์ฟเวอร์ปฏิเสธคำสั่งของคนที่ไม่ใช่ผู้ดูแลอยู่แล้ว
+ */
+function setAdminLinkVisible(isAdmin) {
+  if (adminLink) adminLink.hidden = !isAdmin;
+}
 const themeToggle = document.getElementById('themeToggle');
 
 /* ===== สลับธีมสว่าง/มืด (จำไว้ใน localStorage เบราว์เซอร์นี้) ===== */
@@ -476,6 +485,7 @@ async function trySessionRestore(token) {
     loginModal.hidden = true;
     topbarAccount.hidden = false;
     setTopbarAccountEmail(currentUserEmail);
+    setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
     setLoginStatus('', null);
     const books = await loadBooks();
@@ -539,6 +549,7 @@ async function tryLoginGoogle(idToken) {
     loginModal.hidden = true;
     topbarAccount.hidden = false;
     setTopbarAccountEmail(currentUserEmail);
+    setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
     const books = await loadBooks();
     restoreLastView(books);
@@ -565,6 +576,7 @@ logoutButton.addEventListener('click', () => {
   selectedSheet = '';
   appLayout.hidden = true;
   topbarAccount.hidden = true;
+  setAdminLinkVisible(false);
   setLoginStatus('', null);
   loginModal.hidden = false;
   // ต้องหยุดตัวจับเวลารีเฟรช Dashboard ด้วย ไม่งั้นมันจะยิง request ต่อไปเรื่อยๆ ทั้งที่ออกจากระบบแล้ว
