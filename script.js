@@ -127,6 +127,7 @@ const dashReportDownloadBtn = document.getElementById('dashReportDownloadBtn');
 const tableToolbar = document.getElementById('tableToolbar');
 const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
+const tabLoadProgress = document.getElementById('tabLoadProgress');
 
 let filteredRows = []; // ผลลัพธ์หลังกรองสถานะ (โหมดแท็บเดียว) หรือผลค้นหาทั้งหมด (โหมดทั้งหมด) — ใช้แบ่งหน้า
 
@@ -172,6 +173,61 @@ function renderCurrentPage() {
 
   tableWrap.hidden = false;
   renderPaginationControls(totalPages);
+
+  // แท็บใหญ่: เซิร์ฟเวอร์ยังไม่ได้ส่งลิงก์ Ticket มาด้วย (จะช้าเกินไป) ขอเฉพาะแถวที่แสดงอยู่หน้านี้
+  if (linksDeferred) loadLinksForRows_(pageRows);
+}
+
+/* ===== ลิงก์ Ticket แบบขอทีหลัง (เฉพาะแท็บที่มีข้อมูลเยอะ) =====
+ *
+ * แท็บที่มีข้อมูลหลักพันแถว ถ้าให้เซิร์ฟเวอร์อ่านลิงก์ทั้งคอลัมน์มาพร้อมผลค้นหา จะใช้เวลานานจนหมดเวลา
+ * (การอ่านลิงก์เป็นคำสั่งที่ช้าที่สุดในระบบ) จึงเปลี่ยนมาขอเฉพาะแถวที่กำลังแสดงอยู่บนหน้าจอแทน
+ * ซึ่งมีแค่ 20-100 แถวต่อหน้า แล้วเติมลิงก์ลงในตารางที่ render ไปแล้ว
+ */
+let linksDeferred = false;
+const fetchedLinkRows_ = new Set(); // แถวที่ขอลิงก์ไปแล้ว กันขอซ้ำตอนสลับหน้าไปมา
+
+async function loadLinksForRows_(pageRows) {
+  const book = currentBook;
+
+  // ผลลัพธ์อาจมาจากหลายแท็บปนกัน (ตอนค้นหาทั้งไฟล์) จึงต้องจัดกลุ่มตามแท็บก่อน แล้วขอทีละแท็บ
+  const bySheet = {};
+  pageRows.forEach(r => {
+    const sheetName = r.sheet || selectedSheet;
+    if (!r.row || !sheetName) return;
+    if (fetchedLinkRows_.has(`${sheetName}#${r.row}`)) return;
+    if (!bySheet[sheetName]) bySheet[sheetName] = [];
+    bySheet[sheetName].push(r.row);
+  });
+
+  const sheetNames = Object.keys(bySheet);
+  if (!sheetNames.length) return;
+
+  await Promise.all(sheetNames.map(async (sheetName) => {
+    const need = bySheet[sheetName];
+    need.forEach(rowNum => fetchedLinkRows_.add(`${sheetName}#${rowNum}`));
+    try {
+      const result = await jsonpRequest(apiUrl({
+        action: 'rowLinks', book, sheet: sheetName, rows: need.join(',')
+      }));
+      if (!result.ok || !result.links) return;
+      // ถ้าผู้ใช้สลับไฟล์ไปแล้วระหว่างรอ อย่าเขียนทับตารางที่เปลี่ยนไปแล้ว
+      if (book !== currentBook) return;
+
+      let changed = false;
+      Object.keys(result.links).forEach(rowNumStr => {
+        const target = filteredRows.find(r => String(r.row) === rowNumStr && (r.sheet || selectedSheet) === sheetName);
+        if (!target) return;
+        target.links = Object.assign({}, target.links || {}, result.links[rowNumStr]);
+        changed = true;
+      });
+      if (changed) renderCurrentPage();
+    } catch (err) {
+      // ขอลิงก์ไม่สำเร็จ ไม่ใช่เรื่องใหญ่ — ตารางยังใช้งานได้ปกติ แค่ช่อง Ticket เป็นข้อความธรรมดา
+      // ลบออกจากรายการที่ขอแล้ว เผื่อผู้ใช้สลับกลับมาหน้านี้อีกครั้งจะได้ลองใหม่
+      need.forEach(rowNum => fetchedLinkRows_.delete(`${sheetName}#${rowNum}`));
+    }
+  }));
 }
 
 function renderPaginationControls(totalPages) {
@@ -614,6 +670,16 @@ function setLoginStatus(message, type) {
 /* ===== เครื่องมือกลาง ===== */
 
 const JSONP_TIMEOUT_MS = 30000; // เผื่อคำสั่งที่ใช้เวลานาน เช่น Dashboard ที่ต้องไล่อ่านทุกไฟล์
+// แท็บที่มีข้อมูลหลักพันแถว (เช่น "ชีทพิจารณาปลด" ~8,500 แถว) การโหลดครั้งแรกตอนแคชยังว่าง
+// ใช้เวลานานกว่า 30 วินาทีได้ จึงให้เวลามากกว่าคำสั่งทั่วไป ดีกว่าขึ้นข้อความผิดพลาดทั้งที่กำลังโหลดอยู่
+const BIG_TAB_TIMEOUT_MS = 120000;
+
+/**
+ * จำนวนแถวที่ขอจากเซิร์ฟเวอร์ต่อ 1 คำขอ
+ * ตั้งไว้ 2,500 เพราะคำตอบจะมีขนาดราว 1 MB ซึ่งส่งทันสบายๆ
+ * (ถ้าขอทั้งแท็บ 9,000 แถวในคำขอเดียว คำตอบจะราว 4.4 MB ส่งไม่ทันจนหมดเวลา)
+ */
+const TAB_CHUNK_SIZE = 2500;
 
 /**
  * ยิง request ไปหา Apps Script แบบ JSONP (ใช้แทน fetch เพราะติดปัญหา CORS)
@@ -1020,6 +1086,19 @@ async function selectTab(sheetName) {
 
 /* ===== โหมดแท็บเดียว: ตารางเต็มคอลัมน์ + ตัวกรองสถานะ ===== */
 
+/**
+ * เติมชื่อไฟล์และชื่อแท็บกลับเข้าไปในแต่ละแถว
+ * ฝั่งเซิร์ฟเวอร์ตัดออกตอนส่งมาเพื่อลดขนาดข้อมูล (ค่าซ้ำกันทุกแถวอยู่แล้วเพราะดูแท็บเดียว)
+ * แต่โค้ดส่วนแก้ไข/ลบ/แสดงผล ใช้ row.sheet อยู่ จึงต้องเติมกลับให้ครบก่อนนำไปใช้
+ */
+function fillRowSource_(rows, sheetName) {
+  (rows || []).forEach(r => {
+    if (!r.book) r.book = currentBook;
+    if (!r.sheet) r.sheet = sheetName;
+  });
+  return rows || [];
+}
+
 async function loadSingleTabView(sheetName, keyword) {
   lastKeyword = keyword;
   input.value = keyword;
@@ -1034,15 +1113,21 @@ async function loadSingleTabView(sheetName, keyword) {
   try {
     // ขอข้อมูลทั้งหมดที่ต้องใช้ในคำขอเดียว (หัวตาราง + ตัวเลือก dropdown + ผลค้นหา)
     // เดิมยิง 3 คำขอเรียงต่อกัน ต้องรอทีละอัน ทำให้ช้ากว่านี้ประมาณ 3 เท่า
-    const viewResult = await jsonpRequest(apiUrl({ action: 'tabView', book: currentBook, sheet: sheetName, q: keyword }));
+    const viewResult = await jsonpRequest(apiUrl({
+      action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
+      offset: 0, limit: TAB_CHUNK_SIZE
+    }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
 
     currentTableHeaders = viewResult.headers;
     statusColIndex = viewResult.statusIndex;
     currentHeadersMeta = viewResult.headersMeta || [];
-    currentRows = viewResult.results;
+    currentRows = fillRowSource_(viewResult.results, sheetName);
     lastTruncated = !!viewResult.truncated;
+    // แท็บนี้ใหญ่เกินกว่าจะส่งลิงก์ Ticket มาพร้อมกัน จะขอทีหลังเฉพาะแถวที่แสดงอยู่
+    linksDeferred = !!viewResult.linksDeferred;
+    fetchedLinkRows_.clear();
 
     // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
     // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
@@ -1059,12 +1144,76 @@ async function loadSingleTabView(sheetName, keyword) {
     setupStatusFilter();
     currentPage = 1;
     applyStatusFilterAndRender();
+
+    // ช่วงแรกแสดงผลแล้ว ที่เหลือทยอยโหลดต่อท้ายเบื้องหลัง ผู้ใช้ดูข้อมูลไปพลางได้เลย
+    if (viewResult.hasMore) {
+      loadRemainingTabChunks_(sheetName, keyword, requestId, viewResult.offset + viewResult.results.length, viewResult.total);
+    }
   } catch (err) {
     if (requestId !== loadRequestSeq) return;
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
     if (requestId === loadRequestSeq) setLoading(false);
   }
+}
+
+/**
+ * โหลดข้อมูลส่วนที่เหลือของแท็บทีละช่วง แล้วต่อท้ายตารางที่แสดงอยู่
+ *
+ * ทำแบบนี้เพราะแท็บใหญ่ (เช่น "ชีทพิจารณาปลด" ~9,000 แถว) ถ้าขอทั้งแท็บในคำขอเดียว
+ * คำตอบจะใหญ่ราว 4.4 MB ส่งไม่ทัน 30 วินาที แล้วขึ้นว่า "เซิร์ฟเวอร์ไม่ตอบกลับภายในเวลาที่กำหนด"
+ * จนโหลดไม่ได้เลยสักแถว — แบ่งเป็นช่วงละ 2,500 แถว (~1 MB) จึงส่งได้สบายๆ
+ *
+ * ถ้าผู้ใช้สลับแท็บหรือค้นหาใหม่ระหว่างกำลังโหลด จะหยุดทันที (เช็คจาก requestId)
+ */
+async function loadRemainingTabChunks_(sheetName, keyword, requestId, startOffset, total) {
+  let offset = startOffset;
+  try {
+    while (offset < total) {
+      if (requestId !== loadRequestSeq) return; // ผู้ใช้เปลี่ยนไปดูอย่างอื่นแล้ว เลิกโหลดต่อ
+      setTabLoadProgress_(offset, total);
+
+      const chunk = await jsonpRequest(apiUrl({
+        action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
+        offset: offset, limit: TAB_CHUNK_SIZE
+      }), BIG_TAB_TIMEOUT_MS);
+
+      if (requestId !== loadRequestSeq) return;
+      if (!chunk.ok) throw new Error(chunk.error || 'โหลดข้อมูลส่วนที่เหลือไม่สำเร็จ');
+      if (!chunk.results || chunk.results.length === 0) break; // กันวนไม่รู้จบถ้าเซิร์ฟเวอร์ส่งว่างกลับมา
+
+      currentRows = currentRows.concat(fillRowSource_(chunk.results, sheetName));
+      offset += chunk.results.length;
+
+      // อัปเดตตารางทันทีหลังได้แต่ละช่วง ตัวเลขจำนวนรายการและปุ่มแบ่งหน้าจะเพิ่มขึ้นเรื่อยๆ
+      setupStatusFilter();
+      applyStatusFilterAndRender(true); // อยู่หน้าเดิมและคงสถานะที่กรองไว้
+      if (!chunk.hasMore) break;
+    }
+    setTabLoadProgress_(0, 0);
+  } catch (err) {
+    if (requestId !== loadRequestSeq) return;
+    // ข้อมูลช่วงที่โหลดมาได้แล้วยังใช้งานได้ตามปกติ แค่บอกให้รู้ว่ายังไม่ครบ
+    setTabLoadProgress_(offset, total, err.message);
+  }
+}
+
+/** แถบบอกความคืบหน้าตอนกำลังทยอยโหลดแท็บใหญ่ (ส่ง 0, 0 เพื่อซ่อน) */
+function setTabLoadProgress_(loaded, total, errorMessage) {
+  if (!tabLoadProgress) return;
+  if (errorMessage) {
+    tabLoadProgress.textContent = `โหลดได้ ${loaded.toLocaleString()} จาก ${total.toLocaleString()} รายการ แล้วหยุดเพราะ: ${errorMessage}`;
+    tabLoadProgress.className = 'tab-progress tab-progress--error';
+    tabLoadProgress.hidden = false;
+    return;
+  }
+  if (!total) {
+    tabLoadProgress.hidden = true;
+    return;
+  }
+  tabLoadProgress.textContent = `กำลังโหลดข้อมูลส่วนที่เหลือ... ${loaded.toLocaleString()} จาก ${total.toLocaleString()} รายการ`;
+  tabLoadProgress.className = 'tab-progress';
+  tabLoadProgress.hidden = false;
 }
 
 function setupStatusFilter() {
@@ -1100,21 +1249,29 @@ function setupStatusFilter() {
     statusFilter.innerHTML = '';
     return;
   }
+  // จำค่าที่ผู้ใช้เลือกไว้ แล้วใส่กลับหลังสร้างตัวเลือกใหม่
+  // จำเป็นตอนแท็บใหญ่ทยอยโหลดเป็นช่วงๆ — ทุกช่วงที่มาถึงจะเรียกฟังก์ชันนี้ซ้ำ
+  // ถ้าไม่จำไว้ ผู้ใช้ที่เลือกกรองสถานะไว้แล้วจะโดนรีเซ็ตกลับเป็น "ทุกสถานะ" เรื่อยๆ ระหว่างโหลด
+  const previous = statusFilter.value;
   statusFilter.innerHTML = '<option value="">ทุกสถานะ</option>' +
     ordered.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
   statusFilter.hidden = false;
-  statusFilter.value = '';
+  statusFilter.value = ordered.indexOf(previous) !== -1 ? previous : '';
 }
 
 statusFilter.addEventListener('change', () => applyStatusFilterAndRender());
 
-function applyStatusFilterAndRender() {
+/**
+ * @param {boolean} [keepPage] true = อยู่หน้าเดิม (ใช้ตอนแท็บใหญ่ทยอยโหลดข้อมูลมาต่อท้าย
+ *   ถ้าเด้งกลับหน้า 1 ทุกครั้งที่ได้ข้อมูลเพิ่ม ผู้ใช้ที่กำลังดูหน้าอื่นอยู่จะใช้งานไม่ได้เลย)
+ */
+function applyStatusFilterAndRender(keepPage) {
   const chosen = statusFilter.value;
   filteredRows = (!chosen || statusColIndex === -1)
     ? currentRows
     : currentRows.filter(row => (row.cells[statusColIndex] || '').toString().trim() === chosen);
   displayMode = 'single';
-  currentPage = 1;
+  if (!keepPage) currentPage = 1;
   renderCurrentPage();
 }
 
@@ -1132,13 +1289,15 @@ async function loadAllTabsView(keyword) {
   const requestId = ++loadRequestSeq;
 
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook }));
+    const result = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!result.ok) throw new Error(result.error || 'ค้นหาไม่สำเร็จ');
 
     currentTableHeaders = ['แท็บ', 'แถวที่', 'ข้อมูล'];
     currentRows = result.results;
     lastTruncated = !!result.truncated;
+    linksDeferred = !!result.linksDeferred;
+    fetchedLinkRows_.clear();
     filteredRows = currentRows;
     displayMode = 'all';
     currentPage = 1;
