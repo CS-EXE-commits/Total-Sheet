@@ -1187,3 +1187,54 @@ th.data-table__ticket-col {
 @media (max-width: 520px) {
   .topbar__account span:not(.topbar__avatar) { display: none; }
 }
+
+/* ===== เปลี่ยนสีพื้นหลัง/ตัวอักษรรายแถว (ใช้ในแผงเพิ่มข้อมูล + หน้าต่างแก้ไขข้อมูล) ===== */
+.row-color {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.row-color__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.row-color__pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.row-color__swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+.row-color__swatch input[type="color"] {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.row-color__reset-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.row-color__reset-btn:hover { background: var(--color-accent-bg); border-color: var(--color-accent); }

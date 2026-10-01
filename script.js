@@ -1112,6 +1112,7 @@ async function openEditModal(row) {
   editFields.innerHTML = '';
   editSubmit.disabled = true;
   setEditStatus('กำลังโหลดคอลัมน์...', null);
+  if (editColorToggle) resetColorPicker_(editColorToggle, editColorPickers, editColorBg, editColorFont);
   editModal.hidden = false;
 
   try {
@@ -1199,6 +1200,7 @@ function closeEditModal() {
   editingRow = null;
   editFields.innerHTML = '';
   setEditStatus('', null);
+  if (editColorToggle) resetColorPicker_(editColorToggle, editColorPickers, editColorBg, editColorFont);
 }
 
 editSubmit.addEventListener('click', async () => {
@@ -1215,7 +1217,13 @@ editSubmit.addEventListener('click', async () => {
     const result = await jsonpRequest(apiUrl({ action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row, data: JSON.stringify(data) }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
-    setEditStatus('บันทึกการแก้ไขสำเร็จ', 'success');
+    let statusMessage = 'บันทึกการแก้ไขสำเร็จ';
+    if (editColorToggle && editColorToggle.checked) {
+      const colored = await applyRowColor_(row.sheet, row.row, editColorBg.value, editColorFont.value);
+      statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
+    }
+
+    setEditStatus(statusMessage, 'success');
     if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
     else await loadAllTabsView(lastKeyword);
     closeEditModal();
@@ -1324,6 +1332,65 @@ function buildFieldInput(header, idPrefix) {
   return inputEl;
 }
 
+/* ===== เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถว (ใช้ทั้งตอนเพิ่มข้อมูลและแก้ไขข้อมูล) ===== */
+
+const addColorToggle = document.getElementById('addColorToggle');
+const addColorPickers = document.getElementById('addColorPickers');
+const addColorBg = document.getElementById('addColorBg');
+const addColorFont = document.getElementById('addColorFont');
+const addColorReset = document.getElementById('addColorReset');
+
+if (addColorToggle) {
+  addColorToggle.addEventListener('change', () => {
+    addColorPickers.hidden = !addColorToggle.checked;
+  });
+}
+if (addColorReset) {
+  addColorReset.addEventListener('click', () => {
+    addColorBg.value = '#ffffff';
+    addColorFont.value = '#000000';
+    addColorToggle.checked = true;
+    addColorPickers.hidden = false;
+  });
+}
+
+const editColorToggle = document.getElementById('editColorToggle');
+const editColorPickers = document.getElementById('editColorPickers');
+const editColorBg = document.getElementById('editColorBg');
+const editColorFont = document.getElementById('editColorFont');
+const editColorReset = document.getElementById('editColorReset');
+
+if (editColorToggle) {
+  editColorToggle.addEventListener('change', () => {
+    editColorPickers.hidden = !editColorToggle.checked;
+  });
+}
+if (editColorReset) {
+  editColorReset.addEventListener('click', () => {
+    editColorBg.value = '#ffffff';
+    editColorFont.value = '#000000';
+    editColorToggle.checked = true;
+    editColorPickers.hidden = false;
+  });
+}
+
+/** ส่ง request เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวที่ระบุไปยังชีตจริง เป็น best-effort — ถ้าพลาดจะไม่ทำให้การบันทึกข้อมูลหลักถือว่าล้มเหลว */
+async function applyRowColor_(sheetName, rowNum, bg, font) {
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'setRowColor', book: currentBook, sheet: sheetName, row: rowNum, bg: bg || '', font: font || '' }));
+    return !!(result && result.ok);
+  } catch (e) {
+    return false;
+  }
+}
+
+function resetColorPicker_(toggleEl, pickersEl, bgEl, fontEl) {
+  toggleEl.checked = false;
+  pickersEl.hidden = true;
+  bgEl.value = '#ffffff';
+  fontEl.value = '#000000';
+}
+
 addSubmitButton.addEventListener('click', async () => {
   if (!selectedSheet) return;
   const data = {};
@@ -1337,7 +1404,14 @@ addSubmitButton.addEventListener('click', async () => {
     const result = await jsonpRequest(apiUrl({ action: 'add', book: currentBook, sheet: selectedSheet, data: JSON.stringify(data) }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
-    setAddStatus('บันทึกข้อมูลสำเร็จ', 'success');
+    let statusMessage = 'บันทึกข้อมูลสำเร็จ';
+    if (addColorToggle && addColorToggle.checked && result.row) {
+      const colored = await applyRowColor_(selectedSheet, result.row, addColorBg.value, addColorFont.value);
+      statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
+      resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
+    }
+
+    setAddStatus(statusMessage, 'success');
     addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
     await loadSingleTabView(selectedSheet, lastKeyword);
   } catch (err) {

@@ -112,6 +112,8 @@
             <button type="button" class="report-block__preset-btn" id="dashReportPresetToday">วันนี้</button>
             <button type="button" class="report-block__preset-btn" id="dashReportPresetMonth">เดือนนี้</button>
             <button type="button" class="report-block__preset-btn" id="dashReportPresetYear">ปีนี้</button>
+          </div>
+          <div class="report-block__row">
             <input type="date" id="dashReportFromDate" class="report-block__date-input" title="จากวันที่">
             <input type="date" id="dashReportToDate" class="report-block__date-input" title="ถึงวันที่">
             <button type="button" class="report-block__view-btn" id="dashReportViewBtn">ดูข้อมูล</button>
@@ -150,6 +152,19 @@
         <section class="add-panel" id="addPanel" hidden>
           <p class="add-panel__label">กำลังเพิ่มข้อมูลลงแท็บ: <b id="addPanelSheetName"></b></p>
           <div class="add-panel__fields" id="addFields"></div>
+
+          <div class="row-color">
+            <label class="row-color__toggle">
+              <input type="checkbox" id="addColorToggle">
+              🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
+            </label>
+            <div class="row-color__pickers" id="addColorPickers" hidden>
+              <label class="row-color__swatch">สีพื้นหลัง <input type="color" id="addColorBg" value="#ffffff"></label>
+              <label class="row-color__swatch">สีตัวอักษร <input type="color" id="addColorFont" value="#000000"></label>
+              <button type="button" class="row-color__reset-btn" id="addColorReset">ล้างสี</button>
+            </div>
+          </div>
+
           <div class="add-panel__actions">
             <button type="button" class="toolbar__btn toolbar__btn--accent" id="addSubmitButton">บันทึกข้อมูล</button>
             <p class="add-panel__status" id="addStatus"></p>
@@ -239,6 +254,18 @@
       <p class="add-panel__label" id="editModalMeta"></p>
 
       <div class="add-panel__fields" id="editFields"></div>
+
+      <div class="row-color">
+        <label class="row-color__toggle">
+          <input type="checkbox" id="editColorToggle">
+          🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
+        </label>
+        <div class="row-color__pickers" id="editColorPickers" hidden>
+          <label class="row-color__swatch">สีพื้นหลัง <input type="color" id="editColorBg" value="#ffffff"></label>
+          <label class="row-color__swatch">สีตัวอักษร <input type="color" id="editColorFont" value="#000000"></label>
+          <button type="button" class="row-color__reset-btn" id="editColorReset">ล้างสี</button>
+        </div>
+      </div>
 
       <div class="modal-box__actions">
         <button type="button" class="toolbar__btn toolbar__btn--muted" id="editCancel">ยกเลิก</button>
