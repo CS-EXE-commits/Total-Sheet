@@ -930,6 +930,7 @@ function setBookTrashStatus(message, type) {
 /* ===== กลาง: เปิดไฟล์ → เลือกแท็บ ===== */
 
 async function openBook(book, initialSheet) {
+  if (book !== currentBook && !confirmDiscardAddForm_()) return;
   currentBook = book;
   selectedSheet = '';
   lastKeyword = '';
@@ -990,6 +991,8 @@ function updateTabPillStates() {
 }
 
 async function selectTab(sheetName) {
+  // ถ้ากรอกฟอร์มเพิ่มข้อมูลค้างไว้ ให้ถามก่อน ไม่งั้นข้อมูลหายเงียบๆ
+  if (sheetName !== selectedSheet && !confirmDiscardAddForm_()) return;
   selectedSheet = sheetName;
   try { localStorage.setItem('sheetSearchLastSheet', sheetName || ''); } catch (e) { /* ignore */ }
   updateTabPillStates();
@@ -1242,6 +1245,7 @@ function renderEditFields(headers, fullHeaders, row) {
       const rawValue = (row.cells[colIndex] || '').toString();
       inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue) : rawValue;
     }
+    inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
     wrap.appendChild(inputEl);
     editFields.appendChild(wrap);
   });
@@ -1288,6 +1292,24 @@ function fromDateInputValue_(isoValue) {
 }
 
 editCancel.addEventListener('click', () => closeEditModal());
+
+// คลิกพื้นหลังนอกกล่องเพื่อปิด (คลิกในกล่องไม่ปิด) — ถามก่อนถ้าแก้ไขค้างไว้
+editModal.addEventListener('click', (evt) => {
+  if (evt.target === editModal) tryCloseEditModal_();
+});
+
+// กด Escape ปิดหน้าต่างแก้ไข
+document.addEventListener('keydown', (evt) => {
+  if (evt.key === 'Escape' && !editModal.hidden) tryCloseEditModal_();
+});
+
+/** ปิดหน้าต่างแก้ไข โดยถามก่อนถ้ามีการแก้ไขค้างไว้ที่ยังไม่ได้บันทึก */
+function tryCloseEditModal_() {
+  const touched = Array.from(editFields.querySelectorAll('input, select'))
+    .some(el => el.value !== (el.dataset.originalValue || ''));
+  if (touched && !confirm('คุณแก้ไขข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nถ้าปิดตอนนี้ การแก้ไขจะหายไป ต้องการปิดหรือไม่?')) return;
+  closeEditModal();
+}
 
 function closeEditModal() {
   editModal.hidden = true;
@@ -1345,6 +1367,25 @@ function setEditStatus(message, type) {
 }
 
 /* ===== ปิดแผงย่อยทั้งหมด (ใช้ตอนสลับแท็บ/สลับโหมด) ===== */
+
+/**
+ * เช็กว่าฟอร์มเพิ่มข้อมูลมีอะไรกรอกค้างไว้ไหม
+ * ใช้ก่อนปิดฟอร์มโดยไม่ได้บันทึก (สลับแท็บ/สลับไฟล์) จะได้เตือนก่อนข้อมูลหาย
+ */
+function addFormHasUnsavedInput_() {
+  if (!addPanel || addPanel.hidden) return false;
+  return Array.from(addFields.querySelectorAll('input, select'))
+    .some(el => (el.value || '').toString().trim() !== '');
+}
+
+/**
+ * ถามก่อนทิ้งข้อมูลที่กรอกค้างไว้ในฟอร์มเพิ่มข้อมูล
+ * @return {boolean} true = ไปต่อได้ (ไม่มีข้อมูลค้าง หรือผู้ใช้ยืนยันว่าทิ้งได้)
+ */
+function confirmDiscardAddForm_() {
+  if (!addFormHasUnsavedInput_()) return true;
+  return confirm('คุณกรอกข้อมูลในฟอร์ม "เพิ่มข้อมูล" ค้างไว้แต่ยังไม่ได้บันทึก\n\nถ้าไปต่อ ข้อมูลที่กรอกไว้จะหายทั้งหมด ต้องการไปต่อหรือไม่?');
+}
 
 function resetPanels() {
   addPanel.hidden = true;

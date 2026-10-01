@@ -1177,6 +1177,16 @@ th.data-table__ticket-col {
 @media (max-width: 860px) {
   .layout { flex-direction: column; }
   .sidebar { flex: none; width: 100%; position: static; }
+
+  /* บนมือถือ แถบด้านซ้ายจะไปกองอยู่เหนือตาราง ต้องเลื่อนผ่าน Dashboard + รายงานย้อนหลัง
+     ที่ยาวมากกว่าจะถึงผลค้นหา ซึ่งเป็นสิ่งที่คนเปิดเว็บมาดูจริงๆ
+     แก้โดยจำกัดความสูงของ Dashboard ให้เลื่อนดูในกล่องตัวเอง แทนที่จะดันตารางลงไปไกล
+     (ย้ายไปไว้ใต้ตารางตรงๆ ไม่ได้ เพราะมันอยู่ข้างในแถบซ้าย การสลับลำดับจะพาเมนูเลือกไฟล์ลงไปด้วย) */
+  .sidebar-dashboard {
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+
   .topbar { padding: 10px 14px; }
   .topbar__subtitle { display: none; }
   .topbar__title { font-size: 15px; }

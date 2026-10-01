@@ -1,0 +1,20 @@
+# ไฟล์ตั้งค่าที่มีรหัสลับจริง — ห้าม commit ขึ้น GitHub
+# ใช้ config.example.js เป็นต้นแบบ แล้วคัดลอกเป็น config.js ใส่ค่าจริงเอง
+# (ถ้า repo เป็น Private และต้องการให้ GitHub Pages เสิร์ฟไฟล์นี้ ให้ลบบรรทัดล่างออก
+#  แต่ต้องมั่นใจว่า repo จะไม่ถูกเปลี่ยนเป็น Public ในอนาคต)
+config.js
+
+# ไฟล์ของ clasp (ถ้าตั้งค่าในอนาคต) — มี Script ID และ credential
+.clasp.json
+.clasprc.json
+
+# ไฟล์ขยะของระบบปฏิบัติการและ editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# ไฟล์ชั่วคราว
+node_modules/
+*.log
