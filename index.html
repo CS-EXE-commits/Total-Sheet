@@ -51,52 +51,65 @@
     </div>
   </header>
 
-  <!-- แถบโฟลเดอร์ด้านบน: จัดกลุ่มไฟล์ชีตตามเกม/ประเภท กดแล้วมีรายชื่อไฟล์ให้เลือก -->
-  <nav class="folder-bar" id="folderBar" hidden></nav>
+  <!-- แถบด้านบน: ซ้ายเป็นโฟลเดอร์ไฟล์ชีต ขวาเป็นปุ่มจัดการทั้งหมด -->
+  <nav class="folder-bar" id="folderBar" hidden>
+    <div class="folder-bar__folders" id="folderList"></div>
+
+    <div class="folder-bar__actions">
+      <button type="button" class="topbtn" id="trashToggle">🗑 ถังขยะ</button>
+      <button type="button" class="topbtn" id="reportToggle">📝 ประวัติการแก้ไข</button>
+
+      <span class="folder-bar__divider"></span>
+
+      <div class="topmenu">
+        <button type="button" class="topbtn" id="addFileToggle">+ เพิ่มไฟล์</button>
+        <div class="topmenu__panel" id="addFilePanel" hidden>
+          <div class="add-field">
+            <label for="addBookName">ชื่อที่อยากให้แสดง</label>
+            <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
+          </div>
+          <div class="add-field">
+            <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
+            <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+          </div>
+          <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
+          <p class="sidebar-panel__status" id="addBookStatus"></p>
+        </div>
+      </div>
+
+      <div class="topmenu">
+        <button type="button" class="topbtn" id="createBookToggle">+ สร้างไฟล์ Google Sheet</button>
+        <div class="topmenu__panel" id="createBookPanel" hidden>
+          <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
+          <div class="add-field">
+            <label for="createBookName">ชื่อไฟล์ใหม่</label>
+            <input type="text" id="createBookName" placeholder="เช่น ปัญหาเติมเงินเกม B">
+          </div>
+          <div class="add-field">
+            <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
+            <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
+          </div>
+          <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
+          <p class="sidebar-panel__status" id="createBookStatus"></p>
+        </div>
+      </div>
+
+      <div class="topmenu">
+        <button type="button" class="topbtn" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
+        <div class="topmenu__panel" id="bookTrashPanel" hidden>
+          <p class="sidebar-panel__hint">ไฟล์ที่เอาออกจากระบบล่าสุด</p>
+          <div class="trash-list" id="bookTrashList"></div>
+          <p class="sidebar-panel__status" id="bookTrashStatus"></p>
+        </div>
+      </div>
+    </div>
+  </nav>
 
   <div class="layout" id="appLayout" hidden>
 
-    <!-- ซ้าย: รายชื่อไฟล์ทั้งหมด -->
+    <!-- ซ้าย: ภาพรวมการใช้งาน (รายชื่อไฟล์ย้ายไปเป็นโฟลเดอร์ด้านบนแล้ว) -->
     <aside class="sidebar">
-      <p class="sidebar__label">ไฟล์ทั้งหมด</p>
-      <div class="book-list" id="bookList"></div>
       <p class="sidebar__status" id="booksHint"></p>
-
-      <button type="button" class="sidebar-btn" id="addFileToggle">+ เพิ่มไฟล์</button>
-      <div class="sidebar-panel" id="addFilePanel" hidden>
-        <div class="add-field">
-          <label for="addBookName">ชื่อที่อยากให้แสดง</label>
-          <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
-        </div>
-        <div class="add-field">
-          <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
-          <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-        </div>
-        <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
-        <p class="sidebar-panel__status" id="addBookStatus"></p>
-      </div>
-
-      <button type="button" class="sidebar-btn" id="createBookToggle">+ สร้างไฟล์ Google Sheet ใหม่</button>
-      <div class="sidebar-panel" id="createBookPanel" hidden>
-        <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
-        <div class="add-field">
-          <label for="createBookName">ชื่อไฟล์ใหม่</label>
-          <input type="text" id="createBookName" placeholder="เช่น ปัญหาเติมเงินเกม B">
-        </div>
-        <div class="add-field">
-          <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
-          <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
-        </div>
-        <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
-        <p class="sidebar-panel__status" id="createBookStatus"></p>
-      </div>
-
-      <button type="button" class="sidebar-btn sidebar-btn--trash" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
-      <div class="sidebar-panel" id="bookTrashPanel" hidden>
-        <p class="sidebar-panel__hint">ไฟล์ที่เอาออกจากระบบล่าสุด</p>
-        <div class="trash-list" id="bookTrashList"></div>
-        <p class="sidebar-panel__status" id="bookTrashStatus"></p>
-      </div>
 
       <!-- ภาพรวมการใช้งานทั้งระบบ (ทุกไฟล์ ทุกแท็บ) แสดงไว้ท้ายสุดของแถบไฟล์ทั้งหมด -->
       <div class="sidebar-dashboard" id="sidebarDashboard">
@@ -136,7 +149,7 @@
 
     <!-- กลาง: แท็บ + ค้นหา + ตารางข้อมูล -->
     <main class="main">
-      <p class="main__empty" id="mainEmpty">เลือกไฟล์ทางด้านซ้ายเพื่อเริ่มต้นใช้งาน</p>
+      <p class="main__empty" id="mainEmpty">เลือกโฟลเดอร์ด้านบน แล้วเลือกไฟล์เพื่อเริ่มต้นใช้งาน</p>
 
       <div class="workspace" id="workspace" hidden>
         <div class="tabs-row" id="tabsBar"></div>
@@ -150,8 +163,6 @@
           <select class="toolbar__status-filter" id="statusFilter" hidden></select>
           <button type="button" class="toolbar__btn" id="addToggle">+ เพิ่มข้อมูล</button>
           <button type="button" class="toolbar__btn toolbar__btn--danger" id="manageToggle" hidden>จัดการคอลัมน์</button>
-          <button type="button" class="toolbar__btn toolbar__btn--muted" id="trashToggle">🗑 ถังขยะ</button>
-          <button type="button" class="toolbar__btn toolbar__btn--muted" id="reportToggle">📝 ประวัติการแก้ไข</button>
         </div>
 
         <section class="add-panel" id="addPanel" hidden>
@@ -318,7 +329,6 @@
 
       <div class="modal-box__actions">
         <button type="button" class="toolbar__btn toolbar__btn--muted" id="caseModalClose">ปิด</button>
-        <button type="button" class="toolbar__btn toolbar__btn--accent" id="caseModalGoto">เปิดแท็บนี้</button>
       </div>
     </div>
   </div>

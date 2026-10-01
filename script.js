@@ -45,7 +45,6 @@ themeToggle.addEventListener('click', () => {
 
 applyThemeToggleIcon();
 
-const bookList = document.getElementById('bookList');
 const booksHint = document.getElementById('booksHint');
 const addFileToggle = document.getElementById('addFileToggle');
 const addFilePanel = document.getElementById('addFilePanel');
@@ -129,6 +128,7 @@ const pageSizeSelect = document.getElementById('pageSizeSelect');
 const pagination = document.getElementById('pagination');
 const tabLoadProgress = document.getElementById('tabLoadProgress');
 const folderBar = document.getElementById('folderBar');
+const folderList = document.getElementById('folderList');
 
 let filteredRows = []; // ผลลัพธ์หลังกรองสถานะ (โหมดแท็บเดียว) หรือผลค้นหาทั้งหมด (โหมดทั้งหมด) — ใช้แบ่งหน้า
 
@@ -269,6 +269,20 @@ function renderPaginationControls(totalPages) {
   pagination.appendChild(makeButton('ถัดไป ›', currentPage + 1, currentPage === totalPages, false));
 }
 
+/**
+ * ตัดชื่อโดเมนในวงเล็บท้ายข้อความออก เช่น "Ticket #880074 (exe.in.th)" -> "Ticket #880074"
+ * ให้เลขที่ Ticket อ่านง่ายและแสดงได้ครบในคอลัมน์ที่กว้างจำกัด (URL เต็มยังดูได้จากการชี้เมาส์ค้าง)
+ *
+ * ตัดเฉพาะวงเล็บที่ "หน้าตาเป็นโดเมน" จริงๆ (มีจุดคั่น ไม่มีเว้นวรรค) เท่านั้น
+ * วงเล็บที่เป็นหมายเหตุ เช่น "Ticket #123 (ด่วน)" จะไม่ถูกตัดทิ้ง
+ * ต้องใช้สูตรเดียวกับ shortenTicketLabel ใน status.js
+ */
+function shortenTicketLabel(value) {
+  const text = (value || '').toString();
+  const shortened = text.replace(/\s*\((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}\)\s*$/, '').trim();
+  return shortened || text; // กันกรณีตัดแล้วเหลือข้อความว่าง
+}
+
 function buildSingleRow(row) {
   const tr = document.createElement('tr');
 
@@ -297,7 +311,7 @@ function buildSingleRow(row) {
         link.rel = 'noopener noreferrer';
         link.className = 'ticket-link';
         // ถ้าข้อความในเซลล์เป็นป้ายกำกับที่อ่านง่ายอยู่แล้ว (ไม่ใช่ URL ดิบๆ) ให้แสดงข้อความนั้นเป็นลิงก์เลย
-        const label = cellValue && !isLikelyUrl(cellValue) ? cellValue : 'เปิด Ticket ↗';
+        const label = cellValue && !isLikelyUrl(cellValue) ? shortenTicketLabel(cellValue) : 'เปิด Ticket ↗';
         link.innerHTML = highlightMatch(label, lastKeyword);
         link.title = linkUrl;
         td.appendChild(link);
@@ -828,7 +842,6 @@ async function loadBooks() {
     const result = await jsonpRequest(apiUrl({ action: 'books' }));
     if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
     booksHint.textContent = '';
-    renderBookList(result.books);
     renderFolderBar(result.folders || []);
     return result.books;
   } catch (err) {
@@ -848,13 +861,13 @@ async function loadBooks() {
  * ไฟล์ที่เพิ่มเข้ามาใหม่และยังไม่ได้จัดกลุ่ม จะไปอยู่ในโฟลเดอร์ "อื่นๆ" ให้เอง ไม่หายไปไหน
  */
 function renderFolderBar(folders) {
-  if (!folderBar) return;
+  if (!folderBar || !folderList) return;
   if (!folders.length) {
     folderBar.hidden = true;
     return;
   }
 
-  folderBar.innerHTML = '';
+  folderList.innerHTML = '';
   folders.forEach(folder => {
     const wrap = document.createElement('div');
     wrap.className = 'folder';
@@ -863,7 +876,7 @@ function renderFolderBar(folders) {
     btn.type = 'button';
     btn.className = 'folder__btn';
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = `<span class="folder__icon">📁</span><span class="folder__name"></span>`
+    btn.innerHTML = `<span class="folder__emoji">📁</span><span class="folder__name"></span>`
       + `<span class="folder__count">${folder.books.length}</span><span class="folder__caret">▾</span>`;
     btn.querySelector('.folder__name').textContent = folder.name;
     wrap.appendChild(btn);
@@ -879,16 +892,45 @@ function renderFolderBar(folders) {
       menu.appendChild(empty);
     } else {
       folder.books.forEach(book => {
+        const line = document.createElement('div');
+        line.className = 'folder__line';
+
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'folder__item';
         item.textContent = book;
+        item.title = book;
         item.dataset.book = book;
         item.addEventListener('click', () => {
           closeAllFolders();
           openBook(book);
         });
-        menu.appendChild(item);
+
+        // ปุ่มเปลี่ยนชื่อ/เอาไฟล์ออก ย้ายมาจากรายชื่อไฟล์แถบซ้ายที่เอาออกไปแล้ว
+        const renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'folder__icon';
+        renameBtn.textContent = '✎';
+        renameBtn.title = `เปลี่ยนชื่อไฟล์ "${book}"`;
+        renameBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeAllFolders();
+          renameBookPrompt(book);
+        });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'folder__icon folder__icon--danger';
+        removeBtn.textContent = '×';
+        removeBtn.title = `เอาไฟล์ "${book}" ออกจากระบบ`;
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeAllFolders();
+          removeBook(book, null);
+        });
+
+        line.append(item, renameBtn, removeBtn);
+        menu.appendChild(line);
       });
     }
 
@@ -904,7 +946,7 @@ function renderFolderBar(folders) {
       }
     });
 
-    folderBar.appendChild(wrap);
+    folderList.appendChild(wrap);
   });
 
   folderBar.hidden = false;
@@ -938,39 +980,6 @@ function markActiveFolderItem() {
 document.addEventListener('click', () => closeAllFolders());
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllFolders(); });
 
-function renderBookList(books) {
-  bookList.innerHTML = '';
-  books.forEach(book => {
-    const item = document.createElement('div');
-    item.className = 'book-item';
-    item.setAttribute('data-active', String(book === currentBook));
-
-    const nameBtn = document.createElement('button');
-    nameBtn.type = 'button';
-    nameBtn.className = 'book-item__main';
-    nameBtn.textContent = book;
-    nameBtn.title = book;
-    nameBtn.addEventListener('click', () => openBook(book));
-
-    const renameBtn = document.createElement('button');
-    renameBtn.type = 'button';
-    renameBtn.className = 'book-item__icon';
-    renameBtn.textContent = '✎';
-    renameBtn.title = `เปลี่ยนชื่อไฟล์ "${book}"`;
-    renameBtn.addEventListener('click', (e) => { e.stopPropagation(); renameBookPrompt(book); });
-
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'book-item__icon book-item__icon--danger';
-    removeBtn.textContent = '×';
-    removeBtn.title = `เอาไฟล์ "${book}" ออกจากระบบ`;
-    removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeBook(book, item); });
-
-    item.append(nameBtn, renameBtn, removeBtn);
-    bookList.appendChild(item);
-  });
-}
-
 async function renameBookPrompt(book) {
   const newName = (prompt(`ตั้งชื่อใหม่สำหรับไฟล์ "${book}"`, book) || '').trim();
   if (!newName || newName === book) return;
@@ -980,7 +989,7 @@ async function renameBookPrompt(book) {
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนชื่อไม่สำเร็จ');
 
     if (currentBook === book) currentBook = newName;
-    renderBookList(result.books);
+    await loadBooks(); // ชื่อใหม่ต้องขึ้นในโฟลเดอร์ด้านบนทันที
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
   }
@@ -994,7 +1003,8 @@ async function removeBook(book, itemEl) {
     const result = await jsonpRequest(apiUrl({ action: 'removeBook', name: book }));
     if (!result.ok) throw new Error(result.error || 'เอาไฟล์ออกไม่สำเร็จ');
 
-    itemEl.remove();
+    if (itemEl) itemEl.remove();
+    await loadBooks(); // อัปเดตโฟลเดอร์ด้านบนให้ตรงกับไฟล์ที่เหลืออยู่จริง
     if (currentBook === book) {
       currentBook = '';
       selectedSheet = '';
@@ -1013,7 +1023,7 @@ addFileToggle.addEventListener('click', () => {
   addFilePanel.hidden = isOpen;
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet ใหม่';
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   addFileToggle.textContent = isOpen ? '+ เพิ่มไฟล์' : '× ปิดฟอร์ม';
   if (!isOpen) { addBookName.value = ''; addBookUrl.value = ''; setAddBookStatus('', null); }
 });
@@ -1031,7 +1041,7 @@ addBookSubmit.addEventListener('click', async () => {
 
     setAddBookStatus(result.message, 'success');
     addBookName.value = ''; addBookUrl.value = '';
-    renderBookList(result.books);
+    await loadBooks(); // ไฟล์ใหม่ต้องไปโผล่ในโฟลเดอร์ด้านบนทันที (ไปอยู่โฟลเดอร์ "อื่นๆ" ถ้ายังไม่ได้จัดกลุ่ม)
   } catch (err) {
     setAddBookStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   } finally {
@@ -1053,7 +1063,7 @@ createBookToggle.addEventListener('click', () => {
   bookTrashPanel.hidden = true;
   addFileToggle.textContent = '+ เพิ่มไฟล์';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
-  createBookToggle.textContent = isOpen ? '+ สร้างไฟล์ Google Sheet ใหม่' : '× ปิดฟอร์ม';
+  createBookToggle.textContent = isOpen ? '+ สร้างไฟล์ Google Sheet' : '× ปิดฟอร์ม';
   if (!isOpen) { createBookName.value = ''; createBookSheetName.value = ''; setCreateBookStatus('', null); }
 });
 
@@ -1071,7 +1081,7 @@ createBookSubmit.addEventListener('click', async () => {
     createBookStatus.innerHTML = `${escapeHtml(result.message)} — <a href="${result.url}" target="_blank" rel="noopener noreferrer">เปิดไฟล์ใน Google Sheets ↗</a>`;
     createBookStatus.className = 'sidebar-panel__status sidebar-panel__status--success';
     createBookName.value = ''; createBookSheetName.value = '';
-    renderBookList(result.books);
+    await loadBooks(); // ไฟล์ใหม่ต้องไปโผล่ในโฟลเดอร์ด้านบนทันที
   } catch (err) {
     setCreateBookStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   } finally {
@@ -1092,7 +1102,7 @@ bookTrashToggle.addEventListener('click', () => {
   addFilePanel.hidden = true;
   createBookPanel.hidden = true;
   addFileToggle.textContent = '+ เพิ่มไฟล์';
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet ใหม่';
+  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   bookTrashToggle.textContent = isOpen ? '🗑 ถังขยะไฟล์' : '× ปิดถังขยะไฟล์';
   if (!isOpen) loadBookTrash();
 });
@@ -1138,7 +1148,7 @@ async function restoreBookItem(item, rowEl, buttonEl) {
     if (!result.ok) throw new Error(result.error || 'กู้คืนไม่สำเร็จ');
     rowEl.remove();
     setBookTrashStatus(result.message, 'success');
-    renderBookList(result.books);
+    await loadBooks(); // ไฟล์ที่กู้คืนต้องกลับมาอยู่ในโฟลเดอร์ด้านบนทันที
   } catch (err) {
     setBookTrashStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
     buttonEl.disabled = false;
@@ -1165,10 +1175,6 @@ async function openBook(book, initialSheet) {
   mainEmpty.hidden = true;
   workspace.hidden = false;
 
-  Array.from(bookList.children).forEach(item => {
-    const isThis = item.querySelector('.book-item__main').textContent === book;
-    item.setAttribute('data-active', String(isThis));
-  });
   markActiveFolderItem();
 
   resetPanels();
@@ -2685,7 +2691,6 @@ const caseModalWarn = document.getElementById('caseModalWarn');
 const caseModalFields = document.getElementById('caseModalFields');
 const caseModalTimeline = document.getElementById('caseModalTimeline');
 const caseModalClose = document.getElementById('caseModalClose');
-const caseModalGoto = document.getElementById('caseModalGoto');
 
 let caseModalTarget = null; // เคสที่กำลังเปิดดูอยู่ ใช้ตอนกดปุ่ม "เปิดแท็บนี้"
 
@@ -2803,10 +2808,3 @@ document.addEventListener('keydown', (evt) => {
   if (evt.key === 'Escape' && !caseModal.hidden) closeCaseModal();
 });
 
-// เปิดแท็บที่เคสนี้อยู่ เพื่อไปดู/แก้ไขข้อมูลจริงต่อได้ทันที
-caseModalGoto.addEventListener('click', () => {
-  if (!caseModalTarget) return;
-  const target = caseModalTarget;
-  closeCaseModal();
-  openBook(target.book, target.sheet);
-});
