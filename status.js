@@ -173,6 +173,8 @@ async function loadStatus(status, pushUrl) {
   summaryTable.innerHTML = '';
   summarySection.hidden = true;
   detailSection.hidden = true;
+  chartSection.hidden = true;
+  hideChartTip();
   downloadBtn.hidden = true;
   statusMetaEl.textContent = '';
 
@@ -196,6 +198,8 @@ async function loadStatus(status, pushUrl) {
     if (!summary.ok) throw new Error(summary.error || 'โหลดสรุปไม่สำเร็จ');
 
     renderSummary(summary);
+    chartSection.hidden = summary.groups.length === 0;
+    if (summary.groups.length > 0) renderChartByTab(summary.groups, summary.total);
 
     if (summary.groups.length === 0) {
       setPageStatus('ไม่พบเคสที่มีสถานะนี้', null);
@@ -222,6 +226,7 @@ async function loadStatus(status, pushUrl) {
       }
     }
 
+    renderChartTrend(loadedGroups); // ต้องรอเคสครบทุกแท็บก่อน ถึงจะนับตามเดือนได้ครบ
     setPageStatus('', null);
     downloadBtn.hidden = false;
   } catch (err) {
@@ -473,4 +478,269 @@ detailGroups.addEventListener('click', (e) => {
   });
 });
 
+
+/* ===== กราฟภาพรวมของสถานะที่กำลังดู =====
+ *
+ * มี 2 กราฟ ทั้งคู่เป็นข้อมูลชุดเดียว (single series) จึงไม่ต้องมีกล่องคำอธิบายสี
+ * หัวข้อของกราฟบอกอยู่แล้วว่ากำลังดูอะไร
+ *
+ *  1. แท่งแนวนอน — เคสของสถานะนี้กระจายอยู่ไฟล์/แท็บไหนบ้าง
+ *     ใช้แท่งแนวนอนเพราะชื่อแท็บภาษาไทยยาว ถ้าเป็นแท่งแนวตั้งชื่อจะซ้อนกันอ่านไม่ออก
+ *     ทุกแท่งใช้สีเดียวกัน ไม่ไล่เฉดตามค่า เพราะชื่อไฟล์ไม่มีลำดับก่อนหลังตามธรรมชาติ
+ *     (ไล่เฉดจะเป็นการบอกข้อมูลซ้ำกับความยาวแท่งโดยไม่ได้อะไรเพิ่ม)
+ *
+ *  2. เส้น + พื้นที่ใต้เส้น — เคสเข้ามาเดือนไหนบ้าง อ่านแนวโน้มได้ทันที
+ *
+ * วาดด้วย SVG เองทั้งหมด ไม่พึ่งไลบรารีภายนอก เพื่อไม่ให้มีอะไรต้องโหลดเพิ่ม
+ * และคุมสีให้เข้ากับธีมสว่าง/มืดของเว็บได้เอง
+ */
+
+const chartSection = document.getElementById('chartSection');
+const chartByTabEl = document.getElementById('chartByTab');
+const chartByTabSub = document.getElementById('chartByTabSub');
+const chartTrendEl = document.getElementById('chartTrend');
+const chartTrendSub = document.getElementById('chartTrendSub');
+const chartTrendCard = document.getElementById('chartTrendCard');
+
+const CHART_BAR_MAX_ITEMS = 8; // เกินนี้รวมเป็น "อื่นๆ" ไม่สร้างสีใหม่เพิ่ม
+
+/** กล่องข้อความลอยตอนชี้เมาส์ ใช้ร่วมกันทุกกราฟ */
+let chartTip = null;
+function showChartTip(evt, html) {
+  if (!chartTip) {
+    chartTip = document.createElement('div');
+    chartTip.className = 'chart-tip';
+    document.body.appendChild(chartTip);
+  }
+  chartTip.innerHTML = html;
+  chartTip.hidden = false;
+  const pad = 14;
+  let x = evt.clientX + pad;
+  let y = evt.clientY + pad;
+  const box = chartTip.getBoundingClientRect();
+  if (x + box.width > window.innerWidth - 8) x = evt.clientX - box.width - pad;
+  if (y + box.height > window.innerHeight - 8) y = evt.clientY - box.height - pad;
+  chartTip.style.left = x + 'px';
+  chartTip.style.top = y + 'px';
+}
+function hideChartTip() { if (chartTip) chartTip.hidden = true; }
+window.addEventListener('scroll', hideChartTip, true);
+
+/** แปลงค่าในช่องวันที่เป็น "ปี-เดือน" รองรับทุกรูปแบบที่พบจริงในชีท (สูตรเดียวกับฝั่ง Code.gs) */
+function monthKeyFromCell(value) {
+  if (value === null || value === undefined) return '';
+  const str = value.toString().trim();
+  if (!str) return '';
+
+  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);            // วว/ดด/ปปปป
+  if (m) return fmtMonth(normYear(+m[3]), +m[2]);
+  m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                    // ปปปป-ดด-วว
+  if (m) return fmtMonth(normYear(+m[1]), +m[2]);
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);                   // วว-ดด-ปปปป
+  if (m) return fmtMonth(normYear(+m[3]), +m[2]);
+
+  // ตัวเลขลำดับวันของ Google Sheets (เช่น 45085) จำกัดช่วงปี 2000-2100
+  // ไม่งั้นเลขอย่าง Level 35 หรือ UID จะถูกตีความเป็นวันที่ไปด้วย
+  if (/^\d+(\.\d+)?$/.test(str)) {
+    const serial = parseFloat(str);
+    if (serial >= 36526 && serial <= 73415) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000);
+      if (!isNaN(d.getTime())) return fmtMonth(d.getUTCFullYear(), d.getUTCMonth() + 1);
+    }
+  }
+  return '';
+}
+function normYear(y) { return y > 2400 ? y - 543 : y; } // บางชีทกรอกเป็น พ.ศ.
+function fmtMonth(y, m) {
+  if (!y || !m || m < 1 || m > 12) return '';
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function monthLabel(key) {
+  const [y, m] = key.split('-');
+  return `${THAI_MONTHS[+m - 1]} ${y}`;
+}
+
+/** กราฟแท่งแนวนอน: เคสของสถานะนี้อยู่ไฟล์/แท็บไหนบ้าง */
+function renderChartByTab(groups, total) {
+  const items = groups.map(g => ({ label: `${g.book} · ${g.sheet}`, value: g.count }));
+  let shown = items;
+  if (items.length > CHART_BAR_MAX_ITEMS) {
+    const head = items.slice(0, CHART_BAR_MAX_ITEMS - 1);
+    const restTotal = items.slice(CHART_BAR_MAX_ITEMS - 1).reduce((n, x) => n + x.value, 0);
+    shown = head.concat([{ label: `อื่นๆ อีก ${items.length - head.length} แท็บ`, value: restTotal }]);
+  }
+
+  chartByTabSub.textContent = `รวม ${total.toLocaleString()} เคส · ${items.length} แท็บ`;
+
+  // ความสูงต่อแถว = ชื่อ(14) + ช่องไฟ(5) + แท่ง(18) + ช่องไฟใต้แท่ง(11)
+  // ถ้าตั้งเตี้ยกว่านี้ ชื่อแท็บจะไปชนกับแท่งของแถวก่อนหน้า
+  const rowH = 48, barH = 18, gap = 6;
+  const w = 640, padL = 8, padR = 64;
+  const h = shown.length * rowH + gap;
+  const max = Math.max(...shown.map(s => s.value), 1);
+  const plotW = w - padL - padR;
+
+  const bars = shown.map((item, i) => {
+    const y = i * rowH;
+    const barW = Math.max((item.value / max) * plotW, 2);
+    const pct = total > 0 ? (item.value / total * 100) : 0;
+    // ปลายแท่งมนด้านเดียว ติดเส้นฐานเป็นมุมฉาก
+    const r = Math.min(4, barW);
+    const barY = y + 19;
+    const path = `M${padL},${barY} h${barW - r} a${r},${r} 0 0 1 ${r},${r} v${barH - 2 * r} a${r},${r} 0 0 1 -${r},${r} h-${barW - r} z`;
+    return `
+      <g class="cbar" tabindex="0"
+         data-label="${escapeHtml(item.label)}"
+         data-value="${item.value}"
+         data-pct="${pct.toFixed(1)}">
+        <text class="cbar__name" x="${padL}" y="${y + 12}">${escapeHtml(item.label)}</text>
+        <rect class="cbar__hit" x="0" y="${y}" width="${w}" height="${rowH - 4}"></rect>
+        <path class="cbar__mark" d="${path}"></path>
+        <text class="cbar__val" x="${padL + barW + 8}" y="${barY + barH / 2 + 4}">${item.value.toLocaleString()}</text>
+      </g>`;
+  }).join('');
+
+  chartByTabEl.innerHTML =
+    `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet" role="img"
+          aria-label="จำนวนเคสแยกตามไฟล์และแท็บ">${bars}</svg>`;
+  bindBarHover(chartByTabEl);
+}
+
+function bindBarHover(root) {
+  root.querySelectorAll('.cbar').forEach(g => {
+    const show = (e) => showChartTip(e, `
+      <div class="chart-tip__name">${escapeHtml(g.dataset.label)}</div>
+      <div class="chart-tip__value">${(+g.dataset.value).toLocaleString()} เคส
+        <span class="chart-tip__muted">(${g.dataset.pct}%)</span></div>`);
+    g.addEventListener('mouseenter', show);
+    g.addEventListener('mousemove', show);
+    g.addEventListener('mouseleave', hideChartTip);
+    g.addEventListener('focus', (e) => {
+      const r = g.getBoundingClientRect();
+      show({ clientX: r.left + 20, clientY: r.top });
+    });
+    g.addEventListener('blur', hideChartTip);
+  });
+}
+
+/** กราฟเส้น: เคสของสถานะนี้เข้ามาเดือนไหนบ้าง (อ่านจากคอลัมน์วันที่ของเคสที่โหลดมาแล้ว) */
+function renderChartTrend(groups) {
+  const tally = {};
+  let parsed = 0, unparsed = 0;
+
+  groups.forEach(g => {
+    const dateIndex = (g.headers || []).findIndex(h =>
+      /วันที่|วัน\s*เดือน|^date$|_date$|^date\b/i.test((h || '').toString().trim()));
+    if (dateIndex === -1) { unparsed += (g.rows || []).length; return; }
+    (g.rows || []).forEach(r => {
+      const key = monthKeyFromCell(r.cells[dateIndex]);
+      if (!key) { unparsed++; return; }
+      tally[key] = (tally[key] || 0) + 1;
+      parsed++;
+    });
+  });
+
+  if (parsed === 0) {
+    chartTrendCard.hidden = true;
+    return;
+  }
+  chartTrendCard.hidden = false;
+
+  // เติมเดือนที่ไม่มีเคสให้ครบ ไม่งั้นกราฟจะบีบช่องว่างจนแนวโน้มผิดเพี้ยน
+  const keys = Object.keys(tally).sort();
+  const all = [];
+  let [y, m] = keys[0].split('-').map(Number);
+  const [ey, em] = keys[keys.length - 1].split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)) {
+    const k = fmtMonth(y, m);
+    all.push({ key: k, value: tally[k] || 0 });
+    m++; if (m > 12) { m = 1; y++; }
+  }
+
+  chartTrendSub.textContent = `${parsed.toLocaleString()} เคสที่ระบุวันที่ได้`
+    + (unparsed > 0 ? ` · อีก ${unparsed.toLocaleString()} เคสไม่มีวันที่` : '');
+
+  const w = 640, h = 240, padL = 44, padR = 16, padT = 14, padB = 34;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const max = Math.max(...all.map(p => p.value), 1);
+  const niceMax = niceCeil(max);
+  const x = i => all.length === 1 ? padL + plotW / 2 : padL + (i / (all.length - 1)) * plotW;
+  const yPos = v => padT + plotH - (v / niceMax) * plotH;
+
+  // เส้นแนวนอนบอกระดับ 3 เส้น แบบจางๆ ไม่แย่งสายตาจากข้อมูล
+  const ticks = [0, niceMax / 2, niceMax];
+  const grid = ticks.map(t => `
+    <line class="cline__grid" x1="${padL}" y1="${yPos(t)}" x2="${w - padR}" y2="${yPos(t)}"></line>
+    <text class="cline__ytick" x="${padL - 8}" y="${yPos(t) + 4}">${Math.round(t).toLocaleString()}</text>`).join('');
+
+  const linePath = all.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yPos(p.value).toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L${x(all.length - 1).toFixed(1)},${yPos(0)} L${x(0).toFixed(1)},${yPos(0)} Z`;
+
+  // ป้ายแกนล่าง: แสดงเท่าที่ไม่ชนกัน ไม่ใช่ทุกเดือน
+  const LABEL_W = 62; // ความกว้างโดยประมาณของป้ายอย่าง "ม.ค. 2025"
+  const maxLabels = Math.max(2, Math.floor(plotW / LABEL_W));
+  const step = Math.max(1, Math.ceil(all.length / maxLabels));
+  const shownIdx = [];
+  for (let i = 0; i < all.length; i += step) shownIdx.push(i);
+  // แสดงเดือนสุดท้ายด้วย แต่ถ้าจะไปทับป้ายก่อนหน้า ให้เอาป้ายก่อนหน้าออกแทน
+  const last = all.length - 1;
+  if (shownIdx[shownIdx.length - 1] !== last) {
+    const prev = shownIdx[shownIdx.length - 1];
+    if (x(last) - x(prev) < LABEL_W) shownIdx.pop();
+    shownIdx.push(last);
+  }
+  const xLabels = shownIdx.map(i =>
+    `<text class="cline__xtick" x="${x(i).toFixed(1)}" y="${h - 10}">${monthLabel(all[i].key)}</text>`
+  ).join('');
+
+  // จุดสูงสุดติดป้ายไว้จุดเดียว ไม่ใส่ตัวเลขทุกจุด
+  const peak = all.reduce((best, p, i) => p.value > all[best].value ? i : best, 0);
+
+  const hits = all.map((p, i) => `
+    <g class="cpt" tabindex="0" data-label="${escapeHtml(monthLabel(p.key))}" data-value="${p.value}">
+      <rect class="cpt__hit" x="${(x(i) - (plotW / Math.max(all.length - 1, 1)) / 2).toFixed(1)}"
+            y="${padT}" width="${(plotW / Math.max(all.length - 1, 1)).toFixed(1)}" height="${plotH}"></rect>
+      <line class="cpt__cross" x1="${x(i).toFixed(1)}" y1="${padT}" x2="${x(i).toFixed(1)}" y2="${padT + plotH}"></line>
+      <circle class="cpt__dot" cx="${x(i).toFixed(1)}" cy="${yPos(p.value).toFixed(1)}" r="5"></circle>
+    </g>`).join('');
+
+  chartTrendEl.innerHTML = `
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet" role="img"
+         aria-label="จำนวนเคสตามเดือน">
+      ${grid}
+      <path class="cline__area" d="${areaPath}"></path>
+      <path class="cline__line" d="${linePath}"></path>
+      <circle class="cline__peak" cx="${x(peak).toFixed(1)}" cy="${yPos(all[peak].value).toFixed(1)}" r="4.5"></circle>
+      <text class="cline__peaklabel" x="${x(peak).toFixed(1)}" y="${(yPos(all[peak].value) - 12).toFixed(1)}">${all[peak].value.toLocaleString()}</text>
+      ${xLabels}
+      ${hits}
+    </svg>`;
+
+  chartTrendEl.querySelectorAll('.cpt').forEach(g => {
+    const show = (e) => showChartTip(e, `
+      <div class="chart-tip__name">${escapeHtml(g.dataset.label)}</div>
+      <div class="chart-tip__value">${(+g.dataset.value).toLocaleString()} เคส</div>`);
+    g.addEventListener('mouseenter', show);
+    g.addEventListener('mousemove', show);
+    g.addEventListener('mouseleave', hideChartTip);
+    g.addEventListener('focus', () => {
+      const r = g.getBoundingClientRect();
+      show({ clientX: r.left + r.width / 2, clientY: r.top });
+    });
+    g.addEventListener('blur', hideChartTip);
+  });
+}
+
+/** ปัดเพดานแกนตั้งให้เป็นเลขกลมๆ อ่านง่าย */
+function niceCeil(n) {
+  if (n <= 5) return 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(n)));
+  // ขั้นละเอียดพอที่เพดานจะไม่สูงเกินข้อมูลมาก ไม่งั้นกราฟจะแบนอยู่ครึ่งล่าง อ่านแนวโน้มไม่ออก
+  // (เช่น ค่าสูงสุด 58 ถ้าใช้ขั้นหยาบจะได้เพดาน 100 แต่ขั้นนี้ได้ 60 ซึ่งพอดีกว่ามาก)
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(s => n <= s * mag) || 10;
+  return step * mag;
+}
+
+// เริ่มทำงาน — ต้องอยู่ท้ายสุดของไฟล์ เพราะฟังก์ชันและตัวแปรด้านบนต้องถูกประกาศครบก่อน
 init();

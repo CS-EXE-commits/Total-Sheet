@@ -56,6 +56,27 @@
 
       <p class="status-page__status" id="pageStatus"></p>
 
+      <!-- กราฟภาพรวมของสถานะที่กำลังดู -->
+      <section class="status-page__section" id="chartSection" hidden>
+        <div class="chart-grid">
+          <figure class="chart-card" id="chartByTabCard">
+            <figcaption class="chart-card__head">
+              <span class="chart-card__title">จำนวนเคสแยกตามไฟล์และแท็บ</span>
+              <span class="chart-card__sub" id="chartByTabSub"></span>
+            </figcaption>
+            <div class="chart-card__body" id="chartByTab"></div>
+          </figure>
+
+          <figure class="chart-card" id="chartTrendCard">
+            <figcaption class="chart-card__head">
+              <span class="chart-card__title">เคสเข้าตามเดือน</span>
+              <span class="chart-card__sub" id="chartTrendSub"></span>
+            </figcaption>
+            <div class="chart-card__body" id="chartTrend"></div>
+          </figure>
+        </div>
+      </section>
+
       <!-- สรุปว่าอยู่ไฟล์ไหน แท็บไหน กี่เคส -->
       <section class="status-page__section" id="summarySection" hidden>
         <h3 class="status-page__section-title">สรุปตามไฟล์และแท็บ</h3>
