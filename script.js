@@ -2497,12 +2497,18 @@ function renderReportStatusList(result) {
     </div>`).join('');
 }
 
+/**
+ * เหตุการณ์วันนี้แสดง "ทุกไฟล์ทุกแท็บ" ไม่ใช่เฉพาะแท็บที่เปิดอยู่
+ * เพราะถ้ากรองแค่แท็บเดียว วันที่ไปแก้งานอยู่แท็บอื่น ช่องนี้จะว่างเหมือนไม่มีใครทำอะไรเลย
+ * (ตัวเลขสรุปด้านบนยังเป็นของแท็บที่เปิดอยู่เหมือนเดิม)
+ */
 function renderReportLogList(result) {
-  if (result.recentToday.length === 0) {
-    reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในแท็บนี้</p>';
+  const events = result.recentAll || result.recentToday || [];
+  if (events.length === 0) {
+    reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในไฟล์ใดเลย</p>';
     return;
   }
-  reportLogList.innerHTML = result.recentToday.map(item => {
+  reportLogList.innerHTML = events.map(item => {
     const where = [item.book, item.sheet].filter(Boolean).join(' · ');
     return `
     <div class="report-log-row">

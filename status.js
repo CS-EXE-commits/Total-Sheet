@@ -1182,13 +1182,20 @@ function setRangeFromExpr_(fromExpr, toExpr, label) {
   return true;
 }
 
+/** 2026-10-01 -> 1 ต.ค. 2026 */
+function formatDateShort_(value) {
+  const m = (value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return value;
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  return `${+m[3]} ${months[+m[2] - 1]} ${m[1]}`;
+}
+
 /** กลับไปเป็น "ทั้งหมด" ใช้ตอนเปลี่ยนสถานะที่ดูอยู่ */
 function resetTimePicker_() {
   chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
   if (timePickerLabel) timePickerLabel.textContent = 'ช่วงเวลา';
-  // ตั้งค่าเริ่มต้นไว้ให้เลย จะได้กดใช้ได้ทันทีโดยไม่ต้องพิมพ์เอง
-  if (timeFromInput) timeFromInput.value = 'now-1h';
-  if (timeToInput) timeToInput.value = 'now';
+  if (timeFromInput) timeFromInput.value = '';
+  if (timeToInput) timeToInput.value = '';
   if (timeErr) timeErr.hidden = true;
   closeTimePicker_();
 }
@@ -1228,8 +1235,9 @@ timePickerBtn.addEventListener('click', (e) => {
 timeQuickList.addEventListener('click', (e) => {
   const btn = e.target.closest('.timepicker__quick-btn');
   if (!btn) return;
-  timeFromInput.value = btn.dataset.from;
-  timeToInput.value = btn.dataset.to;
+  // เลือกจากรายการสำเร็จรูปแล้ว ช่องปฏิทินต้องว่าง ไม่งั้นจะงงว่าตกลงใช้อันไหน
+  timeFromInput.value = '';
+  timeToInput.value = '';
   timeErr.hidden = true;
   setRangeFromExpr_(btn.dataset.from, btn.dataset.to, btn.dataset.label);
   closeTimePicker_();
@@ -1238,9 +1246,19 @@ timeQuickList.addEventListener('click', (e) => {
 timeSearch.addEventListener('input', renderQuickList_);
 
 function applyCustomRange_() {
-  const ok = setRangeFromExpr_(timeFromInput.value.trim(), timeToInput.value.trim(), null);
+  const from = timeFromInput.value;
+  const to = timeToInput.value;
+  if (!from && !to) {
+    timeErr.textContent = 'กรุณาเลือกวันที่อย่างน้อย 1 ช่อง';
+    timeErr.hidden = false;
+    return;
+  }
+  const label = from && to
+    ? `${formatDateShort_(from)} – ${formatDateShort_(to)}`
+    : (from ? `ตั้งแต่ ${formatDateShort_(from)}` : `ถึง ${formatDateShort_(to)}`);
+  const ok = setRangeFromExpr_(from, to, label);
   if (!ok) {
-    timeErr.textContent = 'อ่านช่วงเวลาที่กรอกไม่ออก หรือเวลาเริ่มต้นอยู่หลังเวลาสิ้นสุด';
+    timeErr.textContent = 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
     timeErr.hidden = false;
     return;
   }

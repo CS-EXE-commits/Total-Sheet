@@ -69,22 +69,20 @@
 
             <div class="timepicker__panel" id="timePickerPanel" hidden role="dialog" aria-label="เลือกช่วงเวลา">
               <div class="timepicker__abs">
-                <p class="timepicker__head">ระบุช่วงเวลาเอง</p>
+                <p class="timepicker__head">เลือกวันที่จากปฏิทิน</p>
 
-                <label class="timepicker__lbl" for="timeFrom">ตั้งแต่</label>
-                <input type="text" id="timeFrom" class="timepicker__input" value="now-1h" placeholder="now-1h" autocomplete="off">
+                <label class="timepicker__lbl" for="timeFrom">ตั้งแต่วันที่</label>
+                <input type="date" id="timeFrom" class="timepicker__input" title="ตั้งแต่วันที่">
 
-                <label class="timepicker__lbl" for="timeTo">ถึง</label>
-                <input type="text" id="timeTo" class="timepicker__input" value="now" placeholder="now" autocomplete="off">
+                <label class="timepicker__lbl" for="timeTo">ถึงวันที่</label>
+                <input type="date" id="timeTo" class="timepicker__input" title="ถึงวันที่">
 
                 <button type="button" class="timepicker__apply" id="timeApply">ใช้ช่วงเวลานี้</button>
                 <p class="timepicker__err" id="timeErr" hidden></p>
 
                 <p class="timepicker__hint">
-                  กรอกได้ทั้งวันที่เต็ม เช่น <code>2026-10-01 08:00</code>
-                  และแบบย่อ <code>now</code>, <code>now-2h</code> (2 ชั่วโมงก่อน),
-                  <code>now-7d</code> (7 วันก่อน), <code>now-1M</code> (1 เดือนก่อน),
-                  <code>now-1y</code> (1 ปีก่อน) · เติม <code>/d</code> ท้ายเพื่อปัดเป็นต้น/ท้ายวัน
+                  เลือกวันเดียวได้ โดยใส่วันเดียวกันทั้งสองช่อง
+                  หรือเว้นช่องใดช่องหนึ่งไว้เพื่อไม่จำกัดด้านนั้น
                 </p>
               </div>
 
