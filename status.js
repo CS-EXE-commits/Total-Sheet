@@ -244,10 +244,13 @@ async function loadStatus(status, pushUrl) {
 }
 
 function renderSummary(summary) {
-  statusMetaEl.textContent = `พบทั้งหมด ${summary.total.toLocaleString()} เคส ใน ${summary.groups.length} แท็บ`;
+  const ranged = !!(chartRange.fromMs || chartRange.toMs);
+  statusMetaEl.textContent = ranged
+    ? `ช่วงเวลาที่เลือก: ${summary.total.toLocaleString()} เคส ใน ${summary.groups.length} แท็บ`
+    : `พบทั้งหมด ${summary.total.toLocaleString()} เคส ใน ${summary.groups.length} แท็บ`;
 
   if (summary.groups.length === 0) {
-    summaryTable.innerHTML = '<p class="status-page__empty">ไม่พบเคสที่มีสถานะนี้</p>';
+    summaryTable.innerHTML = `<p class="status-page__empty">${ranged ? 'ไม่พบเคสในช่วงเวลาที่เลือก' : 'ไม่พบเคสที่มีสถานะนี้'}</p>`;
     summarySection.hidden = false;
     return;
   }
@@ -273,14 +276,43 @@ function renderSummary(summary) {
   summarySection.hidden = false;
 }
 
+/**
+ * คัดเฉพาะเคสที่อยู่ในช่วงเวลาที่เลือกอยู่
+ *
+ * ไม่ได้กรองช่วงเวลา → คืนทุกแถวเหมือนเดิม
+ * ไม่มีคอลัมน์วันที่ → คืนทุกแถวเหมือนกัน เพราะไม่มีทางรู้ว่าเคสอยู่ช่วงไหน
+ * ถ้าซ่อนไปเฉยๆ ข้อมูลจะหายไปแบบไม่มีใครรู้ตัว
+ */
+function filterGroupRows_(group) {
+  const rows = group.rows || [];
+  if (!(chartRange.fromMs || chartRange.toMs)) return { rows, filtered: false, noDate: false };
+  const di = dateIndexOf(group);
+  if (di === -1) return { rows, filtered: false, noDate: true };
+  return {
+    rows: rows.filter(r => inChartRange(dateFromCell(r.cells[di]))),
+    filtered: true,
+    noDate: false
+  };
+}
+
 function renderGroup(result, expectedCount) {
   const wrap = document.createElement('div');
   wrap.className = 'status-group';
   wrap.id = anchorIdFor(result.book, result.sheet); // ปลายทางตอนกดชื่อไฟล์/แท็บด้านบน
 
-  const truncatedNote = result.truncated
+  const picked = filterGroupRows_(result);
+  const rows = picked.rows;
+  // กรองช่วงเวลาแล้ว ยอดบนหัวต้องเป็นยอดที่เห็นจริงในตาราง ไม่ใช่ยอดเต็มของแท็บ
+  const headCount = picked.filtered ? rows.length : expectedCount;
+
+  let truncatedNote = result.truncated
     ? `<span class="status-group__warn">แสดง ${result.rows.length.toLocaleString()} จาก ${result.matched.toLocaleString()} เคส</span>`
     : '';
+  if (picked.filtered) {
+    truncatedNote += `<span class="status-group__warn">กรองช่วงเวลา — จากทั้งหมด ${expectedCount.toLocaleString()} เคส</span>`;
+  } else if (picked.noDate) {
+    truncatedNote += '<span class="status-group__warn">แท็บนี้ไม่มีคอลัมน์วันที่ จึงกรองช่วงเวลาไม่ได้</span>';
+  }
 
   // แสดงเฉพาะคอลัมน์ที่เซิร์ฟเวอร์เลือกมา (วันที่ / EXE ID / Ticket) ที่เหลือดูได้จากปุ่ม "ดูข้อมูล"
   const shown = (result.listColumns && result.listColumns.length)
@@ -290,7 +322,7 @@ function renderGroup(result, expectedCount) {
   wrap.innerHTML = `
     <h4 class="status-group__title">
       ${escapeHtml(result.book)} · ${escapeHtml(result.sheet)}
-      <span class="status-group__count">${expectedCount.toLocaleString()} เคส</span>
+      <span class="status-group__count">${headCount.toLocaleString()} เคส</span>
       ${truncatedNote}
     </h4>
     <div class="status-group__table-wrap">
@@ -299,7 +331,7 @@ function renderGroup(result, expectedCount) {
           <tr><th>แถวที่</th>${shown.map(i => `<th${isTicketColumn(result.headers[i]) ? ' class="status-group__ticket-col"' : ''}>${escapeHtml(result.headers[i])}</th>`).join('')}</tr>
         </thead>
         <tbody>
-          ${result.rows.map(r => `
+          ${rows.map(r => `
             <tr class="status-group__row--clickable" title="คลิกเพื่อดูข้อมูลทั้งหมดของแถวนี้"
                 data-view-book="${escapeHtml(result.book)}" data-view-sheet="${escapeHtml(result.sheet)}" data-view-row="${r.row}">
               <td class="status-group__rownum">${r.row}</td>
@@ -309,8 +341,20 @@ function renderGroup(result, expectedCount) {
       </table>
     </div>`;
 
+  if (rows.length === 0) {
+    wrap.querySelector('.status-group__table-wrap').innerHTML =
+      '<p class="status-page__empty">ไม่มีเคสของแท็บนี้ในช่วงเวลาที่เลือก</p>';
+  }
+
   detailGroups.appendChild(wrap);
   flushPendingScroll_(); // เผื่อมีคนกดรอไว้ตอนกลุ่มนี้ยังโหลดไม่เสร็จ
+}
+
+/** วาดรายการเคสด้านล่างใหม่ทั้งหมด ใช้ตอนเปลี่ยนช่วงเวลา */
+function redrawGroups_() {
+  if (loadedGroups.length === 0) return;
+  detailGroups.innerHTML = '';
+  loadedGroups.forEach(g => renderGroup(g, g.count));
 }
 
 function renderGroupError(group, message) {
@@ -336,17 +380,21 @@ downloadBtn.addEventListener('click', () => {
   const wb = XLSX.utils.book_new();
 
   // ชีทแรก: สรุปตามไฟล์/แท็บ
+  // ดาวน์โหลดตามช่วงเวลาที่เลือกอยู่ ไฟล์จะได้ตรงกับที่เห็นบนหน้าจอ
+  const picked = new Map();
+  loadedGroups.forEach(g => picked.set(g, filterGroupRows_(g).rows));
+
   const summaryRows = loadedGroups.map(g => ({
     'ไฟล์': g.book,
     'แท็บ': g.sheet,
-    'จำนวนเคส': g.count,
+    'จำนวนเคส': picked.get(g).length,
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'สรุป');
 
   // ชีทต่อไป: รายการเคสของแต่ละแท็บ
   const usedNames = {};
   loadedGroups.forEach(g => {
-    const rows = g.rows.map(r => {
+    const rows = picked.get(g).map(r => {
       const obj = { 'แถวที่': r.row };
       g.headers.forEach((h, i) => { obj[h] = r.cells[i] || ''; });
       return obj;
@@ -989,10 +1037,13 @@ function applyChartRange() {
   if (!lastSummary) return;
   const filtering = !!(chartRange.fromMs || chartRange.toMs);
 
+  redrawGroups_(); // รายการเคสด้านล่างต้องตรงกับช่วงเวลาที่เลือกเสมอ
+
   if (!filtering) {
     chartFilterNote.hidden = true;
     renderChartByTab(lastSummary.groups, lastSummary.total);
     renderChartTrend(loadedGroups);
+    renderSummary(lastSummary);
     return;
   }
 
@@ -1000,19 +1051,21 @@ function applyChartRange() {
   let total = 0;
   let noDate = 0;
   loadedGroups.forEach(g => {
-    const di = dateIndexOf(g);
-    if (di === -1) { noDate += (g.rows || []).length; return; }
-    let count = 0;
-    (g.rows || []).forEach(r => { if (inChartRange(dateFromCell(r.cells[di]))) count++; });
+    const picked = filterGroupRows_(g);
+    if (picked.noDate) noDate += picked.rows.length;
+    const count = picked.rows.length;
     if (count > 0) { groups.push({ book: g.book, sheet: g.sheet, count }); total += count; }
   });
   groups.sort((a, b) => b.count - a.count);
 
+  // ตารางสรุปด้านบนต้องเป็นยอดเดียวกับรายการเคสด้านล่าง ไม่งั้นกดแล้วเลขไม่ตรงกัน
+  renderSummary({ total, groups });
+
   const truncated = loadedGroups.some(g => g.truncated);
   chartFilterNote.textContent =
-    'กำลังกรองช่วงเวลา — ตัวเลขในกราฟนับจากเคสที่โหลดมาแล้วเท่านั้น'
+    'กำลังกรองช่วงเวลา — ทั้งกราฟ ตารางสรุป และรายการเคสด้านล่าง แสดงเฉพาะเคสในช่วงนี้ (นับจากเคสที่โหลดมาแล้วเท่านั้น)'
     + (truncated ? ' (บางแท็บมีเคสเกินที่ระบบโหลดมาได้ ยอดจริงอาจมากกว่านี้)' : '')
-    + (noDate > 0 ? ` · มี ${noDate.toLocaleString()} เคสที่ไม่มีคอลัมน์วันที่ จึงไม่ถูกนับ` : '');
+    + (noDate > 0 ? ` · มี ${noDate.toLocaleString()} เคสในแท็บที่ไม่มีคอลัมน์วันที่ จึงกรองไม่ได้และยังแสดงทั้งหมด` : '');
   chartFilterNote.hidden = false;
 
   if (groups.length === 0) {
