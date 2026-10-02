@@ -346,7 +346,8 @@ body {
 
 .sidebar-dashboard__title {
   margin: 0;
-  font-size: 12px;
+  /* หัวข้อหลักของแถบภาพรวม อ่านง่ายขึ้นเมื่อแถบด้านข้างแคบ */
+  font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -355,7 +356,7 @@ body {
   align-items: baseline;
   justify-content: space-between;
 }
-.sidebar-dashboard__title span { font-weight: 500; text-transform: none; letter-spacing: normal; font-size: 11px; }
+.sidebar-dashboard__title span { font-weight: 500; text-transform: none; letter-spacing: normal; font-size: 12px; }
 
 .sidebar-dashboard__stat {
   display: flex;
@@ -389,7 +390,7 @@ body {
 .sidebar-dashboard__subhead {
   margin: 0;
   /* ขนาดเท่าหัวข้อ "ภาพรวมวันนี้" ด้านบน จะได้ดูเป็นหัวข้อระดับเดียวกัน */
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
