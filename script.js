@@ -167,18 +167,12 @@ function renderCurrentPage() {
   const start = (currentPage - 1) * pageSize;
   const pageRows = filteredRows.slice(start, start + pageSize);
 
-  if (displayMode === 'single') {
-    tableHead.innerHTML = '<tr>' + '<th class="data-table__rownum-col">แถวที่</th>' + visibleColumnIndices.map(i => {
-      const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
-      return `<th${cls}>${escapeHtml(currentTableHeaders[i])}</th>`;
-    }).join('') + '<th class="data-table__actions-col"></th></tr>';
-    tableBody.innerHTML = '';
-    pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
-  } else {
-    tableHead.innerHTML = '<tr><th>แท็บ</th><th>แถวที่</th><th>ข้อมูล</th><th class="data-table__actions-col"></th></tr>';
-    tableBody.innerHTML = '';
-    pageRows.forEach(row => tableBody.appendChild(buildAllRow(row)));
-  }
+  tableHead.innerHTML = '<tr>' + '<th class="data-table__rownum-col">แถวที่</th>' + visibleColumnIndices.map(i => {
+    const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
+    return `<th${cls}>${escapeHtml(currentTableHeaders[i])}</th>`;
+  }).join('') + '<th class="data-table__actions-col"></th></tr>';
+  tableBody.innerHTML = '';
+  pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
   syncTicketColumnOffset_();
 
   tableWrap.hidden = false;
@@ -468,8 +462,7 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
     // อัปเดตเฉพาะแถวนี้ในหน้าจอทันที ไม่ต้องรอโหลดทั้งแท็บใหม่
     const applied = applyRowEditLocally_(row, data, currentTableHeaders);
     if (!applied) {
-      if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
-      else await loadAllTabsView(lastKeyword);
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
     }
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -486,30 +479,6 @@ function isTicketColumn(headerName) {
 /** เช็คคร่าวๆ ว่าค่านี้หน้าตาเหมือนลิงก์ (ขึ้นต้นด้วย http:// หรือ https://) ก่อนเปลี่ยนเป็นปุ่มลิงก์ */
 function isLikelyUrl(value) {
   return /^https?:\/\//i.test((value || '').toString().trim());
-}
-
-function buildAllRow(row) {
-  const tr = document.createElement('tr');
-
-  const sheetTd = document.createElement('td');
-  sheetTd.textContent = row.sheet;
-  tr.appendChild(sheetTd);
-
-  const rowTd = document.createElement('td');
-  rowTd.textContent = row.row;
-  tr.appendChild(rowTd);
-
-  const dataTd = document.createElement('td');
-  dataTd.innerHTML = row.cells
-    .map(c => (c === null || c === undefined) ? '' : c.toString())
-    .filter(c => c.trim() !== '')
-    .map(c => highlightMatch(c, lastKeyword))
-    .join(' &middot; ');
-  tr.appendChild(dataTd);
-
-  tr.appendChild(buildActionsCell(row, tr));
-  makeRowClickable_(tr, row);
-  return tr;
 }
 
 /** ช่องปุ่มจัดการท้ายแถว: ปุ่มแก้ไข (แก้ไขข้อมูลในชีตจริง) และปุ่มลบ อยู่ด้วยกัน ใช้ได้ทั้งโหมดแท็บเดียวและโหมดทั้งหมด */
@@ -582,7 +551,6 @@ let lastTruncated = false; // true ถ้าผลลัพธ์ล่าสุ
 let loadRequestSeq = 0; // ตัวนับคำขอโหลดข้อมูลล่าสุด กันคำขอเก่าที่ตอบช้ากว่ามาเขียนทับผลลัพธ์ใหม่กว่า (เช่น ตอนสลับแท็บ/ค้นหาซ้อนกันเร็วๆ)
 let currentPage = 1;
 let pageSize = 20; // ตัวเลือก: 20 / 50 / 100
-let displayMode = 'single'; // 'single' = ตารางเต็มคอลัมน์, 'all' = ตาราง 3 คอลัมน์รวมทุกแท็บ
 let currentUserEmail = ''; // อีเมลของผู้ที่เข้าสู่ระบบอยู่ตอนนี้ (ใช้แสดงผลเท่านั้น)
 // ตั๋วที่ระบบออกให้หลังยืนยันตัวตนกับ Google สำเร็จ ต้องแนบไปกับทุกคำสั่ง
 // (ของเดิมส่งแค่อีเมลเปล่าๆ ซึ่งใครก็พิมพ์สวมรอยได้)
@@ -1432,19 +1400,27 @@ async function openBook(book, initialSheet) {
     if (!result.ok) throw new Error(result.error || 'โหลดแท็บไม่สำเร็จ');
     renderTabs(result.sheets);
     // ถ้าระบุแท็บล่าสุดไว้ (เช่น ตอนรีเฟรชหน้าเว็บ) และแท็บนั้นยังมีอยู่จริง ให้เปิดแท็บนั้นต่อ
-    // ไม่งั้นเริ่มที่ "ทั้งหมดในไฟล์นี้" ตามปกติ
+    // ไม่งั้นเปิดแท็บแรกของไฟล์ให้เลย (ไม่มีโหมดรวมทุกแท็บแล้ว)
     const sheetToSelect = (initialSheet && result.sheets.some(s => s.name === initialSheet))
       ? initialSheet
-      : '';
-    selectTab(sheetToSelect);
+      : (result.sheets[0] ? result.sheets[0].name : '');
+    if (sheetToSelect) {
+      selectTab(sheetToSelect);
+    } else {
+      showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
+    }
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   }
 }
 
+/**
+ * แสดงเฉพาะแท็บที่มีอยู่จริงในไฟล์นี้
+ * เดิมมีปุ่ม "ทั้งหมดในไฟล์นี้" ที่ดึงข้อมูลทุกแท็บมารวมกันในครั้งเดียว ซึ่งเป็นคำสั่งที่หนักที่สุดในระบบ
+ * (ไฟล์ที่มีหลายแท็บและแต่ละแท็บหลายพันแถว ต้องอ่านทั้งไฟล์) จึงเอาออกเพื่อไม่ให้เผลอกดแล้วรอนาน
+ */
 function renderTabs(sheets) {
   tabsBar.innerHTML = '';
-  tabsBar.appendChild(createTabPill('ทั้งหมดในไฟล์นี้', ''));
   sheets.forEach(s => tabsBar.appendChild(createTabPill(s.name, s.name)));
 }
 
@@ -1474,11 +1450,7 @@ async function selectTab(sheetName) {
   resetPanels();
   manageToggle.hidden = !sheetName;
 
-  if (sheetName) {
-    await loadSingleTabView(sheetName, '');
-  } else {
-    await loadAllTabsView('');
-  }
+  if (sheetName) await loadSingleTabView(sheetName, '');
 }
 
 /* ===== โหมดแท็บเดียว: ตารางเต็มคอลัมน์ + ตัวกรองสถานะ ===== */
@@ -1669,45 +1641,11 @@ function applyStatusFilterAndRender(keepPage) {
   filteredRows = (!chosen || statusColIndex === -1)
     ? currentRows
     : currentRows.filter(row => (row.cells[statusColIndex] || '').toString().trim() === chosen);
-  displayMode = 'single';
   if (!keepPage) currentPage = 1;
   renderCurrentPage();
 }
 
-/* หมายเหตุ: การ render ตารางจริงทำผ่าน renderCurrentPage() + buildSingleRow()/buildAllRow() ด้านล่าง (รองรับแบ่งหน้า) */
-
-/* ===== โหมดทั้งหมดในไฟล์: ตาราง 3 คอลัมน์ (แท็บ / แถวที่ / ข้อมูล) ===== */
-
-async function loadAllTabsView(keyword) {
-  lastKeyword = keyword;
-  input.value = keyword;
-  statusFilter.hidden = true;
-  setLoading(true);
-  showHint('กำลังค้นหา...', false);
-
-  const requestId = ++loadRequestSeq;
-
-  try {
-    const result = await jsonpRequest(apiUrl({ action: 'search', q: keyword, book: currentBook }), BIG_TAB_TIMEOUT_MS);
-    if (requestId !== loadRequestSeq) return;
-    if (!result.ok) throw new Error(result.error || 'ค้นหาไม่สำเร็จ');
-
-    currentTableHeaders = ['แท็บ', 'แถวที่', 'ข้อมูล'];
-    currentRows = result.results;
-    lastTruncated = !!result.truncated;
-    linksDeferred = !!result.linksDeferred;
-    fetchedLinkRows_.clear();
-    filteredRows = currentRows;
-    displayMode = 'all';
-    currentPage = 1;
-    renderCurrentPage();
-  } catch (err) {
-    if (requestId !== loadRequestSeq) return;
-    showHint('เกิดข้อผิดพลาด: ' + err.message, true);
-  } finally {
-    if (requestId === loadRequestSeq) setLoading(false);
-  }
-}
+/* หมายเหตุ: การ render ตารางจริงทำผ่าน renderCurrentPage() + buildSingleRow() ด้านล่าง (รองรับแบ่งหน้า) */
 
 /* ===== ค้นหา ===== */
 
@@ -1715,7 +1653,6 @@ searchForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const keyword = input.value.trim();
   if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
-  else loadAllTabsView(keyword);
 });
 
 function showHint(message, isError) {
@@ -1748,8 +1685,7 @@ async function deleteRow(row, rowEl, buttonEl) {
     // ต้องโหลดข้อมูลใหม่ทั้งหมด ห้ามแค่ลบแถวนั้นออกจากตารางในหน่วยความจำ
     // เพราะการลบแถวในชีททำให้แถวที่อยู่ข้างล่างเลื่อนขึ้นมาทั้งหมด เลขแถวที่ค้างอยู่บนหน้าจอจะผิดทันที
     // (ถ้าไม่โหลดใหม่ การกดลบ/แก้ไขครั้งถัดไปจะไปโดนข้อมูลของเคสอื่น)
-    if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
-    else await loadAllTabsView(lastKeyword);
+    if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
     buttonEl.disabled = false;
@@ -1771,7 +1707,7 @@ let editingRowHeaders = []; // ชื่อคอลัมน์ของแท�
 /**
  * เปิดหน้าต่างแก้ไขข้อมูลแถว: โหลดรายชื่อคอลัมน์ + ตัวเลือก dropdown จริงของแท็บนั้น (action=headers)
  * และโหลดหัวตารางเต็ม (action=tableHeaders) เพื่อจับคู่ค่าปัจจุบันของแต่ละคอลัมน์ให้ตรงตำแหน่งใน row.cells
- * ใช้ row.sheet เสมอ (ไม่ใช่ selectedSheet) เพื่อให้ทำงานถูกต้องแม้อยู่ในโหมด "ทั้งหมดในไฟล์นี้"
+ * ใช้ row.sheet เสมอ (ไม่ใช่ selectedSheet) เพื่อให้ปลอดภัยแม้ข้อมูลมาจากแท็บอื่น
  */
 async function openEditModal(row) {
   editingRow = row;
@@ -1924,8 +1860,7 @@ editSubmit.addEventListener('click', async () => {
     const appliedLocally = !colorChanged && applyRowEditLocally_(row, data, editingRowHeaders);
     closeEditModal();
     if (!appliedLocally) {
-      if (displayMode === 'single') await loadSingleTabView(selectedSheet, lastKeyword);
-      else await loadAllTabsView(lastKeyword);
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
     }
   } catch (err) {
     setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
@@ -2826,7 +2761,6 @@ async function restoreTrashItem(item, rowEl, buttonEl) {
     rowEl.remove();
     setTrashStatus(result.message, 'success');
     if (selectedSheet === item.sheetName) await loadSingleTabView(selectedSheet, lastKeyword);
-    else if (!selectedSheet) await loadAllTabsView(lastKeyword);
   } catch (err) {
     setTrashStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
     buttonEl.disabled = false;
