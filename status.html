@@ -63,7 +63,7 @@
           <div class="timepicker" id="timePicker">
             <button type="button" class="timepicker__btn" id="timePickerBtn" aria-expanded="false" aria-haspopup="dialog">
               <span class="timepicker__clock">🕒</span>
-              <span class="timepicker__label" id="timePickerLabel">ทั้งหมด</span>
+              <span class="timepicker__label" id="timePickerLabel">ช่วงเวลา</span>
               <span class="timepicker__caret">▾</span>
             </button>
 
@@ -72,10 +72,10 @@
                 <p class="timepicker__head">ระบุช่วงเวลาเอง</p>
 
                 <label class="timepicker__lbl" for="timeFrom">ตั้งแต่</label>
-                <input type="text" id="timeFrom" class="timepicker__input" placeholder="now-2h" autocomplete="off">
+                <input type="text" id="timeFrom" class="timepicker__input" value="now-1h" placeholder="now-1h" autocomplete="off">
 
                 <label class="timepicker__lbl" for="timeTo">ถึง</label>
-                <input type="text" id="timeTo" class="timepicker__input" placeholder="now" autocomplete="off">
+                <input type="text" id="timeTo" class="timepicker__input" value="now" placeholder="now" autocomplete="off">
 
                 <button type="button" class="timepicker__apply" id="timeApply">ใช้ช่วงเวลานี้</button>
                 <p class="timepicker__err" id="timeErr" hidden></p>

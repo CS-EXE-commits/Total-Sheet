@@ -1167,7 +1167,7 @@ function applyChartRange() {
 function setRangeFromExpr_(fromExpr, toExpr, label) {
   if (!fromExpr && !toExpr) {
     chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
-    timePickerLabel.textContent = label || 'ทั้งหมด';
+    timePickerLabel.textContent = 'ช่วงเวลา'; // ไม่ได้กรองอยู่ ปุ่มแสดงชื่อฟังก์ชันไว้เฉยๆ
     applyChartRange();
     return true;
   }
@@ -1185,9 +1185,10 @@ function setRangeFromExpr_(fromExpr, toExpr, label) {
 /** กลับไปเป็น "ทั้งหมด" ใช้ตอนเปลี่ยนสถานะที่ดูอยู่ */
 function resetTimePicker_() {
   chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
-  if (timePickerLabel) timePickerLabel.textContent = 'ทั้งหมด';
-  if (timeFromInput) timeFromInput.value = '';
-  if (timeToInput) timeToInput.value = '';
+  if (timePickerLabel) timePickerLabel.textContent = 'ช่วงเวลา';
+  // ตั้งค่าเริ่มต้นไว้ให้เลย จะได้กดใช้ได้ทันทีโดยไม่ต้องพิมพ์เอง
+  if (timeFromInput) timeFromInput.value = 'now-1h';
+  if (timeToInput) timeToInput.value = 'now';
   if (timeErr) timeErr.hidden = true;
   closeTimePicker_();
 }
