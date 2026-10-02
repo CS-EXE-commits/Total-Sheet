@@ -983,6 +983,10 @@ function buildRangeOptions_() {
   for (let w = 1; w <= 4; w++) opts.push(`<option value="w${w}">${w} สัปดาห์ล่าสุด</option>`);
   opts.push('</optgroup>');
 
+  opts.push('<optgroup label="รายเดือน">');
+  for (let m = 1; m <= 11; m++) opts.push(`<option value="m${m}">${m} เดือนล่าสุด</option>`);
+  opts.push('</optgroup>');
+
   opts.push('<optgroup label="รายปี">');
   for (let y = 1; y <= 10; y++) opts.push(`<option value="y${y}">${y} ปีล่าสุด</option>`);
   opts.push('</optgroup>');
@@ -1006,6 +1010,16 @@ function rangeFromOption_(value) {
   if (kind === 'w') {
     start.setDate(start.getDate() - n * 7);
     return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'day' };
+  }
+  if (kind === 'm') {
+    const day = start.getDate();
+    start.setDate(1); // ย้ายไปวันที่ 1 ก่อน ไม่งั้นถอยจากวันที่ 31 จะข้ามเดือนไปเอง
+    start.setMonth(start.getMonth() - n);
+    // วันเดิมอาจไม่มีในเดือนปลายทาง (เช่น 31 ก.พ.) ให้ใช้วันสุดท้ายของเดือนนั้นแทน
+    const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    start.setDate(Math.min(day, lastDay));
+    // 1-2 เดือนแบ่งแกนเป็นวันจะอ่านง่ายกว่า ยาวกว่านั้นแบ่งเป็นเดือน
+    return { fromMs: start.getTime(), toMs: now.getTime(), unit: n <= 2 ? 'day' : 'month' };
   }
   start.setFullYear(start.getFullYear() - n);
   return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'month' };
