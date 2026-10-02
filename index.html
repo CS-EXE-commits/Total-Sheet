@@ -61,7 +61,6 @@
       <span class="folder-bar__divider"></span>
 
       <div class="topmenu">
-        <button type="button" class="topbtn" id="addFileToggle">+ เพิ่มไฟล์</button>
         <div class="topmenu__panel" id="addFilePanel" hidden>
           <!-- เลือกว่าจะเอาไฟล์มาจากไหน: วางลิงก์ Google Sheet ที่มีอยู่แล้ว หรือแนบไฟล์จากเครื่อง -->
           <div class="seg" role="tablist">
@@ -161,10 +160,17 @@
           <span class="sidebar-dashboard__stat-label">เคสเข้าใหม่วันนี้ (ทุกไฟล์)</span>
         </div>
         <div class="sidebar-dashboard__cases" id="dashboardNewCasesList"></div>
-        <p class="sidebar-dashboard__subhead">🗂️ ตรวจสอบสถานะ</p>
-        <div class="sidebar-dashboard__list" id="dashboardStatusList"></div>
         <p class="sidebar-dashboard__status" id="dashboardStatus"></p>
 
+      </div>
+
+      <!-- ตรวจสอบสถานะ: แยกออกมาเป็นการ์ดของตัวเอง ไม่ปนกับภาพรวมวันนี้ -->
+      <section class="sidebar-card" id="sidebarStatusCard">
+        <p class="sidebar-dashboard__title">🗂️ ตรวจสอบสถานะ</p>
+        <div class="sidebar-dashboard__list" id="dashboardStatusList"></div>
+      </section>
+
+      <div class="sidebar-dashboard">
         <!-- รายงานย้อนหลัง: เลือกช่วงวันที่เอง แล้วดาวน์โหลดเป็น Excel ได้ -->
         <div class="report-block">
           <p class="sidebar-dashboard__subhead">📄 รายงานย้อนหลัง</p>

@@ -46,7 +46,7 @@ themeToggle.addEventListener('click', () => {
 applyThemeToggleIcon();
 
 const booksHint = document.getElementById('booksHint');
-const addFileToggle = document.getElementById('addFileToggle');
+// ปุ่ม "+ เพิ่มไฟล์" บนแถบด้านบนถูกเอาออกแล้ว เปิดฟอร์มจากปุ่ม + ท้ายเมนูโฟลเดอร์แทน
 const addModeLink = document.getElementById('addModeLink');
 const addModeFile = document.getElementById('addModeFile');
 const addBookUrlField = document.getElementById('addBookUrlField');
@@ -934,6 +934,20 @@ function renderFolderBar(folders) {
       });
     }
 
+    // ปุ่มเพิ่มไฟล์ของโฟลเดอร์นี้ อยู่ล่างสุดของเมนูเสมอ (แทนปุ่มบนแถบด้านบนที่เอาออกไปแล้ว)
+    // กดแล้วเปิดฟอร์มเพิ่มไฟล์โดยเลือกโฟลเดอร์นี้ไว้ให้ ไม่ต้องมาเลือกเองอีกรอบ
+    const addLine = document.createElement('button');
+    addLine.type = 'button';
+    addLine.className = 'folder__add';
+    addLine.innerHTML = '<span class="folder__add-plus">+</span> เพิ่มไฟล์';
+    addLine.title = `เพิ่มไฟล์เข้าโฟลเดอร์ "${folder.name}"`;
+    addLine.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllFolders();
+      openAddFilePanel_(folder.name);
+    });
+    menu.appendChild(addLine);
+
     wrap.appendChild(menu);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1021,27 +1035,32 @@ async function removeBook(book, itemEl) {
 /** ปิดฟอร์มเพิ่มไฟล์ แล้วล้างค่าที่กรอกไว้ (ใช้ร่วมกันทั้งปุ่มบนแถบด้านบนและปุ่มยกเลิกในฟอร์ม) */
 function closeAddFilePanel_() {
   addFilePanel.hidden = true;
-  addFileToggle.textContent = '+ เพิ่มไฟล์';
   addBookName.value = '';
   addBookUrl.value = '';
   if (addBookFile) addBookFile.value = '';
   setAddMode_('link');
 }
 
-addFileToggle.addEventListener('click', () => {
-  const isOpen = !addFilePanel.hidden;
-  if (isOpen) { closeAddFilePanel_(); return; }
-
+/**
+ * เปิดฟอร์มเพิ่มไฟล์ พร้อมเลือกโฟลเดอร์ปลายทางไว้ให้
+ * เรียกจากปุ่ม "+ เพิ่มไฟล์" ท้ายเมนูของแต่ละโฟลเดอร์ จึงรู้อยู่แล้วว่าจะเอาไฟล์ไปไว้ที่ไหน
+ */
+function openAddFilePanel_(folderName) {
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   addFilePanel.hidden = false;
-  addFileToggle.textContent = '+ เพิ่มไฟล์';
   addBookName.value = '';
   addBookUrl.value = '';
   if (addBookFile) addBookFile.value = '';
   setAddMode_('link');
-});
+  // เลือกโฟลเดอร์ที่กดมาไว้ให้เลย ถ้าไม่มีชื่อนี้ในรายการก็ปล่อยเป็นค่าเดิม
+  if (addBookFolder && folderName) {
+    const match = Array.from(addBookFolder.options).some(o => o.value === folderName);
+    if (match) addBookFolder.value = folderName;
+  }
+  addBookName.focus();
+}
 
 if (addBookCancel) addBookCancel.addEventListener('click', closeAddFilePanel_);
 
@@ -1264,7 +1283,6 @@ createBookToggle.addEventListener('click', () => {
 
   addFilePanel.hidden = true;
   bookTrashPanel.hidden = true;
-  addFileToggle.textContent = '+ เพิ่มไฟล์';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   createBookPanel.hidden = false;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
@@ -1312,7 +1330,6 @@ bookTrashToggle.addEventListener('click', () => {
   bookTrashPanel.hidden = isOpen;
   addFilePanel.hidden = true;
   createBookPanel.hidden = true;
-  addFileToggle.textContent = '+ เพิ่มไฟล์';
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   if (!isOpen) loadBookTrash();
