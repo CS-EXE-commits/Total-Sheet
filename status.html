@@ -60,15 +60,39 @@
       <section class="status-page__section" id="chartSection" hidden>
         <!-- ปฏิทินกำหนดช่วงเวลาที่จะให้กราฟแสดง -->
         <div class="chart-toolbar">
-          <label class="chart-toolbar__field">
-            <span>ช่วงเวลา</span>
-            <select id="chartRangeSelect" aria-label="เลือกช่วงเวลาที่จะแสดงในกราฟ"></select>
-          </label>
-          <div class="chart-toolbar__dates">
-            <span class="chart-toolbar__or">หรือเลือกวันที่เอง</span>
-            <input type="date" id="chartFrom" title="ตั้งแต่วันที่" aria-label="ตั้งแต่วันที่">
-            <span class="chart-toolbar__dash">–</span>
-            <input type="date" id="chartTo" title="ถึงวันที่" aria-label="ถึงวันที่">
+          <div class="timepicker" id="timePicker">
+            <button type="button" class="timepicker__btn" id="timePickerBtn" aria-expanded="false" aria-haspopup="dialog">
+              <span class="timepicker__clock">🕒</span>
+              <span class="timepicker__label" id="timePickerLabel">ทั้งหมด</span>
+              <span class="timepicker__caret">▾</span>
+            </button>
+
+            <div class="timepicker__panel" id="timePickerPanel" hidden role="dialog" aria-label="เลือกช่วงเวลา">
+              <div class="timepicker__abs">
+                <p class="timepicker__head">ระบุช่วงเวลาเอง</p>
+
+                <label class="timepicker__lbl" for="timeFrom">ตั้งแต่</label>
+                <input type="text" id="timeFrom" class="timepicker__input" placeholder="now-2h" autocomplete="off">
+
+                <label class="timepicker__lbl" for="timeTo">ถึง</label>
+                <input type="text" id="timeTo" class="timepicker__input" placeholder="now" autocomplete="off">
+
+                <button type="button" class="timepicker__apply" id="timeApply">ใช้ช่วงเวลานี้</button>
+                <p class="timepicker__err" id="timeErr" hidden></p>
+
+                <p class="timepicker__hint">
+                  กรอกได้ทั้งวันที่เต็ม เช่น <code>2026-10-01 08:00</code>
+                  และแบบย่อ <code>now</code>, <code>now-2h</code> (2 ชั่วโมงก่อน),
+                  <code>now-7d</code> (7 วันก่อน), <code>now-1M</code> (1 เดือนก่อน),
+                  <code>now-1y</code> (1 ปีก่อน) · เติม <code>/d</code> ท้ายเพื่อปัดเป็นต้น/ท้ายวัน
+                </p>
+              </div>
+
+              <div class="timepicker__quick">
+                <input type="search" id="timeSearch" class="timepicker__search" placeholder="ค้นหาช่วงเวลา" autocomplete="off">
+                <div class="timepicker__list" id="timeQuickList"></div>
+              </div>
+            </div>
           </div>
         </div>
         <p class="chart-toolbar__note" id="chartFilterNote" hidden></p>

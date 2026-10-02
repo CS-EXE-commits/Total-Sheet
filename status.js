@@ -178,10 +178,8 @@ async function loadStatus(status, pushUrl) {
   lastSummary = null;
   groupAnchors.clear();
   pendingScrollTo = null;
-  chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
-  if (chartFromInput) { chartFromInput.value = ''; chartToInput.value = ''; }
+  resetTimePicker_();
   if (chartFilterNote) chartFilterNote.hidden = true;
-  if (chartRangeSelect) chartRangeSelect.value = 'all';
   downloadBtn.hidden = true;
   statusMetaEl.textContent = '';
 
@@ -956,10 +954,17 @@ summaryTable.addEventListener('click', (e) => {
  * ไม่ได้อยู่ในสรุปที่เซิร์ฟเวอร์ส่งมา
  */
 
-const chartFromInput = document.getElementById('chartFrom');
-const chartToInput = document.getElementById('chartTo');
-const chartRangeSelect = document.getElementById('chartRangeSelect');
 const chartFilterNote = document.getElementById('chartFilterNote');
+const timePicker = document.getElementById('timePicker');
+const timePickerBtn = document.getElementById('timePickerBtn');
+const timePickerLabel = document.getElementById('timePickerLabel');
+const timePickerPanel = document.getElementById('timePickerPanel');
+const timeFromInput = document.getElementById('timeFrom');
+const timeToInput = document.getElementById('timeTo');
+const timeApplyBtn = document.getElementById('timeApply');
+const timeErr = document.getElementById('timeErr');
+const timeSearch = document.getElementById('timeSearch');
+const timeQuickList = document.getElementById('timeQuickList');
 
 /**
  * ช่วงเวลาที่กำลังแสดงอยู่
@@ -970,59 +975,124 @@ const chartFilterNote = document.getElementById('chartFilterNote');
 let chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
 let lastSummary = null; // สรุปจากเซิร์ฟเวอร์ของสถานะที่กำลังดู
 
-/** สร้างตัวเลือกช่วงเวลาในกล่อง Dropdown */
-function buildRangeOptions_() {
-  if (!chartRangeSelect) return;
-  const opts = ['<option value="all">ทั้งหมด</option>'];
+/* ===== ตัวเลือกช่วงเวลา =====
+ * เก็บเป็น "สูตร" แบบข้อความ (now, now-2h, now-1M/M) ไม่ใช่เวลาตายตัว
+ * เพราะต้องคิดใหม่ทุกครั้งที่กด ไม่งั้นเปิดหน้าทิ้งไว้ข้ามวันแล้ว "24 ชั่วโมงล่าสุด" จะเพี้ยน
+ */
+const QUICK_RANGES = [
+  { label: 'ทั้งหมด', from: '', to: '' },
+  { label: '5 นาทีล่าสุด', from: 'now-5m', to: 'now' },
+  { label: '15 นาทีล่าสุด', from: 'now-15m', to: 'now' },
+  { label: '30 นาทีล่าสุด', from: 'now-30m', to: 'now' },
+  { label: '1 ชั่วโมงล่าสุด', from: 'now-1h', to: 'now' },
+  { label: '3 ชั่วโมงล่าสุด', from: 'now-3h', to: 'now' },
+  { label: '6 ชั่วโมงล่าสุด', from: 'now-6h', to: 'now' },
+  { label: '12 ชั่วโมงล่าสุด', from: 'now-12h', to: 'now' },
+  { label: '24 ชั่วโมงล่าสุด', from: 'now-24h', to: 'now' },
+  { label: '2 วันล่าสุด', from: 'now-2d', to: 'now' },
+  { label: '7 วันล่าสุด', from: 'now-7d', to: 'now' },
+  { label: '30 วันล่าสุด', from: 'now-30d', to: 'now' },
+  { label: '90 วันล่าสุด', from: 'now-90d', to: 'now' },
+  { label: '6 เดือนล่าสุด', from: 'now-6M', to: 'now' },
+  { label: '1 ปีล่าสุด', from: 'now-1y', to: 'now' },
+  { label: '2 ปีล่าสุด', from: 'now-2y', to: 'now' },
+  { label: '5 ปีล่าสุด', from: 'now-5y', to: 'now' },
+  { label: 'เมื่อวาน', from: 'now-1d/d', to: 'now-1d/d' },
+  { label: 'เมื่อวานซืน', from: 'now-2d/d', to: 'now-2d/d' },
+  { label: 'วันนี้ของสัปดาห์ที่แล้ว', from: 'now-7d/d', to: 'now-7d/d' },
+  { label: 'สัปดาห์ที่แล้ว', from: 'now-1w/w', to: 'now-1w/w' },
+  { label: 'เดือนที่แล้ว', from: 'now-1M/M', to: 'now-1M/M' },
+  { label: 'ปีที่แล้ว', from: 'now-1y/y', to: 'now-1y/y' },
+  { label: 'วันนี้', from: 'now/d', to: 'now/d' },
+  { label: 'วันนี้ถึงตอนนี้', from: 'now/d', to: 'now' },
+  { label: 'สัปดาห์นี้', from: 'now/w', to: 'now/w' },
+  { label: 'สัปดาห์นี้ถึงตอนนี้', from: 'now/w', to: 'now' },
+  { label: 'เดือนนี้', from: 'now/M', to: 'now/M' },
+  { label: 'เดือนนี้ถึงตอนนี้', from: 'now/M', to: 'now' },
+  { label: 'ปีนี้', from: 'now/y', to: 'now/y' },
+  { label: 'ปีนี้ถึงตอนนี้', from: 'now/y', to: 'now' }
+];
 
-  opts.push('<optgroup label="รายชั่วโมง">');
-  for (let h = 1; h <= 24; h++) opts.push(`<option value="h${h}">${h} ชั่วโมงล่าสุด</option>`);
-  opts.push('</optgroup>');
+const UNIT_MS = { m: 60000, h: 3600000, d: 86400000, w: 604800000 };
 
-  opts.push('<optgroup label="รายสัปดาห์">');
-  for (let w = 1; w <= 4; w++) opts.push(`<option value="w${w}">${w} สัปดาห์ล่าสุด</option>`);
-  opts.push('</optgroup>');
+/**
+ * แปลงสูตรเวลาเป็นเวลาจริง
+ * รองรับ: now | now-<n><m|h|d|w|M|y> | ต่อท้ายด้วย /<หน่วย> เพื่อปัดเป็นต้น/ท้ายช่วง
+ *         หรือวันที่เต็ม 2026-10-01 หรือ 2026-10-01 08:30[:00]
+ *
+ * @param {boolean} isEnd true = ปลายช่วง (ปัดขึ้นเป็นท้ายหน่วย) / false = ต้นช่วง
+ * @return {number|null} เวลาเป็น ms หรือ null ถ้าอ่านไม่ออก
+ */
+function parseTimeExpr_(raw, isEnd) {
+  const text = (raw || '').toString().trim();
+  if (!text) return null;
 
-  opts.push('<optgroup label="รายเดือน">');
-  for (let m = 1; m <= 11; m++) opts.push(`<option value="m${m}">${m} เดือนล่าสุด</option>`);
-  opts.push('</optgroup>');
+  if (/^now/i.test(text)) {
+    const m = text.match(/^now(?:\s*-\s*(\d+)\s*([mhdwMy]))?(?:\s*\/\s*([mhdwMy]))?$/);
+    if (!m) return null;
+    let date = new Date();
+    if (m[1]) {
+      const n = parseInt(m[1], 10);
+      const unit = m[2];
+      if (unit === 'M') date = shiftMonths_(date, -n);
+      else if (unit === 'y') date = shiftMonths_(date, -n * 12);
+      else date = new Date(date.getTime() - n * UNIT_MS[unit]);
+    }
+    return m[3] ? snapTo_(date, m[3], isEnd).getTime() : date.getTime();
+  }
 
-  opts.push('<optgroup label="รายปี">');
-  for (let y = 1; y <= 10; y++) opts.push(`<option value="y${y}">${y} ปีล่าสุด</option>`);
-  opts.push('</optgroup>');
-
-  chartRangeSelect.innerHTML = opts.join('');
-  chartRangeSelect.value = 'all';
+  // วันที่เต็ม — ไม่ใส่เวลามา ต้นช่วงคือ 00:00:00 ปลายช่วงคือ 23:59:59
+  const d = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!d) return null;
+  const hasTime = d[4] !== undefined;
+  const date = new Date(
+    +d[1], +d[2] - 1, +d[3],
+    hasTime ? +d[4] : (isEnd ? 23 : 0),
+    hasTime ? +d[5] : (isEnd ? 59 : 0),
+    hasTime ? (d[6] ? +d[6] : 0) : (isEnd ? 59 : 0)
+  );
+  return isNaN(date.getTime()) ? null : date.getTime();
 }
 
-/** แปลงตัวเลือกใน Dropdown เป็นช่วงเวลาจริง พร้อมความละเอียดของแกนที่เหมาะสม */
-function rangeFromOption_(value) {
-  const now = new Date();
-  if (!value || value === 'all') return { fromMs: 0, toMs: 0, unit: 'month' };
+/** ถอยเดือนโดยไม่ให้วันที่ 31 เด้งข้ามเดือน (31 มี.ค. ถอย 1 เดือน = 28 ก.พ.) */
+function shiftMonths_(date, delta) {
+  const day = date.getDate();
+  const out = new Date(date);
+  out.setDate(1);
+  out.setMonth(out.getMonth() + delta);
+  const lastDay = new Date(out.getFullYear(), out.getMonth() + 1, 0).getDate();
+  out.setDate(Math.min(day, lastDay));
+  return out;
+}
 
-  const kind = value[0];
-  const n = parseInt(value.slice(1), 10);
-  const start = new Date(now);
-  if (kind === 'h') {
-    start.setHours(start.getHours() - n);
-    return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'hour' };
+/** ปัดเวลาเป็นต้นหน่วย (isEnd = false) หรือท้ายหน่วย (isEnd = true) */
+function snapTo_(date, unit, isEnd) {
+  const d = new Date(date);
+  if (unit === 'm') { d.setSeconds(isEnd ? 59 : 0, isEnd ? 999 : 0); return d; }
+  d.setSeconds(isEnd ? 59 : 0, isEnd ? 999 : 0);
+  if (unit === 'h') { d.setMinutes(isEnd ? 59 : 0); return d; }
+  d.setMinutes(isEnd ? 59 : 0);
+  if (unit === 'd') { d.setHours(isEnd ? 23 : 0); return d; }
+  if (unit === 'w') {
+    // สัปดาห์เริ่มวันจันทร์ ตามที่คนไทยนับกัน
+    const dow = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() + (isEnd ? 6 - dow : -dow));
+    d.setHours(isEnd ? 23 : 0);
+    return d;
   }
-  if (kind === 'w') {
-    start.setDate(start.getDate() - n * 7);
-    return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'day' };
-  }
-  if (kind === 'm') {
-    const day = start.getDate();
-    start.setDate(1); // ย้ายไปวันที่ 1 ก่อน ไม่งั้นถอยจากวันที่ 31 จะข้ามเดือนไปเอง
-    start.setMonth(start.getMonth() - n);
-    // วันเดิมอาจไม่มีในเดือนปลายทาง (เช่น 31 ก.พ.) ให้ใช้วันสุดท้ายของเดือนนั้นแทน
-    const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
-    start.setDate(Math.min(day, lastDay));
-    // 1-2 เดือนแบ่งแกนเป็นวันจะอ่านง่ายกว่า ยาวกว่านั้นแบ่งเป็นเดือน
-    return { fromMs: start.getTime(), toMs: now.getTime(), unit: n <= 2 ? 'day' : 'month' };
-  }
-  start.setFullYear(start.getFullYear() - n);
-  return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'month' };
+  d.setHours(isEnd ? 23 : 0);
+  if (unit === 'M') { d.setDate(isEnd ? new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() : 1); return d; }
+  if (unit === 'y') { d.setMonth(isEnd ? 11 : 0); d.setDate(isEnd ? 31 : 1); return d; }
+  return d;
+}
+
+/** ช่วงยาวแค่ไหน ควรแบ่งแกนนอนเป็นหน่วยอะไรถึงจะอ่านได้ */
+function unitForSpan_(fromMs, toMs) {
+  if (!fromMs || !toMs) return 'month';
+  const days = (toMs - fromMs) / 86400000;
+  if (days <= 2) return 'hour';
+  if (days <= 62) return 'day';
+  return 'month';
 }
 
 /** เคสนี้อยู่ในช่วงเวลาที่เลือกไหม */
@@ -1093,41 +1163,100 @@ function applyChartRange() {
   renderChartTrend(loadedGroups, true);
 }
 
-chartRangeSelect.addEventListener('change', () => {
-  chartRange = rangeFromOption_(chartRangeSelect.value);
-  // เลือกจาก Dropdown แล้ว ช่องวันที่ที่กรอกเองต้องถูกล้าง ไม่งั้นจะงงว่าตกลงใช้อันไหน
-  chartFromInput.value = '';
-  chartToInput.value = '';
+/** นำสูตรช่วงเวลาไปใช้จริง */
+function setRangeFromExpr_(fromExpr, toExpr, label) {
+  if (!fromExpr && !toExpr) {
+    chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
+    timePickerLabel.textContent = label || 'ทั้งหมด';
+    applyChartRange();
+    return true;
+  }
+  const fromMs = fromExpr ? parseTimeExpr_(fromExpr, false) : 0;
+  const toMs = toExpr ? parseTimeExpr_(toExpr, true) : 0;
+  if ((fromExpr && fromMs === null) || (toExpr && toMs === null)) return false;
+  if (fromMs && toMs && fromMs > toMs) return false;
+
+  chartRange = { fromMs: fromMs || 0, toMs: toMs || 0, unit: unitForSpan_(fromMs, toMs || Date.now()) };
+  timePickerLabel.textContent = label || `${fromExpr || 'เริ่มต้น'} ถึง ${toExpr || 'ตอนนี้'}`;
   applyChartRange();
+  return true;
+}
+
+/** กลับไปเป็น "ทั้งหมด" ใช้ตอนเปลี่ยนสถานะที่ดูอยู่ */
+function resetTimePicker_() {
+  chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
+  if (timePickerLabel) timePickerLabel.textContent = 'ทั้งหมด';
+  if (timeFromInput) timeFromInput.value = '';
+  if (timeToInput) timeToInput.value = '';
+  if (timeErr) timeErr.hidden = true;
+  closeTimePicker_();
+}
+
+function renderQuickList_() {
+  const q = (timeSearch.value || '').trim().toLowerCase();
+  const items = QUICK_RANGES.filter(r => !q || r.label.toLowerCase().includes(q));
+  if (items.length === 0) {
+    timeQuickList.innerHTML = '<p class="timepicker__empty">ไม่พบช่วงเวลาที่ค้นหา</p>';
+    return;
+  }
+  timeQuickList.innerHTML = items.map(r => `
+    <button type="button" class="timepicker__quick-btn"
+            data-from="${escapeHtml(r.from)}" data-to="${escapeHtml(r.to)}"
+            data-label="${escapeHtml(r.label)}">${escapeHtml(r.label)}</button>`).join('');
+}
+
+function openTimePicker_() {
+  timePickerPanel.hidden = false;
+  timePickerBtn.setAttribute('aria-expanded', 'true');
+  timeSearch.value = '';
+  renderQuickList_();
+  timeQuickList.scrollTop = 0; // เปิดมาต้องเห็นรายการบนสุดเสมอ ไม่ใช่ค้างที่เดิมจากครั้งก่อน
+}
+
+function closeTimePicker_() {
+  if (!timePickerPanel) return;
+  timePickerPanel.hidden = true;
+  timePickerBtn.setAttribute('aria-expanded', 'false');
+}
+
+timePickerBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (timePickerPanel.hidden) openTimePicker_(); else closeTimePicker_();
 });
 
-/** กรอกวันที่เอง: มีผลทันทีที่เลือก ไม่ต้องกดปุ่มยืนยันอีกที */
-function applyCustomDates_() {
-  const from = chartFromInput.value;
-  const to = chartToInput.value;
-  if (!from && !to) {
-    chartRange = rangeFromOption_(chartRangeSelect.value);
-    applyChartRange();
-    return;
-  }
-  if (from && to && from > to) {
-    chartFilterNote.textContent = 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
-    chartFilterNote.hidden = false;
-    return;
-  }
-  const fromMs = from ? new Date(`${from}T00:00:00`).getTime() : 0;
-  const toMs = to ? new Date(`${to}T23:59:59`).getTime() : 0;
+timeQuickList.addEventListener('click', (e) => {
+  const btn = e.target.closest('.timepicker__quick-btn');
+  if (!btn) return;
+  timeFromInput.value = btn.dataset.from;
+  timeToInput.value = btn.dataset.to;
+  timeErr.hidden = true;
+  setRangeFromExpr_(btn.dataset.from, btn.dataset.to, btn.dataset.label);
+  closeTimePicker_();
+});
 
-  // ช่วงสั้นแบ่งแกนเป็นวัน ช่วงยาวแบ่งเป็นเดือน จะได้จำนวนจุดที่อ่านได้พอดี
-  const spanDays = (fromMs && toMs) ? (toMs - fromMs) / 86400000 : 9999;
-  chartRange = { fromMs, toMs, unit: spanDays <= 62 ? 'day' : 'month' };
-  chartRangeSelect.value = 'all'; // กรอกเองแล้ว ตัวเลือกสำเร็จรูปไม่ได้ใช้
-  applyChartRange();
+timeSearch.addEventListener('input', renderQuickList_);
+
+function applyCustomRange_() {
+  const ok = setRangeFromExpr_(timeFromInput.value.trim(), timeToInput.value.trim(), null);
+  if (!ok) {
+    timeErr.textContent = 'อ่านช่วงเวลาที่กรอกไม่ออก หรือเวลาเริ่มต้นอยู่หลังเวลาสิ้นสุด';
+    timeErr.hidden = false;
+    return;
+  }
+  timeErr.hidden = true;
+  closeTimePicker_();
 }
-chartFromInput.addEventListener('change', applyCustomDates_);
-chartToInput.addEventListener('change', applyCustomDates_);
 
-buildRangeOptions_();
+timeApplyBtn.addEventListener('click', applyCustomRange_);
+[timeFromInput, timeToInput].forEach(el => {
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyCustomRange_(); });
+});
+
+// กดที่อื่นนอกกล่องให้ปิด และกด Esc ก็ปิด — กล่องนี้บังกราฟอยู่ ต้องปิดได้ง่าย
+document.addEventListener('click', (e) => {
+  if (!timePickerPanel.hidden && !timePicker.contains(e.target)) closeTimePicker_();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTimePicker_(); });
 
 // เริ่มทำงาน — ต้องอยู่ท้ายสุดของไฟล์ เพราะฟังก์ชันและตัวแปรด้านบนต้องถูกประกาศครบก่อน
 init();
