@@ -2514,3 +2514,15 @@ th.data-table__ticket-col {
   .chart-toolbar { justify-content: flex-start; }
   .chart-toolbar__dates { flex-wrap: wrap; }
 }
+
+/* รายละเอียดในรายการเหตุการณ์ของหน้าประวัติการแก้ไข */
+.report-log-row__where {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+.report-log-row__detail { margin-top: 3px; }
+.report-log-row__detail .case-modal__changes {
+  margin: 3px 0 0;
+  padding-left: 15px;
+}

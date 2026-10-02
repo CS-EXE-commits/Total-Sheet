@@ -2471,11 +2471,15 @@ function renderReportLogList(result) {
     reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในแท็บนี้</p>';
     return;
   }
-  reportLogList.innerHTML = result.recentToday.map(item => `
+  reportLogList.innerHTML = result.recentToday.map(item => {
+    const where = [item.book, item.sheet].filter(Boolean).join(' · ');
+    return `
     <div class="report-log-row">
       <b>${escapeHtml(item.time)}</b> · ${escapeHtml(item.action)} · ${escapeHtml(item.editor)}
-      ${item.detail ? `<br>${escapeHtml(item.detail)}` : ''}
-    </div>`).join('');
+      ${where ? `<div class="report-log-row__where">📄 ${escapeHtml(where)}</div>` : ''}
+      ${item.detail ? `<div class="report-log-row__detail">${formatEventDetail_(item.detail)}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function setReportStatus(message, type) {
