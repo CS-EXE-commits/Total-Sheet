@@ -1200,17 +1200,49 @@ function resetTimePicker_() {
   closeTimePicker_();
 }
 
+/**
+ * อ่านช่วงเวลาที่ผู้ใช้พิมพ์เองในช่องค้นหา เช่น "10 นาที" "3 วัน" "8 ชม" "2 สัปดาห์" "5 เดือน"
+ * รองรับตัวย่อภาษาอังกฤษด้วย (10m, 3d, 2w, 5M, 1y) เผื่อคนพิมพ์เร็ว
+ *
+ * มีไว้เพราะรายการสำเร็จรูปมีแค่ค่าที่ใช้บ่อย ถ้าอยากดู 10 นาที หรือ 45 วัน จะไม่มีให้เลือก
+ * @return {Object|null} { from, to, label } หรือ null ถ้าอ่านไม่ออก
+ */
+function parseTypedDuration_(text) {
+  const m = (text || '').trim().match(/^(\d{1,4})\s*(นาที|นาธี|ชั่วโมง|ชม\.?|วัน|สัปดาห์|อาทิตย์|เดือน|ปี|m|min|h|hr|d|w|mo|y)?\s*(ล่าสุด)?$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  if (!n) return null;
+  const raw = (m[2] || '').toLowerCase();
+
+  let code = '', word = '';
+  if (/^(นาที|นาธี|m|min)$/.test(raw)) { code = 'm'; word = 'นาที'; }
+  else if (/^(ชั่วโมง|ชม\.?|h|hr)$/.test(raw)) { code = 'h'; word = 'ชั่วโมง'; }
+  else if (/^(วัน|d)$/.test(raw)) { code = 'd'; word = 'วัน'; }
+  else if (/^(สัปดาห์|อาทิตย์|w)$/.test(raw)) { code = 'w'; word = 'สัปดาห์'; }
+  else if (/^(เดือน|mo)$/.test(raw)) { code = 'M'; word = 'เดือน'; }
+  else if (/^(ปี|y)$/.test(raw)) { code = 'y'; word = 'ปี'; }
+  else return null; // พิมพ์มาแต่ตัวเลข ยังไม่รู้ว่าหน่วยอะไร
+
+  return { from: `now-${n}${code}`, to: 'now', label: `${n} ${word}ล่าสุด` };
+}
+
 function renderQuickList_() {
-  const q = (timeSearch.value || '').trim().toLowerCase();
+  const raw = (timeSearch.value || '').trim();
+  const q = raw.toLowerCase();
   const items = QUICK_RANGES.filter(r => !q || r.label.toLowerCase().includes(q));
+
+  // พิมพ์เป็นช่วงเวลาเอง เช่น "10 นาที" ให้ขึ้นเป็นตัวเลือกแรก (ถ้ายังไม่มีในรายการสำเร็จรูป)
+  const typed = parseTypedDuration_(raw);
+  if (typed && !items.some(r => r.label === typed.label)) items.unshift(typed);
+
   if (items.length === 0) {
-    timeQuickList.innerHTML = '<p class="timepicker__empty">ไม่พบช่วงเวลาที่ค้นหา</p>';
+    timeQuickList.innerHTML = '<p class="timepicker__empty">ไม่พบช่วงเวลาที่ค้นหา — พิมพ์เป็นช่วงเวลาได้ เช่น "10 นาที" หรือ "45 วัน"</p>';
     return;
   }
   timeQuickList.innerHTML = items.map(r => `
-    <button type="button" class="timepicker__quick-btn"
+    <button type="button" class="timepicker__quick-btn${r === typed ? ' timepicker__quick-btn--typed' : ''}"
             data-from="${escapeHtml(r.from)}" data-to="${escapeHtml(r.to)}"
-            data-label="${escapeHtml(r.label)}">${escapeHtml(r.label)}</button>`).join('');
+            data-label="${escapeHtml(r.label)}">${escapeHtml(r.label)}${r === typed ? ' <span class="timepicker__typed-tag">พิมพ์เอง</span>' : ''}</button>`).join('');
 }
 
 function openTimePicker_() {
@@ -1244,6 +1276,13 @@ timeQuickList.addEventListener('click', (e) => {
 });
 
 timeSearch.addEventListener('input', renderQuickList_);
+
+// พิมพ์แล้วกด Enter = ใช้ตัวเลือกแรกในรายการเลย ไม่ต้องเอามือไปคลิก
+timeSearch.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const first = timeQuickList.querySelector('.timepicker__quick-btn');
+  if (first) first.click();
+});
 
 function applyCustomRange_() {
   const from = timeFromInput.value;

@@ -2662,6 +2662,20 @@ th.data-table__ticket-col {
 
 .timepicker__quick-btn:hover { background: var(--color-bg); }
 
+/* ตัวเลือกที่เกิดจากการพิมพ์เอง ให้เด่นกว่ารายการสำเร็จรูป จะได้รู้ว่ากดอันนี้ได้เลย */
+.timepicker__quick-btn--typed {
+  color: var(--color-accent);
+  font-weight: 600;
+  background: var(--color-accent-bg);
+}
+
+.timepicker__typed-tag {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
 .timepicker__empty {
   margin: 6px 0 0;
   padding: 0 10px;
