@@ -2296,3 +2296,14 @@ th.data-table__ticket-col {
   justify-content: center;
   margin-top: 12px;
 }
+
+/* กล่องแยกแท็บตามปี (หน้าผู้ดูแล) */
+.split-box { margin-bottom: 20px; }
+.split-box__hint,
+.split-box__meta {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+.split-done { font-size: 12px; color: var(--color-text-muted); }

@@ -9,6 +9,8 @@
  */
 
 const JSONP_TIMEOUT_MS = 90000; // ช่วงวันที่กว้างๆ ต้องอ่าน Log หลายแท็บ จึงเผื่อเวลาไว้มาก
+// การตรวจสอบและแยกแท็บต้องอ่าน/เขียนข้อมูลหลักพันแถว อาจใช้เวลาหลายนาที
+const SLOW_SCAN_TIMEOUT_MS = 300000;
 let jsonpCounter = 0;
 
 const adminWho = document.getElementById('adminWho');
@@ -104,6 +106,7 @@ async function init() {
     adminContent.hidden = false;
     applyPreset('today');
     runSearch();
+    loadSplitBooks();
   } catch (err) {
     showDenied(err.message);
   }
@@ -289,3 +292,127 @@ document.querySelectorAll('[data-preset]').forEach(btn => {
 });
 
 init();
+
+/* ===== แยกแท็บตามปี =====
+ *
+ * แท็บที่มีข้อมูลหลายพันแถวโหลดช้า เพราะ Google Sheets ไม่มี index
+ * การแยกตามปีทำให้แต่ละแท็บเล็กลง จึงโหลดเร็วขึ้นตามสัดส่วนที่ลดลง
+ *
+ * ขั้นตอนบังคับให้ตรวจก่อนเสมอ: กด "ตรวจสอบก่อน" เพื่อดูว่าแต่ละปีมีกี่แถว
+ * แล้วค่อยกดแยกทีละปี — แท็บเดิมไม่ถูกแตะต้องเลย ผู้ดูแลตรวจแล้วค่อยลบเอง
+ */
+
+const splitBook = document.getElementById('splitBook');
+const splitSheet = document.getElementById('splitSheet');
+const splitPreviewBtn = document.getElementById('splitPreviewBtn');
+const splitStatus = document.getElementById('splitStatus');
+const splitResult = document.getElementById('splitResult');
+
+function setSplitStatus(message, type) {
+  splitStatus.textContent = message || '';
+  splitStatus.className = 'status-page__status' + (type ? ` status-page__status--${type}` : '');
+}
+
+async function loadSplitBooks() {
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'books' }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
+    splitBook.innerHTML = (result.books || [])
+      .map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+    await loadSplitSheets();
+  } catch (err) {
+    setSplitStatus('โหลดรายชื่อไฟล์ไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function loadSplitSheets() {
+  splitSheet.innerHTML = '<option value="">กำลังโหลด...</option>';
+  splitResult.innerHTML = '';
+  try {
+    const result = await jsonpRequest(apiUrl({ action: 'sheets', book: splitBook.value }));
+    if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อแท็บไม่สำเร็จ');
+    const sheets = result.sheets || [];
+    splitSheet.innerHTML = sheets.map(sh =>
+      `<option value="${escapeHtml(sh.name)}">${escapeHtml(sh.name)} (${(sh.rowCount || 0).toLocaleString()} แถว)</option>`
+    ).join('') || '<option value="">(ไม่มีแท็บ)</option>';
+    setSplitStatus('', null);
+  } catch (err) {
+    splitSheet.innerHTML = '<option value="">(โหลดไม่สำเร็จ)</option>';
+    setSplitStatus('โหลดรายชื่อแท็บไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+async function runSplitPreview() {
+  if (!splitSheet.value) { setSplitStatus('กรุณาเลือกแท็บก่อน', 'error'); return; }
+  splitPreviewBtn.disabled = true;
+  splitResult.innerHTML = '';
+  setSplitStatus('กำลังตรวจสอบข้อมูล...', null);
+  try {
+    const result = await jsonpRequest(apiUrl({
+      action: 'splitPreview', book: splitBook.value, sheet: splitSheet.value
+    }), SLOW_SCAN_TIMEOUT_MS);
+    if (!result.ok) throw new Error(result.error || 'ตรวจสอบไม่สำเร็จ');
+    renderSplitPreview(result);
+    setSplitStatus('', null);
+  } catch (err) {
+    setSplitStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    splitPreviewBtn.disabled = false;
+  }
+}
+
+function renderSplitPreview(result) {
+  const rows = (result.groups || []).map(g => `
+    <tr>
+      <td><b>${escapeHtml(g.year)}</b></td>
+      <td>${g.count.toLocaleString()} แถว</td>
+      <td>${escapeHtml(g.targetSheet)}</td>
+      <td>${g.exists
+        ? '<span class="split-done">มีแท็บนี้อยู่แล้ว</span>'
+        : `<button type="button" class="toolbar__btn" data-split-year="${escapeHtml(g.year)}">แยกเป็นแท็บใหม่</button>`}</td>
+    </tr>`).join('');
+
+  splitResult.innerHTML = `
+    <p class="split-box__meta">
+      แท็บ <b>${escapeHtml(result.sheet)}</b> มีข้อมูล <b>${result.totalRows.toLocaleString()}</b> แถว
+      · ใช้คอลัมน์ <b>${escapeHtml(result.dateColumn)}</b> ในการอ่านปี
+    </p>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>ปี</th><th>จำนวน</th><th>แท็บใหม่ที่จะสร้าง</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  splitResult.querySelectorAll('[data-split-year]').forEach(btn => {
+    btn.addEventListener('click', () => runSplitYear(btn.dataset.splitYear, btn));
+  });
+}
+
+async function runSplitYear(year, btn) {
+  const go = confirm(
+    `สร้างแท็บใหม่สำหรับปี "${year}" จากแท็บ "${splitSheet.value}" ?\n\n` +
+    `แท็บเดิมจะไม่ถูกแก้ไขหรือลบใดๆ ทั้งสิ้น\n` +
+    `ถ้าข้อมูลเยอะ อาจใช้เวลาสักครู่ ห้ามปิดหน้าเว็บระหว่างนี้`
+  );
+  if (!go) return;
+
+  btn.disabled = true;
+  btn.textContent = 'กำลังแยก...';
+  setSplitStatus(`กำลังสร้างแท็บของปี ${year}...`, null);
+  try {
+    const result = await jsonpRequest(apiUrl({
+      action: 'splitYear', book: splitBook.value, sheet: splitSheet.value, year
+    }), SLOW_SCAN_TIMEOUT_MS);
+    if (!result.ok) throw new Error(result.error || 'แยกแท็บไม่สำเร็จ');
+    setSplitStatus(result.message, 'success');
+    await runSplitPreview(); // โหลดใหม่ให้เห็นว่าแท็บนั้นถูกสร้างแล้ว
+  } catch (err) {
+    setSplitStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'แยกเป็นแท็บใหม่';
+  }
+}
+
+splitBook.addEventListener('change', loadSplitSheets);
+splitPreviewBtn.addEventListener('click', runSplitPreview);

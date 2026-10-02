@@ -91,6 +91,28 @@
         <div class="admin-summary" id="summaryList"></div>
       </section>
 
+      <!-- แยกแท็บตามปี: ลดจำนวนแถวต่อแท็บ เพื่อให้หน้าเว็บโหลดเร็วขึ้น -->
+      <section class="status-page__section split-box">
+        <h3 class="status-page__section-title">🗂️ แยกแท็บตามปี (ทำให้โหลดเร็วขึ้น)</h3>
+        <p class="split-box__hint">
+          แท็บที่มีข้อมูลหลายพันแถวจะโหลดช้า เครื่องมือนี้คัดลอกข้อมูลเฉพาะปีที่เลือกออกมาเป็นแท็บใหม่
+          โดยคงสีและกฎ Dropdown ไว้ครบ <b>แท็บเดิมไม่ถูกแตะต้อง</b> ตรวจสอบความถูกต้องแล้วค่อยลบเองในชีท
+        </p>
+        <div class="admin-filters__row">
+          <label class="admin-field">
+            <span>ไฟล์</span>
+            <select id="splitBook"></select>
+          </label>
+          <label class="admin-field admin-field--grow">
+            <span>แท็บที่ต้องการแยก</span>
+            <select id="splitSheet"></select>
+          </label>
+          <button type="button" class="toolbar__btn toolbar__btn--accent" id="splitPreviewBtn">ตรวจสอบก่อน</button>
+        </div>
+        <p class="status-page__status" id="splitStatus"></p>
+        <div id="splitResult"></div>
+      </section>
+
       <!-- ตารางประวัติ -->
       <section class="status-page__section" id="logSection" hidden>
         <h3 class="status-page__section-title" id="logTitle">ประวัติการใช้งาน</h3>
