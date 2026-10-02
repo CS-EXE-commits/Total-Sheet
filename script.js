@@ -149,7 +149,20 @@ pageSizeSelect.addEventListener('change', () => {
 /** ไปหน้าที่ระบุ — ต้องขอข้อมูลใหม่ทุกครั้ง เพราะในเครื่องมีแค่แถวของหน้าที่กำลังดูอยู่ */
 function goToPage_(page) {
   if (!selectedSheet) return;
-  loadSingleTabView(selectedSheet, lastKeyword, Math.max(1, page));
+  const target = Math.max(1, page);
+  markPagerActive_(target); // ไฮไลต์ปุ่มทันทีที่กด ไม่ต้องรอข้อมูลมาก่อน
+  loadSingleTabView(selectedSheet, lastKeyword, target);
+}
+
+/**
+ * ย้ายไฮไลต์ไปที่ปุ่มหน้าที่ระบุทันที โดยไม่ต้องวาดแถบแบ่งหน้าใหม่
+ * ใช้ตอนกดเปลี่ยนหน้า เพราะข้อมูลใช้เวลาโหลด 1-2 วินาที ถ้ารอให้ข้อมูลมาก่อนค่อยเปลี่ยนสี
+ * ผู้ใช้จะรู้สึกว่ากดไม่ติดแล้วกดซ้ำ
+ */
+function markPagerActive_(page) {
+  pagination.querySelectorAll('button[data-page]').forEach(btn => {
+    btn.setAttribute('aria-current', String(parseInt(btn.dataset.page, 10) === page));
+  });
 }
 
 /**
@@ -252,6 +265,7 @@ function renderPaginationControls(totalPages) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = label;
+    btn.dataset.page = String(page);
     btn.setAttribute('aria-current', active ? 'true' : 'false');
     btn.disabled = !!disabled;
     btn.addEventListener('click', () => { goToPage_(page); });
@@ -1619,6 +1633,7 @@ async function loadSingleTabView(sheetName, keyword, page) {
     loadDailyReport();
   } catch (err) {
     if (requestId !== loadRequestSeq) return;
+    markPagerActive_(currentPage); // ไปหน้านั้นไม่สำเร็จ ไฮไลต์ต้องกลับมาที่หน้าที่ยังแสดงอยู่จริง
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
     if (requestId === loadRequestSeq) setLoading(false);
