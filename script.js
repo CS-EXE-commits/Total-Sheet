@@ -138,14 +138,26 @@ const tabLoadProgress = document.getElementById('tabLoadProgress');
 const folderBar = document.getElementById('folderBar');
 const folderList = document.getElementById('folderList');
 
-let filteredRows = []; // ผลลัพธ์หลังกรองสถานะ (โหมดแท็บเดียว) หรือผลค้นหาทั้งหมด (โหมดทั้งหมด) — ใช้แบ่งหน้า
+let filteredRows = []; // แถวของ "หน้าที่กำลังดูอยู่" เท่านั้น (เซิร์ฟเวอร์แบ่งหน้ามาให้แล้ว)
+let serverTotal = 0;   // จำนวนรายการทั้งหมดที่ตรงเงื่อนไข (เซิร์ฟเวอร์นับมาให้ ไม่ใช่จำนวนแถวในเครื่อง)
 
 pageSizeSelect.addEventListener('change', () => {
   pageSize = parseInt(pageSizeSelect.value, 10) || 20;
-  currentPage = 1;
-  renderCurrentPage();
+  goToPage_(1);
 });
 
+/** ไปหน้าที่ระบุ — ต้องขอข้อมูลใหม่ทุกครั้ง เพราะในเครื่องมีแค่แถวของหน้าที่กำลังดูอยู่ */
+function goToPage_(page) {
+  if (!selectedSheet) return;
+  loadSingleTabView(selectedSheet, lastKeyword, Math.max(1, page));
+}
+
+/**
+ * วาดตารางของ "หน้าที่กำลังดูอยู่"
+ *
+ * ตั้งแต่เปลี่ยนมาแบ่งหน้าฝั่งเซิร์ฟเวอร์ filteredRows = แถวของหน้านี้เท่านั้น (ไม่เกิน pageSize แถว)
+ * ส่วนจำนวนรายการทั้งหมดใช้ serverTotal ที่เซิร์ฟเวอร์นับมาให้ ไม่ใช่ความยาวของ filteredRows
+ */
 function renderCurrentPage() {
   if (!filteredRows || filteredRows.length === 0) {
     tableWrap.hidden = true;
@@ -159,12 +171,10 @@ function renderCurrentPage() {
   hint.hidden = true;
   countLabel.hidden = false;
   tableToolbar.hidden = false;
-  countLabel.textContent = `พบ ${filteredRows.length} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
+  countLabel.textContent = `พบ ${serverTotal.toLocaleString()} รายการ` + (lastTruncated ? ' (แสดงได้สูงสุดตามขีดจำกัด อาจมีมากกว่านี้ ลองพิมพ์คำค้นหาให้เจาะจงขึ้น)' : '');
 
-  const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
-  if (currentPage > totalPages) currentPage = totalPages;
-  const start = (currentPage - 1) * pageSize;
-  const pageRows = filteredRows.slice(start, start + pageSize);
+  const totalPages = Math.max(Math.ceil(serverTotal / pageSize), 1);
+  const pageRows = filteredRows;
 
   tableHead.innerHTML = '<tr>' + '<th class="data-table__rownum-col">แถวที่</th>' + visibleColumnIndices.map(i => {
     const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
@@ -244,7 +254,7 @@ function renderPaginationControls(totalPages) {
     btn.textContent = label;
     btn.setAttribute('aria-current', active ? 'true' : 'false');
     btn.disabled = !!disabled;
-    btn.addEventListener('click', () => { currentPage = page; renderCurrentPage(); });
+    btn.addEventListener('click', () => { goToPage_(page); });
     return btn;
   };
 
@@ -415,7 +425,7 @@ function applyRowEditLocally_(row, data, headerNames) {
     changed = true;
   });
   // วาดเฉพาะหน้าปัจจุบันใหม่ โดยคงโหมดการแสดงผลและหน้าที่ผู้ใช้อยู่ไว้เหมือนเดิม
-  // (ห้ามเรียก applyStatusFilterAndRender เพราะมันบังคับกลับไปโหมดแท็บเดียวและเด้งกลับหน้า 1)
+  // (ห้ามเรียก applyStatusFilterAndRender เพราะมันจะเด้งกลับหน้า 1 และยิงคำขอใหม่โดยไม่จำเป็น)
   // row.cells เป็น object เดียวกับที่อยู่ใน currentRows/filteredRows อยู่แล้ว ค่าใหม่จึงขึ้นทันที
   if (changed) renderCurrentPage();
   return changed;
@@ -461,7 +471,7 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
     // อัปเดตเฉพาะแถวนี้ในหน้าจอทันที ไม่ต้องรอโหลดทั้งแท็บใหม่
     const applied = applyRowEditLocally_(row, data, currentTableHeaders);
     if (!applied) {
-      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -1526,35 +1536,64 @@ function fillRowSource_(rows, sheetName) {
   return rows || [];
 }
 
-async function loadSingleTabView(sheetName, keyword) {
+/**
+ * โหลด "หน้าที่กำลังดูอยู่" ของแท็บ (ไม่ใช่ทั้งแท็บ)
+ *
+ * เดิมดึงข้อมูลมาทั้งแท็บแล้วค่อยแบ่งหน้า/กรองสถานะในเครื่อง แท็บ 8,500 แถวจึงต้องรอ ~15 วินาที
+ * ทั้งที่หน้าจอแสดงแค่ 100 แถว ตอนนี้ขอเฉพาะแถวของหน้านั้น เวลาโหลดจึงไม่ขึ้นกับขนาดแท็บอีกต่อไป
+ *
+ * ข้อแลกเปลี่ยน: เปลี่ยนหน้า/กรองสถานะ/ค้นหา ต้องยิงคำขอใหม่ทุกครั้ง (รอ 1-2 วินาที)
+ * แต่ไม่ต้องรอยาวตอนเปิดแท็บอีกแล้ว
+ *
+ * หัวตารางและตัวเลือก dropdown เซิร์ฟเวอร์ส่งมาเฉพาะตอน offset = 0 เท่านั้น
+ * หน้าถัดๆ ไปจึงใช้ของเดิมที่เก็บไว้ ไม่ต้องอ่านซ้ำ
+ */
+async function loadSingleTabView(sheetName, keyword, page) {
   lastKeyword = keyword;
   input.value = keyword;
   setLoading(true);
-  showHint('กำลังโหลด...', false);
+  const targetPage = Math.max(1, parseInt(page, 10) || 1);
+  if (!filteredRows.length) showHint('กำลังโหลด...', false);
 
   // กันปัญหาข้อมูล/ลิงก์ Ticket ขึ้นๆ หายๆ ที่เกิดจาก "คำขอเก่าที่ช้ากว่า" กลับมาถึงทีหลัง
   // คำขอที่ใหม่กว่า แล้วไปเขียนทับผลลัพธ์ล่าสุดด้วยข้อมูลเก่า (race condition) — ถ้ามีคนกดค้นหา/สลับแท็บ
   // ซ้อนกันเร็วๆ ให้ยึดเฉพาะคำขอล่าสุดเท่านั้น คำขอเก่าที่ตอบกลับมาทีหลังจะถูกทิ้งไปเงียบๆ
   const requestId = ++loadRequestSeq;
 
+  // เปลี่ยนแท็บแล้ว ตัวกรองสถานะของแท็บเดิมใช้ต่อไม่ได้ ต้องล้างก่อนยิงคำขอ
+  // ไม่งั้นจะเผลอส่งค่าสถานะของแท็บเก่าไปกรองแท็บใหม่ แล้วขึ้นว่าไม่พบข้อมูล
+  if (sheetName !== statusOptionsSheet) {
+    discoveredStatusValues = new Set();
+    statusOptionsSheet = sheetName;
+    statusFilter.value = '';
+    filteredRows = [];
+  }
+
   try {
-    // ขอข้อมูลทั้งหมดที่ต้องใช้ในคำขอเดียว (หัวตาราง + ตัวเลือก dropdown + ผลค้นหา)
-    // เดิมยิง 3 คำขอเรียงต่อกัน ต้องรอทีละอัน ทำให้ช้ากว่านี้ประมาณ 3 เท่า
     const viewResult = await jsonpRequest(apiUrl({
       action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-      offset: 0, limit: TAB_CHUNK_SIZE, slim: 1
+      offset: (targetPage - 1) * pageSize, limit: pageSize, slim: 1,
+      status: statusFilter.hidden ? '' : statusFilter.value
     }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
 
-    currentTableHeaders = viewResult.headers;
-    statusColIndex = viewResult.statusIndex;
-    currentHeadersMeta = viewResult.headersMeta || [];
+    // ได้หัวตารางมาด้วย = คำขอนี้เป็นหน้าแรก (เปลี่ยนแท็บ / ค้นหา / กรองใหม่) จึงตั้งค่าโครงตารางใหม่
+    const gotHeaders = !!(viewResult.headers && viewResult.headers.length);
+    if (gotHeaders) {
+      currentTableHeaders = viewResult.headers;
+      statusColIndex = viewResult.statusIndex;
+      currentHeadersMeta = viewResult.headersMeta || [];
+      fetchedLinkRows_.clear();
+    }
+
     currentRows = fillRowSource_(viewResult.results, sheetName);
+    filteredRows = currentRows;
+    serverTotal = viewResult.total || 0;
+    currentPage = targetPage;
     lastTruncated = !!viewResult.truncated;
     // แท็บนี้ใหญ่เกินกว่าจะส่งลิงก์ Ticket มาพร้อมกัน จะขอทีหลังเฉพาะแถวที่แสดงอยู่
     linksDeferred = !!viewResult.linksDeferred;
-    fetchedLinkRows_.clear();
 
     // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
     // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
@@ -1563,25 +1602,21 @@ async function loadSingleTabView(sheetName, keyword) {
       currentTableHeaders.push(`คอลัมน์ ${currentTableHeaders.length + 1}`);
     }
 
-    // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
-    // ตารางรายการแสดงแค่คอลัมน์ที่เซิร์ฟเวอร์ส่งมา (วันที่ / EXE ID / Ticket)
-    // คอลัมน์ที่เหลือดูได้จากปุ่ม "ดูข้อมูล" ของแต่ละแถว
-    visibleColumnIndices = (viewResult.listColumns && viewResult.listColumns.length)
-      ? viewResult.listColumns.filter(i => (currentTableHeaders[i] || '').trim() !== '')
-      : currentTableHeaders.map((h, i) => i).filter(i => currentTableHeaders[i].trim() !== '');
+    if (gotHeaders) {
+      // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
+      // ตารางรายการแสดงแค่คอลัมน์ที่เซิร์ฟเวอร์ส่งมา (วันที่ / EXE ID / Ticket)
+      // คอลัมน์ที่เหลือดูได้จากปุ่ม "ดูข้อมูล" ของแต่ละแถว
+      visibleColumnIndices = (viewResult.listColumns && viewResult.listColumns.length)
+        ? viewResult.listColumns.filter(i => (currentTableHeaders[i] || '').trim() !== '')
+        : currentTableHeaders.map((h, i) => i).filter(i => currentTableHeaders[i].trim() !== '');
+      setupStatusFilter();
+    }
 
-    setupStatusFilter();
-    currentPage = 1;
-    applyStatusFilterAndRender();
+    renderCurrentPage();
 
     // ประวัติการแก้ไขเป็นภาพรวมทุกไฟล์ โหลดตั้งแต่เปิดหน้าเว็บแล้ว
     // ตรงนี้แค่ดึงใหม่ให้เห็นรายการล่าสุดหลังเพิ่ม/แก้ไข/ลบข้อมูล (ไม่ต้อง await)
     loadDailyReport();
-
-    // ช่วงแรกแสดงผลแล้ว ที่เหลือทยอยโหลดต่อท้ายเบื้องหลัง ผู้ใช้ดูข้อมูลไปพลางได้เลย
-    if (viewResult.hasMore) {
-      loadRemainingTabChunks_(sheetName, keyword, requestId, viewResult.offset + viewResult.results.length, viewResult.total);
-    }
   } catch (err) {
     if (requestId !== loadRequestSeq) return;
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
@@ -1590,64 +1625,9 @@ async function loadSingleTabView(sheetName, keyword) {
   }
 }
 
-/**
- * โหลดข้อมูลส่วนที่เหลือของแท็บทีละช่วง แล้วต่อท้ายตารางที่แสดงอยู่
- *
- * ทำแบบนี้เพราะแท็บใหญ่ (เช่น "ชีทพิจารณาปลด" ~9,000 แถว) ถ้าขอทั้งแท็บในคำขอเดียว
- * คำตอบจะใหญ่ราว 4.4 MB ส่งไม่ทัน 30 วินาที แล้วขึ้นว่า "เซิร์ฟเวอร์ไม่ตอบกลับภายในเวลาที่กำหนด"
- * จนโหลดไม่ได้เลยสักแถว — แบ่งเป็นช่วงละ 2,500 แถว (~1 MB) จึงส่งได้สบายๆ
- *
- * ถ้าผู้ใช้สลับแท็บหรือค้นหาใหม่ระหว่างกำลังโหลด จะหยุดทันที (เช็คจาก requestId)
- */
-async function loadRemainingTabChunks_(sheetName, keyword, requestId, startOffset, total) {
-  let offset = startOffset;
-  try {
-    while (offset < total) {
-      if (requestId !== loadRequestSeq) return; // ผู้ใช้เปลี่ยนไปดูอย่างอื่นแล้ว เลิกโหลดต่อ
-      setTabLoadProgress_(offset, total);
-
-      const chunk = await jsonpRequest(apiUrl({
-        action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-        offset: offset, limit: TAB_CHUNK_SIZE, slim: 1
-      }), BIG_TAB_TIMEOUT_MS);
-
-      if (requestId !== loadRequestSeq) return;
-      if (!chunk.ok) throw new Error(chunk.error || 'โหลดข้อมูลส่วนที่เหลือไม่สำเร็จ');
-      if (!chunk.results || chunk.results.length === 0) break; // กันวนไม่รู้จบถ้าเซิร์ฟเวอร์ส่งว่างกลับมา
-
-      currentRows = currentRows.concat(fillRowSource_(chunk.results, sheetName));
-      offset += chunk.results.length;
-
-      // อัปเดตตารางทันทีหลังได้แต่ละช่วง ตัวเลขจำนวนรายการและปุ่มแบ่งหน้าจะเพิ่มขึ้นเรื่อยๆ
-      setupStatusFilter();
-      applyStatusFilterAndRender(true); // อยู่หน้าเดิมและคงสถานะที่กรองไว้
-      if (!chunk.hasMore) break;
-    }
-    setTabLoadProgress_(0, 0);
-  } catch (err) {
-    if (requestId !== loadRequestSeq) return;
-    // ข้อมูลช่วงที่โหลดมาได้แล้วยังใช้งานได้ตามปกติ แค่บอกให้รู้ว่ายังไม่ครบ
-    setTabLoadProgress_(offset, total, err.message);
-  }
-}
-
-/** แถบบอกความคืบหน้าตอนกำลังทยอยโหลดแท็บใหญ่ (ส่ง 0, 0 เพื่อซ่อน) */
-function setTabLoadProgress_(loaded, total, errorMessage) {
-  if (!tabLoadProgress) return;
-  if (errorMessage) {
-    tabLoadProgress.textContent = `โหลดได้ ${loaded.toLocaleString()} จาก ${total.toLocaleString()} รายการ แล้วหยุดเพราะ: ${errorMessage}`;
-    tabLoadProgress.className = 'tab-progress tab-progress--error';
-    tabLoadProgress.hidden = false;
-    return;
-  }
-  if (!total) {
-    tabLoadProgress.hidden = true;
-    return;
-  }
-  tabLoadProgress.textContent = `กำลังโหลดข้อมูลส่วนที่เหลือ... ${loaded.toLocaleString()} จาก ${total.toLocaleString()} รายการ`;
-  tabLoadProgress.className = 'tab-progress';
-  tabLoadProgress.hidden = false;
-}
+// ค่าสถานะที่เคยเจอในข้อมูลของแท็บนี้ (สะสมข้ามหน้า) — ล้างเมื่อเปลี่ยนแท็บ
+let discoveredStatusValues = new Set();
+let statusOptionsSheet = '';
 
 function setupStatusFilter() {
   if (statusColIndex === -1) {
@@ -1668,12 +1648,13 @@ function setupStatusFilter() {
     if (s && !seen.has(s)) { seen.add(s); ordered.push(s); }
   });
 
-  const foundInData = new Set();
+  // สะสมค่าที่เจอจริงในข้อมูลไว้ข้ามหน้า เพราะตอนนี้ในเครื่องมีแค่แถวของหน้าที่ดูอยู่
+  // ถ้าสร้างรายการจากหน้าปัจจุบันอย่างเดียว พอกรองสถานะหนึ่งแล้ว ตัวเลือกอื่นจะหายไปหมด
   currentRows.forEach(row => {
     const v = (row.cells[statusColIndex] || '').toString().trim();
-    if (v) foundInData.add(v);
+    if (v) discoveredStatusValues.add(v);
   });
-  Array.from(foundInData).sort((a, b) => a.localeCompare(b, 'th')).forEach(v => {
+  Array.from(discoveredStatusValues).sort((a, b) => a.localeCompare(b, 'th')).forEach(v => {
     if (!seen.has(v)) { seen.add(v); ordered.push(v); }
   });
 
@@ -1683,8 +1664,7 @@ function setupStatusFilter() {
     return;
   }
   // จำค่าที่ผู้ใช้เลือกไว้ แล้วใส่กลับหลังสร้างตัวเลือกใหม่
-  // จำเป็นตอนแท็บใหญ่ทยอยโหลดเป็นช่วงๆ — ทุกช่วงที่มาถึงจะเรียกฟังก์ชันนี้ซ้ำ
-  // ถ้าไม่จำไว้ ผู้ใช้ที่เลือกกรองสถานะไว้แล้วจะโดนรีเซ็ตกลับเป็น "ทุกสถานะ" เรื่อยๆ ระหว่างโหลด
+  // ไม่งั้นทุกครั้งที่กรองหรือค้นหาใหม่ ช่องนี้จะเด้งกลับเป็น "ทุกสถานะ" เอง
   const previous = statusFilter.value;
   statusFilter.innerHTML = '<option value="">ทุกสถานะ</option>' +
     ordered.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
@@ -1698,13 +1678,8 @@ statusFilter.addEventListener('change', () => applyStatusFilterAndRender());
  * @param {boolean} [keepPage] true = อยู่หน้าเดิม (ใช้ตอนแท็บใหญ่ทยอยโหลดข้อมูลมาต่อท้าย
  *   ถ้าเด้งกลับหน้า 1 ทุกครั้งที่ได้ข้อมูลเพิ่ม ผู้ใช้ที่กำลังดูหน้าอื่นอยู่จะใช้งานไม่ได้เลย)
  */
-function applyStatusFilterAndRender(keepPage) {
-  const chosen = statusFilter.value;
-  filteredRows = (!chosen || statusColIndex === -1)
-    ? currentRows
-    : currentRows.filter(row => (row.cells[statusColIndex] || '').toString().trim() === chosen);
-  if (!keepPage) currentPage = 1;
-  renderCurrentPage();
+function applyStatusFilterAndRender() {
+  goToPage_(1); // กรองใหม่ต้องกลับไปหน้า 1 และให้เซิร์ฟเวอร์กรองให้ (ในเครื่องมีแค่แถวของหน้านี้)
 }
 
 /* หมายเหตุ: การ render ตารางจริงทำผ่าน renderCurrentPage() + buildSingleRow() ด้านล่าง (รองรับแบ่งหน้า) */
@@ -1747,7 +1722,7 @@ async function deleteRow(row, rowEl, buttonEl) {
     // ต้องโหลดข้อมูลใหม่ทั้งหมด ห้ามแค่ลบแถวนั้นออกจากตารางในหน่วยความจำ
     // เพราะการลบแถวในชีททำให้แถวที่อยู่ข้างล่างเลื่อนขึ้นมาทั้งหมด เลขแถวที่ค้างอยู่บนหน้าจอจะผิดทันที
     // (ถ้าไม่โหลดใหม่ การกดลบ/แก้ไขครั้งถัดไปจะไปโดนข้อมูลของเคสอื่น)
-    if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
+    if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     alert('เกิดข้อผิดพลาด: ' + err.message);
     buttonEl.disabled = false;
@@ -1922,7 +1897,7 @@ editSubmit.addEventListener('click', async () => {
     const appliedLocally = !colorChanged && applyRowEditLocally_(row, data, editingRowHeaders);
     closeEditModal();
     if (!appliedLocally) {
-      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword);
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
   } catch (err) {
     setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
@@ -2344,7 +2319,7 @@ addSubmitButton.addEventListener('click', async () => {
 
     setAddStatus(statusMessage, 'success');
     addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
-    await loadSingleTabView(selectedSheet, lastKeyword);
+    await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     setAddStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   } finally {
@@ -2418,7 +2393,7 @@ async function deleteColumn(header, chipEl, buttonEl) {
 
     chipEl.remove();
     setManageStatus(`ลบคอลัมน์ "${header}" สำเร็จ`, 'success');
-    await loadSingleTabView(selectedSheet, lastKeyword);
+    await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     setManageStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
     buttonEl.disabled = false;
@@ -2804,7 +2779,7 @@ async function restoreTrashItem(item, rowEl, buttonEl) {
 
     rowEl.remove();
     setTrashStatus(result.message, 'success');
-    if (selectedSheet === item.sheetName) await loadSingleTabView(selectedSheet, lastKeyword);
+    if (selectedSheet === item.sheetName) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     setTrashStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
     buttonEl.disabled = false;
