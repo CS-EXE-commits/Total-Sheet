@@ -178,10 +178,10 @@ async function loadStatus(status, pushUrl) {
   lastSummary = null;
   groupAnchors.clear();
   pendingScrollTo = null;
-  chartRange = { from: '', to: '' };
+  chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
   if (chartFromInput) { chartFromInput.value = ''; chartToInput.value = ''; }
   if (chartFilterNote) chartFilterNote.hidden = true;
-  setChartPresetActive('all');
+  if (chartRangeSelect) chartRangeSelect.value = 'all';
   downloadBtn.hidden = true;
   statusMetaEl.textContent = '';
 
@@ -518,6 +518,7 @@ const chartByTabSub = document.getElementById('chartByTabSub');
 const chartTrendEl = document.getElementById('chartTrend');
 const chartTrendSub = document.getElementById('chartTrendSub');
 const chartTrendCard = document.getElementById('chartTrendCard');
+const chartTrendTitle = document.getElementById('chartTrendTitle');
 
 const CHART_BAR_MAX_ITEMS = 8; // เกินนี้รวมเป็น "อื่นๆ" ไม่สร้างสีใหม่เพิ่ม
 
@@ -543,39 +544,94 @@ function showChartTip(evt, html) {
 function hideChartTip() { if (chartTip) chartTip.hidden = true; }
 window.addEventListener('scroll', hideChartTip, true);
 
-/** แปลงค่าในช่องวันที่เป็น "ปี-เดือน" รองรับทุกรูปแบบที่พบจริงในชีท (สูตรเดียวกับฝั่ง Code.gs) */
-function monthKeyFromCell(value) {
-  if (value === null || value === undefined) return '';
+/**
+ * แปลงค่าในช่องวันที่เป็น Date รองรับทุกรูปแบบที่พบจริงในชีท
+ * เก็บเวลาด้วยถ้าในค่ามีเวลาติดมา (บางชีทกรอกแค่วันที่ จึงไม่มีเวลา)
+ */
+function dateFromCell(value) {
+  if (value === null || value === undefined) return null;
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return isNaN(value.getTime()) ? null : value;
+  }
   const str = value.toString().trim();
-  if (!str) return '';
+  if (!str) return null;
 
-  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);            // วว/ดด/ปปปป
-  if (m) return fmtMonth(normYear(+m[3]), +m[2]);
+  // เวลาที่ต่อท้าย (ถ้ามี) เช่น "1/10/2026 14:30" หรือ "2026-10-01 14:30:05"
+  const timeMatch = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const hh = timeMatch ? +timeMatch[1] : 0;
+  const mi = timeMatch ? +timeMatch[2] : 0;
+  const ss = timeMatch && timeMatch[3] ? +timeMatch[3] : 0;
+
+  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);             // วว/ดด/ปปปป
+  if (m) return mkDate(normYear(+m[3]), +m[2], +m[1], hh, mi, ss);
   m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                    // ปปปป-ดด-วว
-  if (m) return fmtMonth(normYear(+m[1]), +m[2]);
-  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);                   // วว-ดด-ปปปป
-  if (m) return fmtMonth(normYear(+m[3]), +m[2]);
+  if (m) return mkDate(normYear(+m[1]), +m[2], +m[3], hh, mi, ss);
+  m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);                    // วว-ดด-ปปปป
+  if (m) return mkDate(normYear(+m[3]), +m[2], +m[1], hh, mi, ss);
 
   // ตัวเลขลำดับวันของ Google Sheets (เช่น 45085) จำกัดช่วงปี 2000-2100
   // ไม่งั้นเลขอย่าง Level 35 หรือ UID จะถูกตีความเป็นวันที่ไปด้วย
+  // ส่วนทศนิยมคือเวลาในวันนั้น (0.5 = เที่ยงวัน)
   if (/^\d+(\.\d+)?$/.test(str)) {
     const serial = parseFloat(str);
     if (serial >= 36526 && serial <= 73415) {
-      const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000);
-      if (!isNaN(d.getTime())) return fmtMonth(d.getUTCFullYear(), d.getUTCMonth() + 1);
+      const days = Math.floor(serial);
+      const msInDay = Math.round((serial - days) * 86400000);
+      const base = new Date(Date.UTC(1899, 11, 30) + days * 86400000 + msInDay);
+      if (!isNaN(base.getTime())) {
+        return mkDate(base.getUTCFullYear(), base.getUTCMonth() + 1, base.getUTCDate(),
+                      base.getUTCHours(), base.getUTCMinutes(), base.getUTCSeconds());
+      }
     }
   }
-  return '';
+  return null;
+}
+function mkDate(y, mo, d, hh, mi, ss) {
+  if (!y || !mo || !d || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const date = new Date(y, mo - 1, d, hh || 0, mi || 0, ss || 0);
+  return isNaN(date.getTime()) ? null : date;
 }
 function normYear(y) { return y > 2400 ? y - 543 : y; } // บางชีทกรอกเป็น พ.ศ.
-function fmtMonth(y, m) {
-  if (!y || !m || m < 1 || m > 12) return '';
-  return `${y}-${String(m).padStart(2, '0')}`;
-}
+
 const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-function monthLabel(key) {
-  const [y, m] = key.split('-');
-  return `${THAI_MONTHS[+m - 1]} ${y}`;
+const pad2 = n => String(n).padStart(2, '0');
+
+/**
+ * จัดเคสลงช่องเวลา ตามความละเอียดที่เหมาะกับช่วงที่เลือก
+ * เลือกดูรายชั่วโมงก็ต้องแบ่งเป็นชั่วโมง ไม่ใช่ยังแบ่งเป็นเดือนเหมือนเดิม ไม่งั้นจะเหลือจุดเดียว
+ */
+function bucketKey(date, unit) {
+  if (unit === 'hour') return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}`;
+  if (unit === 'day')  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+}
+function bucketLabel(key, unit) {
+  if (unit === 'hour') {
+    const [datePart, hour] = key.split(' ');
+    const [, mo, d] = datePart.split('-');
+    return `${+d} ${THAI_MONTHS[+mo - 1]} ${hour}:00`;
+  }
+  if (unit === 'day') {
+    const [y, mo, d] = key.split('-');
+    return `${+d} ${THAI_MONTHS[+mo - 1]} ${y}`;
+  }
+  const [y, mo] = key.split('-');
+  return `${THAI_MONTHS[+mo - 1]} ${y}`;
+}
+/** ไล่สร้างช่องเวลาต่อเนื่องจากต้นถึงปลาย เพื่อให้ช่วงที่ไม่มีเคสยังเห็นเป็นศูนย์ ไม่ถูกบีบหาย */
+function stepBucket(date, unit) {
+  const d = new Date(date);
+  if (unit === 'hour') d.setHours(d.getHours() + 1);
+  else if (unit === 'day') d.setDate(d.getDate() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return d;
+}
+function floorToBucket(date, unit) {
+  const d = new Date(date);
+  d.setMinutes(0, 0, 0);
+  if (unit === 'day' || unit === 'month') d.setHours(0);
+  if (unit === 'month') d.setDate(1);
+  return d;
 }
 
 /** กราฟแท่งแนวนอน: เคสของสถานะนี้อยู่ไฟล์/แท็บไหนบ้าง */
@@ -703,19 +759,25 @@ function bindBarHover(root) {
 
 /** กราฟเส้น: เคสของสถานะนี้เข้ามาเดือนไหนบ้าง (อ่านจากคอลัมน์วันที่ของเคสที่โหลดมาแล้ว) */
 function renderChartTrend(groups, filtering) {
+  const unit = chartRange.unit || 'month';
   const tally = {};
-  let parsed = 0, unparsed = 0;
+  let parsed = 0, unparsed = 0, withTime = 0;
+  let minDate = null, maxDate = null;
 
   groups.forEach(g => {
     const dateIndex = (g.headers || []).findIndex(h =>
       /วันที่|วัน\s*เดือน|^date$|_date$|^date\b/i.test((h || '').toString().trim()));
     if (dateIndex === -1) { unparsed += (g.rows || []).length; return; }
     (g.rows || []).forEach(r => {
-      const key = monthKeyFromCell(r.cells[dateIndex]);
-      if (!key) { unparsed++; return; }
-      if (filtering && !inChartRange(key)) return; // อยู่นอกช่วงเวลาที่เลือก
+      const d = dateFromCell(r.cells[dateIndex]);
+      if (!d) { unparsed++; return; }
+      if (filtering && !inChartRange(d)) return; // อยู่นอกช่วงเวลาที่เลือก
+      if (d.getHours() || d.getMinutes()) withTime++;
+      const key = bucketKey(d, unit);
       tally[key] = (tally[key] || 0) + 1;
       parsed++;
+      if (!minDate || d < minDate) minDate = d;
+      if (!maxDate || d > maxDate) maxDate = d;
     });
   });
 
@@ -725,19 +787,31 @@ function renderChartTrend(groups, filtering) {
   }
   chartTrendCard.hidden = false;
 
-  // เติมเดือนที่ไม่มีเคสให้ครบ ไม่งั้นกราฟจะบีบช่องว่างจนแนวโน้มผิดเพี้ยน
-  const keys = Object.keys(tally).sort();
+  // ไล่สร้างช่องเวลาต่อเนื่องให้ครบ ช่วงที่ไม่มีเคสจะเป็นศูนย์ ไม่ถูกบีบหายจนแนวโน้มผิดเพี้ยน
+  // ถ้าเลือกช่วงเวลาไว้ ให้ยึดตามช่วงที่เลือก ไม่ใช่ตามวันแรก-วันสุดท้ายของข้อมูล
+  const startAt = floorToBucket(filtering && chartRange.fromMs ? new Date(chartRange.fromMs) : minDate, unit);
+  const endAt = floorToBucket(filtering && chartRange.toMs ? new Date(chartRange.toMs) : maxDate, unit);
   const all = [];
-  let [y, m] = keys[0].split('-').map(Number);
-  const [ey, em] = keys[keys.length - 1].split('-').map(Number);
-  while (y < ey || (y === ey && m <= em)) {
-    const k = fmtMonth(y, m);
+  const MAX_POINTS = 400; // กันกรณีเลือกช่วงกว้างมากจนจุดเยอะเกินจะวาดไหว
+  for (let cur = startAt; cur <= endAt && all.length < MAX_POINTS; cur = stepBucket(cur, unit)) {
+    const k = bucketKey(cur, unit);
     all.push({ key: k, value: tally[k] || 0 });
-    m++; if (m > 12) { m = 1; y++; }
+  }
+
+  // เลือกดูรายชั่วโมงแต่ข้อมูลไม่มีเวลาติดมา ต้องบอกให้รู้ ไม่งั้นจะงงว่าทำไมกองอยู่ชั่วโมงเดียว
+  const noTimeWarning = (unit === 'hour' && withTime === 0)
+    ? ' · คอลัมน์วันที่ในชีทไม่ได้เก็บเวลา ทุกเคสจึงถูกนับไว้ที่ 00:00 ของวันนั้น'
+    : '';
+
+  // หัวข้อต้องตรงกับหน่วยที่แบ่งแกนจริง ไม่งั้นเลือกดูรายชั่วโมงแต่หัวข้อยังเขียนว่า "ตามเดือน"
+  if (chartTrendTitle) {
+    chartTrendTitle.textContent = unit === 'hour' ? 'เคสเข้าตามชั่วโมง'
+      : unit === 'day' ? 'เคสเข้าตามวัน' : 'เคสเข้าตามเดือน';
   }
 
   chartTrendSub.textContent = `${parsed.toLocaleString()} เคสที่ระบุวันที่ได้`
-    + (unparsed > 0 ? ` · อีก ${unparsed.toLocaleString()} เคสไม่มีวันที่` : '');
+    + (unparsed > 0 ? ` · อีก ${unparsed.toLocaleString()} เคสไม่มีวันที่` : '')
+    + noTimeWarning;
 
   const w = 640, h = 240, padL = 44, padR = 16, padT = 14, padB = 34;
   const plotW = w - padL - padR, plotH = h - padT - padB;
@@ -756,7 +830,7 @@ function renderChartTrend(groups, filtering) {
   const areaPath = `${linePath} L${x(all.length - 1).toFixed(1)},${yPos(0)} L${x(0).toFixed(1)},${yPos(0)} Z`;
 
   // ป้ายแกนล่าง: แสดงเท่าที่ไม่ชนกัน ไม่ใช่ทุกเดือน
-  const LABEL_W = 62; // ความกว้างโดยประมาณของป้ายอย่าง "ม.ค. 2025"
+  const LABEL_W = unit === 'month' ? 62 : 76; // ป้ายวันที่/ชั่วโมงยาวกว่าป้ายเดือน
   const maxLabels = Math.max(2, Math.floor(plotW / LABEL_W));
   const step = Math.max(1, Math.ceil(all.length / maxLabels));
   const shownIdx = [];
@@ -769,14 +843,14 @@ function renderChartTrend(groups, filtering) {
     shownIdx.push(last);
   }
   const xLabels = shownIdx.map(i =>
-    `<text class="cline__xtick" x="${x(i).toFixed(1)}" y="${h - 10}">${monthLabel(all[i].key)}</text>`
+    `<text class="cline__xtick" x="${x(i).toFixed(1)}" y="${h - 10}">${bucketLabel(all[i].key, unit)}</text>`
   ).join('');
 
   // จุดสูงสุดติดป้ายไว้จุดเดียว ไม่ใส่ตัวเลขทุกจุด
   const peak = all.reduce((best, p, i) => p.value > all[best].value ? i : best, 0);
 
   const hits = all.map((p, i) => `
-    <g class="cpt" tabindex="0" data-label="${escapeHtml(monthLabel(p.key))}" data-value="${p.value}">
+    <g class="cpt" tabindex="0" data-label="${escapeHtml(bucketLabel(p.key, unit))}" data-value="${p.value}">
       <rect class="cpt__hit" x="${(x(i) - (plotW / Math.max(all.length - 1, 1)) / 2).toFixed(1)}"
             y="${padT}" width="${(plotW / Math.max(all.length - 1, 1)).toFixed(1)}" height="${plotH}"></rect>
       <line class="cpt__cross" x1="${x(i).toFixed(1)}" y1="${padT}" x2="${x(i).toFixed(1)}" y2="${padT + plotH}"></line>
@@ -827,35 +901,74 @@ summaryTable.addEventListener('click', (e) => {
   scrollToGroup_(row.dataset.jumpBook, row.dataset.jumpSheet);
 });
 
-/* ===== ปฏิทินกำหนดช่วงเวลาของกราฟ =====
+
+/* ===== เลือกช่วงเวลาที่จะแสดงในกราฟ =====
  *
  * กรองจาก "เคสที่โหลดมาแล้ว" เท่านั้น เพราะวันที่ของแต่ละเคสอยู่ในตัวข้อมูล
  * ไม่ได้อยู่ในสรุปที่เซิร์ฟเวอร์ส่งมา
- *
- * ตอนไม่กรอง กราฟแท่งจะใช้ยอดจากสรุปของเซิร์ฟเวอร์ ซึ่งเป็นยอดจริงครบทุกเคส
- * พอกรองช่วงเวลา ต้องนับใหม่จากเคสที่โหลดมา ซึ่งอาจไม่ครบถ้าแท็บนั้นมีเกินขีดจำกัด
- * จึงต้องขึ้นข้อความบอกให้ชัด ไม่ปล่อยให้เข้าใจผิดว่าเป็นยอดจริงทั้งหมด
  */
 
 const chartFromInput = document.getElementById('chartFrom');
 const chartToInput = document.getElementById('chartTo');
-const chartApplyBtn = document.getElementById('chartApply');
+const chartRangeSelect = document.getElementById('chartRangeSelect');
 const chartFilterNote = document.getElementById('chartFilterNote');
 
-let chartRange = { from: '', to: '' };   // รูปแบบ YYYY-MM-DD ว่าง = ไม่กรอง
-let lastSummary = null;                   // สรุปจากเซิร์ฟเวอร์ของสถานะที่กำลังดู
+/**
+ * ช่วงเวลาที่กำลังแสดงอยู่
+ *  fromMs / toMs = ขอบเขตเวลาจริง (0 = ไม่จำกัด)
+ *  unit = ความละเอียดของแกนนอน ต้องเหมาะกับความยาวช่วงที่เลือก
+ *         เลือกดู 6 ชั่วโมงแล้วยังแบ่งแกนเป็นเดือน กราฟจะเหลือจุดเดียว อ่านอะไรไม่ได้
+ */
+let chartRange = { fromMs: 0, toMs: 0, unit: 'month' };
+let lastSummary = null; // สรุปจากเซิร์ฟเวอร์ของสถานะที่กำลังดู
 
-function setChartPresetActive(range) {
-  document.querySelectorAll('.chart-preset[data-range]').forEach(btn => {
-    btn.dataset.active = String(btn.dataset.range === range);
-  });
+/** สร้างตัวเลือกช่วงเวลาในกล่อง Dropdown */
+function buildRangeOptions_() {
+  if (!chartRangeSelect) return;
+  const opts = ['<option value="all">ทั้งหมด</option>'];
+
+  opts.push('<optgroup label="รายชั่วโมง">');
+  for (let h = 1; h <= 24; h++) opts.push(`<option value="h${h}">${h} ชั่วโมงล่าสุด</option>`);
+  opts.push('</optgroup>');
+
+  opts.push('<optgroup label="รายสัปดาห์">');
+  for (let w = 1; w <= 4; w++) opts.push(`<option value="w${w}">${w} สัปดาห์ล่าสุด</option>`);
+  opts.push('</optgroup>');
+
+  opts.push('<optgroup label="รายปี">');
+  for (let y = 1; y <= 10; y++) opts.push(`<option value="y${y}">${y} ปีล่าสุด</option>`);
+  opts.push('</optgroup>');
+
+  chartRangeSelect.innerHTML = opts.join('');
+  chartRangeSelect.value = 'all';
 }
 
-/** เดือนของเคสนี้อยู่ในช่วงที่เลือกไหม (เทียบระดับเดือน เพราะกราฟนับเป็นรายเดือน) */
-function inChartRange(monthKey) {
-  if (!monthKey) return false;
-  if (chartRange.from && monthKey < chartRange.from.slice(0, 7)) return false;
-  if (chartRange.to && monthKey > chartRange.to.slice(0, 7)) return false;
+/** แปลงตัวเลือกใน Dropdown เป็นช่วงเวลาจริง พร้อมความละเอียดของแกนที่เหมาะสม */
+function rangeFromOption_(value) {
+  const now = new Date();
+  if (!value || value === 'all') return { fromMs: 0, toMs: 0, unit: 'month' };
+
+  const kind = value[0];
+  const n = parseInt(value.slice(1), 10);
+  const start = new Date(now);
+  if (kind === 'h') {
+    start.setHours(start.getHours() - n);
+    return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'hour' };
+  }
+  if (kind === 'w') {
+    start.setDate(start.getDate() - n * 7);
+    return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'day' };
+  }
+  start.setFullYear(start.getFullYear() - n);
+  return { fromMs: start.getTime(), toMs: now.getTime(), unit: 'month' };
+}
+
+/** เคสนี้อยู่ในช่วงเวลาที่เลือกไหม */
+function inChartRange(date) {
+  if (!date) return false;
+  const ms = date.getTime();
+  if (chartRange.fromMs && ms < chartRange.fromMs) return false;
+  if (chartRange.toMs && ms > chartRange.toMs) return false;
   return true;
 }
 
@@ -865,10 +978,16 @@ function dateIndexOf(group) {
     /วันที่|วัน\s*เดือน|^date$|_date$|^date\b/i.test((h || '').toString().trim()));
 }
 
-/** วาดกราฟใหม่ทั้ง 2 ตัวตามช่วงเวลาที่เลือกอยู่ */
+/**
+ * วาดกราฟใหม่ทั้ง 2 ตัวตามช่วงเวลาที่เลือกอยู่
+ *
+ * ตอนไม่กรอง กราฟแท่งใช้ยอดจากสรุปของเซิร์ฟเวอร์ ซึ่งเป็นยอดจริงครบทุกเคส
+ * พอกรองช่วงเวลา ต้องนับใหม่จากเคสที่โหลดมา ซึ่งอาจไม่ครบถ้าแท็บนั้นมีเกินขีดจำกัด
+ * จึงต้องขึ้นข้อความบอกให้ชัด ไม่ปล่อยให้เข้าใจผิดว่าเป็นยอดจริงทั้งหมด
+ */
 function applyChartRange() {
   if (!lastSummary) return;
-  const filtering = !!(chartRange.from || chartRange.to);
+  const filtering = !!(chartRange.fromMs || chartRange.toMs);
 
   if (!filtering) {
     chartFilterNote.hidden = true;
@@ -877,7 +996,6 @@ function applyChartRange() {
     return;
   }
 
-  // นับใหม่จากเคสที่โหลดมา เฉพาะที่อยู่ในช่วงเวลาที่เลือก
   const groups = [];
   let total = 0;
   let noDate = 0;
@@ -885,14 +1003,14 @@ function applyChartRange() {
     const di = dateIndexOf(g);
     if (di === -1) { noDate += (g.rows || []).length; return; }
     let count = 0;
-    (g.rows || []).forEach(r => { if (inChartRange(monthKeyFromCell(r.cells[di]))) count++; });
+    (g.rows || []).forEach(r => { if (inChartRange(dateFromCell(r.cells[di]))) count++; });
     if (count > 0) { groups.push({ book: g.book, sheet: g.sheet, count }); total += count; }
   });
   groups.sort((a, b) => b.count - a.count);
 
   const truncated = loadedGroups.some(g => g.truncated);
   chartFilterNote.textContent =
-    `กำลังกรองช่วงเวลา — ตัวเลขในกราฟนับจากเคสที่โหลดมาแล้วเท่านั้น`
+    'กำลังกรองช่วงเวลา — ตัวเลขในกราฟนับจากเคสที่โหลดมาแล้วเท่านั้น'
     + (truncated ? ' (บางแท็บมีเคสเกินที่ระบบโหลดมาได้ ยอดจริงอาจมากกว่านี้)' : '')
     + (noDate > 0 ? ` · มี ${noDate.toLocaleString()} เคสที่ไม่มีคอลัมน์วันที่ จึงไม่ถูกนับ` : '');
   chartFilterNote.hidden = false;
@@ -908,42 +1026,41 @@ function applyChartRange() {
   renderChartTrend(loadedGroups, true);
 }
 
-/** ตั้งช่วงเวลาสำเร็จรูป */
-function applyChartPreset(range) {
-  const now = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-  if (range === 'all') {
-    chartRange = { from: '', to: '' };
-  } else if (range === '12m') {
-    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    chartRange = { from: fmt(start), to: fmt(now) };
-  } else if (range === 'year') {
-    chartRange = { from: fmt(new Date(now.getFullYear(), 0, 1)), to: fmt(now) };
-  }
-  chartFromInput.value = chartRange.from;
-  chartToInput.value = chartRange.to;
-  setChartPresetActive(range);
+chartRangeSelect.addEventListener('change', () => {
+  chartRange = rangeFromOption_(chartRangeSelect.value);
+  // เลือกจาก Dropdown แล้ว ช่องวันที่ที่กรอกเองต้องถูกล้าง ไม่งั้นจะงงว่าตกลงใช้อันไหน
+  chartFromInput.value = '';
+  chartToInput.value = '';
   applyChartRange();
-}
-
-document.querySelectorAll('.chart-preset[data-range]').forEach(btn => {
-  btn.addEventListener('click', () => applyChartPreset(btn.dataset.range));
 });
 
-chartApplyBtn.addEventListener('click', () => {
+/** กรอกวันที่เอง: มีผลทันทีที่เลือก ไม่ต้องกดปุ่มยืนยันอีกที */
+function applyCustomDates_() {
   const from = chartFromInput.value;
   const to = chartToInput.value;
+  if (!from && !to) {
+    chartRange = rangeFromOption_(chartRangeSelect.value);
+    applyChartRange();
+    return;
+  }
   if (from && to && from > to) {
     chartFilterNote.textContent = 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
     chartFilterNote.hidden = false;
     return;
   }
-  chartRange = { from, to };
-  setChartPresetActive(from || to ? '' : 'all');
+  const fromMs = from ? new Date(`${from}T00:00:00`).getTime() : 0;
+  const toMs = to ? new Date(`${to}T23:59:59`).getTime() : 0;
+
+  // ช่วงสั้นแบ่งแกนเป็นวัน ช่วงยาวแบ่งเป็นเดือน จะได้จำนวนจุดที่อ่านได้พอดี
+  const spanDays = (fromMs && toMs) ? (toMs - fromMs) / 86400000 : 9999;
+  chartRange = { fromMs, toMs, unit: spanDays <= 62 ? 'day' : 'month' };
+  chartRangeSelect.value = 'all'; // กรอกเองแล้ว ตัวเลือกสำเร็จรูปไม่ได้ใช้
   applyChartRange();
-});
+}
+chartFromInput.addEventListener('change', applyCustomDates_);
+chartToInput.addEventListener('change', applyCustomDates_);
+
+buildRangeOptions_();
 
 // เริ่มทำงาน — ต้องอยู่ท้ายสุดของไฟล์ เพราะฟังก์ชันและตัวแปรด้านบนต้องถูกประกาศครบก่อน
 init();

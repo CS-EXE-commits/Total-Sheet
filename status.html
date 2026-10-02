@@ -60,16 +60,15 @@
       <section class="status-page__section" id="chartSection" hidden>
         <!-- ปฏิทินกำหนดช่วงเวลาที่จะให้กราฟแสดง -->
         <div class="chart-toolbar">
-          <div class="chart-toolbar__presets">
-            <button type="button" class="chart-preset" data-range="all" data-active="true">ทั้งหมด</button>
-            <button type="button" class="chart-preset" data-range="12m">12 เดือนล่าสุด</button>
-            <button type="button" class="chart-preset" data-range="year">ปีนี้</button>
-          </div>
+          <label class="chart-toolbar__field">
+            <span>ช่วงเวลา</span>
+            <select id="chartRangeSelect" aria-label="เลือกช่วงเวลาที่จะแสดงในกราฟ"></select>
+          </label>
           <div class="chart-toolbar__dates">
+            <span class="chart-toolbar__or">หรือเลือกวันที่เอง</span>
             <input type="date" id="chartFrom" title="ตั้งแต่วันที่" aria-label="ตั้งแต่วันที่">
             <span class="chart-toolbar__dash">–</span>
             <input type="date" id="chartTo" title="ถึงวันที่" aria-label="ถึงวันที่">
-            <button type="button" class="chart-preset chart-preset--go" id="chartApply">ดูช่วงนี้</button>
           </div>
         </div>
         <p class="chart-toolbar__note" id="chartFilterNote" hidden></p>
@@ -85,7 +84,7 @@
 
           <figure class="chart-card" id="chartTrendCard">
             <figcaption class="chart-card__head">
-              <span class="chart-card__title">เคสเข้าตามเดือน</span>
+              <span class="chart-card__title" id="chartTrendTitle">เคสเข้าตามเดือน</span>
               <span class="chart-card__sub" id="chartTrendSub"></span>
             </figcaption>
             <div class="chart-card__body" id="chartTrend"></div>

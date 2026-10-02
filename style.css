@@ -2433,32 +2433,32 @@ th.data-table__ticket-col {
   gap: 8px 12px;
   margin-bottom: 12px;
 }
-.chart-toolbar__presets,
+.chart-toolbar__field,
 .chart-toolbar__dates {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .chart-toolbar__dash { color: var(--color-text-muted); }
-.chart-preset {
-  padding: 5px 11px;
-  font: inherit;
+.chart-toolbar__field > span,
+.chart-toolbar__or {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
   color: var(--color-text-muted);
+}
+#chartRangeSelect {
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
 }
-.chart-preset:hover { color: var(--color-accent); background: var(--color-btn-hover-bg); }
-.chart-preset[data-active="true"] {
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-  border-color: var(--color-accent);
-}
-.chart-preset--go { color: var(--color-accent); }
+#chartRangeSelect:hover { background: var(--color-btn-hover-bg); }
 .chart-toolbar__dates input[type="date"] {
   padding: 5px 8px;
   font: inherit;
