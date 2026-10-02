@@ -57,7 +57,6 @@
 
     <div class="folder-bar__actions">
       <button type="button" class="topbtn" id="trashToggle">🗑 ถังขยะ</button>
-      <button type="button" class="topbtn" id="reportToggle">📝 ประวัติการแก้ไข</button>
 
       <span class="folder-bar__divider"></span>
 
@@ -144,6 +143,17 @@
       <p class="sidebar__status" id="booksHint"></p>
 
       <!-- ภาพรวมการใช้งานทั้งระบบ (ทุกไฟล์ ทุกแท็บ) แสดงไว้ท้ายสุดของแถบไฟล์ทั้งหมด -->
+      <!-- ประวัติการแก้ไขของแท็บที่เลือกอยู่ — ย้ายมาจากปุ่มบนแถบด้านบน แสดงถาวรตรงนี้
+           ไม่มีรายการ "สรุปยอดคงเหลือแยกตามสถานะ" แล้ว เพราะซ้ำกับรายการตรวจสอบสถานะที่อยู่ถัดลงไป -->
+      <section class="sidebar-report" id="reportPanel">
+        <p class="sidebar-dashboard__title">📝 ประวัติการแก้ไข</p>
+        <p class="sidebar-report__label">แท็บ: <b id="reportPanelSheetName">-</b> <span id="reportPanelDate"></span></p>
+        <div class="report-stats" id="reportStats"></div>
+        <p class="sidebar-dashboard__subhead">เหตุการณ์วันนี้ล่าสุด</p>
+        <div class="report-log-list" id="reportLogList"></div>
+        <p class="report-panel__status" id="reportStatus">เลือกแท็บเพื่อดูประวัติการแก้ไข</p>
+      </section>
+
       <div class="sidebar-dashboard" id="sidebarDashboard">
         <p class="sidebar-dashboard__title">📊 ภาพรวมวันนี้ <span id="dashboardDate"></span></p>
         <div class="sidebar-dashboard__stat">
@@ -243,25 +253,6 @@
           <p class="trash-panel__status" id="trashStatus"></p>
           <div class="panel-close-row">
             <button type="button" class="toolbar__btn toolbar__btn--muted" id="trashPanelClose">ปิด</button>
-          </div>
-        </section>
-
-        <section class="report-panel" id="reportPanel" hidden>
-          <p class="report-panel__label">ประวัติการแก้ไข — แท็บ: <b id="reportPanelSheetName"></b> (<span id="reportPanelDate"></span>)</p>
-          <div class="report-stats" id="reportStats"></div>
-          <div class="report-panel__cols">
-            <div>
-              <p class="report-panel__subhead">สรุปยอดคงเหลือปัจจุบันแยกตามสถานะ</p>
-              <div class="report-status-list" id="reportStatusList"></div>
-            </div>
-            <div>
-              <p class="report-panel__subhead">เหตุการณ์วันนี้ล่าสุด</p>
-              <div class="report-log-list" id="reportLogList"></div>
-            </div>
-          </div>
-          <p class="report-panel__status" id="reportStatus"></p>
-          <div class="panel-close-row">
-            <button type="button" class="toolbar__btn toolbar__btn--muted" id="reportPanelClose">ปิด</button>
           </div>
         </section>
 

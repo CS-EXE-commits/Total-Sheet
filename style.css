@@ -792,6 +792,42 @@ body {
 .trash-item__restore:hover { background: var(--color-accent-hover); }
 .trash-item__restore:disabled { opacity: 0.6; }
 
+/* ===== ประวัติการแก้ไข (อยู่บนสุดของแถบด้านข้าง) ===== */
+.sidebar-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.sidebar-report__label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-report__label b { color: var(--color-text); }
+
+/* แถบด้านข้างแคบกว่าพื้นที่เดิมมาก ตัวเลขสรุปจึงต้องย่อลงให้พอดี 2 คอลัมน์ */
+.sidebar-report .report-stats {
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.sidebar-report .report-stat { padding: 8px 6px; }
+.sidebar-report .report-stat__value { font-size: 18px; }
+.sidebar-report .report-stat__label { font-size: 11px; }
+.sidebar-report .report-log-list { max-height: 220px; }
+.sidebar-report .sidebar-dashboard__subhead { margin: 2px 0 0; }
+
 /* ===== แผงประวัติการแก้ไข ===== */
 .report-panel__subhead {
   font-size: 12px;

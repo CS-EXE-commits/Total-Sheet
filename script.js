@@ -104,12 +104,11 @@ const trashPanel = document.getElementById('trashPanel');
 const trashList = document.getElementById('trashList');
 const trashStatus = document.getElementById('trashStatus');
 
-const reportToggle = document.getElementById('reportToggle');
 const reportPanel = document.getElementById('reportPanel');
 const reportPanelSheetName = document.getElementById('reportPanelSheetName');
 const reportPanelDate = document.getElementById('reportPanelDate');
 const reportStats = document.getElementById('reportStats');
-const reportStatusList = document.getElementById('reportStatusList');
+const reportStatusList = document.getElementById('reportStatusList'); // ไม่มีแล้วในหน้าเว็บ (null) — คงไว้เพื่อไม่ให้โค้ดเดิมพัง
 const reportLogList = document.getElementById('reportLogList');
 const reportStatus = document.getElementById('reportStatus');
 
@@ -1516,6 +1515,10 @@ async function loadSingleTabView(sheetName, keyword) {
     currentPage = 1;
     applyStatusFilterAndRender();
 
+    // ประวัติการแก้ไขไม่มีปุ่มเปิดแล้ว จึงต้องโหลดเองทุกครั้งที่เปลี่ยนแท็บ/ค้นหา/บันทึก
+    // ยิงแยกต่างหากไม่ต้อง await เพื่อไม่ให้ตารางที่พร้อมแล้วต้องรอข้อมูลส่วนนี้
+    loadDailyReport();
+
     // ช่วงแรกแสดงผลแล้ว ที่เหลือทยอยโหลดต่อท้ายเบื้องหลัง ผู้ใช้ดูข้อมูลไปพลางได้เลย
     if (viewResult.hasMore) {
       loadRemainingTabChunks_(sheetName, keyword, requestId, viewResult.offset + viewResult.results.length, viewResult.total);
@@ -1899,15 +1902,12 @@ function resetPanels() {
   addPanel.hidden = true;
   managePanel.hidden = true;
   trashPanel.hidden = true;
-  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
-  reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📝 ประวัติการแก้ไข';
 }
 
 /* ===== แถบเพิ่มข้อมูล ===== */
@@ -1918,13 +1918,10 @@ addToggle.addEventListener('click', () => {
   addPanel.hidden = isOpen;
   managePanel.hidden = true;
   trashPanel.hidden = true;
-  reportPanel.hidden = true;
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
-  reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
   addToggle.textContent = '+ เพิ่มข้อมูล'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
   if (!isOpen) loadAddFields();
@@ -2309,13 +2306,10 @@ manageToggle.addEventListener('click', () => {
   managePanel.hidden = isOpen;
   addPanel.hidden = true;
   trashPanel.hidden = true;
-  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
-  reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
   manageToggle.textContent = 'จัดการคอลัมน์';
   if (!isOpen) loadManageColumns();
@@ -2384,42 +2378,21 @@ trashToggle.addEventListener('click', () => {
   trashPanel.hidden = isOpen;
   addPanel.hidden = true;
   managePanel.hidden = true;
-  reportPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
   addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการคอลัมน์';
-  reportToggle.setAttribute('aria-pressed', 'false');
-  reportToggle.textContent = '📝 ประวัติการแก้ไข';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
   trashToggle.textContent = '🗑 ถังขยะ';
   if (!isOpen) loadTrash();
 });
 
-/* ===== แผงประวัติการแก้ไข ===== */
-
-reportToggle.addEventListener('click', () => {
-  if (!selectedSheet) { alert('กรุณาเลือกแท็บใดแท็บหนึ่งก่อน'); return; }
-  const isOpen = !reportPanel.hidden;
-  reportPanel.hidden = isOpen;
-  addPanel.hidden = true;
-  managePanel.hidden = true;
-  trashPanel.hidden = true;
-  addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูล';
-  manageToggle.setAttribute('aria-pressed', 'false');
-  manageToggle.textContent = 'จัดการคอลัมน์';
-  trashToggle.setAttribute('aria-pressed', 'false');
-  trashToggle.textContent = '🗑 ถังขยะ';
-  reportToggle.setAttribute('aria-pressed', String(!isOpen));
-  reportToggle.textContent = '📝 ประวัติการแก้ไข';
-  if (!isOpen) loadDailyReport();
-});
+/* ===== ประวัติการแก้ไข (แสดงถาวรบนสุดของแถบด้านข้าง ไม่มีปุ่มเปิด/ปิดแล้ว) ===== */
 
 async function loadDailyReport() {
   reportPanelSheetName.textContent = selectedSheet;
   reportStats.innerHTML = '';
-  reportStatusList.innerHTML = '';
+  if (reportStatusList) reportStatusList.innerHTML = '';
   reportLogList.innerHTML = '';
   setReportStatus('กำลังโหลด...', null);
   try {
@@ -2451,6 +2424,7 @@ function renderReportStats(result) {
 }
 
 function renderReportStatusList(result) {
+  if (!reportStatusList) return; // ย้ายไปแสดงในรายการ "ตรวจสอบสถานะ" ของแถบด้านข้างแทนแล้ว
   if (!result.hasStatusColumn) {
     reportStatusList.innerHTML = '<p class="report-panel__status">แท็บนี้ไม่มีคอลัมน์ "สถานะ"</p>';
     return;
@@ -3012,7 +2986,6 @@ document.addEventListener('keydown', (evt) => {
   ['addPanelClose', addPanel],
   ['managePanelClose', managePanel],
   ['trashPanelClose', trashPanel],
-  ['reportPanelClose', reportPanel],
   ['bookTrashClose', bookTrashPanel]
 ].forEach(([id, panel]) => {
   const btn = document.getElementById(id);
