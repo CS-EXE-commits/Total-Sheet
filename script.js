@@ -105,7 +105,7 @@ const trashList = document.getElementById('trashList');
 const trashStatus = document.getElementById('trashStatus');
 
 const reportPanel = document.getElementById('reportPanel');
-const reportPanelSheetName = document.getElementById('reportPanelSheetName');
+const reportPanelSheetName = document.getElementById('reportPanelSheetName'); // ไม่มีแล้ว (null) — ประวัติการแก้ไขเป็นภาพรวมทุกไฟล์ ไม่ผูกกับแท็บ
 const reportPanelDate = document.getElementById('reportPanelDate');
 const reportStats = document.getElementById('reportStats');
 const reportStatusList = document.getElementById('reportStatusList'); // ไม่มีแล้วในหน้าเว็บ (null) — คงไว้เพื่อไม่ให้โค้ดเดิมพัง
@@ -589,6 +589,7 @@ async function trySessionRestore(token) {
     const books = await loadBooks();
     restoreLastView(books);
     initGlobalDashboard();
+    loadDailyReport();
   } catch (err) {
     // อีเมลนี้อาจถูกถอนสิทธิ์ไปแล้ว หรือ session เก่าใช้ไม่ได้แล้ว ให้กลับไปหน้าล็อกอินด้วย Google ปกติ
     localStorage.removeItem('sheetSearchToken');
@@ -652,6 +653,7 @@ async function tryLoginGoogle(idToken) {
     const books = await loadBooks();
     restoreLastView(books);
     initGlobalDashboard();
+    loadDailyReport();
   } catch (err) {
     localStorage.removeItem('sheetSearchToken');
     currentSessionToken = '';
@@ -1572,8 +1574,8 @@ async function loadSingleTabView(sheetName, keyword) {
     currentPage = 1;
     applyStatusFilterAndRender();
 
-    // ประวัติการแก้ไขไม่มีปุ่มเปิดแล้ว จึงต้องโหลดเองทุกครั้งที่เปลี่ยนแท็บ/ค้นหา/บันทึก
-    // ยิงแยกต่างหากไม่ต้อง await เพื่อไม่ให้ตารางที่พร้อมแล้วต้องรอข้อมูลส่วนนี้
+    // ประวัติการแก้ไขเป็นภาพรวมทุกไฟล์ โหลดตั้งแต่เปิดหน้าเว็บแล้ว
+    // ตรงนี้แค่ดึงใหม่ให้เห็นรายการล่าสุดหลังเพิ่ม/แก้ไข/ลบข้อมูล (ไม่ต้อง await)
     loadDailyReport();
 
     // ช่วงแรกแสดงผลแล้ว ที่เหลือทยอยโหลดต่อท้ายเบื้องหลัง ผู้ใช้ดูข้อมูลไปพลางได้เลย
@@ -2446,18 +2448,19 @@ trashToggle.addEventListener('click', () => {
 
 /* ===== ประวัติการแก้ไข (แสดงถาวรบนสุดของแถบด้านข้าง ไม่มีปุ่มเปิด/ปิดแล้ว) ===== */
 
+/**
+ * ประวัติการแก้ไขวันนี้ของ "ทุกไฟล์ทุกแท็บ"
+ *
+ * อ่านจาก Log กลางอย่างเดียว ไม่ผูกกับแท็บที่เปิดอยู่ จึงโหลดได้ตั้งแต่เปิดหน้าเว็บ
+ * ก่อนหน้านี้ต้องเลือกแท็บก่อนถึงจะเห็น และถ้าวันนั้นไปแก้งานอยู่แท็บอื่น ช่องนี้จะว่างเปล่า
+ */
 async function loadDailyReport() {
-  reportPanelSheetName.textContent = selectedSheet;
-  reportStats.innerHTML = '';
-  if (reportStatusList) reportStatusList.innerHTML = '';
-  reportLogList.innerHTML = '';
   setReportStatus('กำลังโหลด...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'dailyReport', book: currentBook, sheet: selectedSheet }));
-    if (!result.ok) throw new Error(result.error || 'โหลดรายงานไม่สำเร็จ');
+    const result = await jsonpRequest(apiUrl({ action: 'activityToday' }));
+    if (!result.ok) throw new Error(result.error || 'โหลดประวัติการแก้ไขไม่สำเร็จ');
     reportPanelDate.textContent = formatDateDisplay(result.date);
     renderReportStats(result);
-    renderReportStatusList(result);
     renderReportLogList(result);
     setReportStatus('', null);
   } catch (err) {
@@ -2471,7 +2474,7 @@ function renderReportStats(result) {
     { label: 'แก้ไขวันนี้', value: result.editedToday },
     { label: 'ลบวันนี้', value: result.deletedToday },
     { label: 'กู้คืนวันนี้', value: result.restoredToday },
-    { label: 'ทั้งหมดในแท็บนี้', value: result.totalRows },
+    { label: 'ไฟล์ที่มีการแก้ไข', value: result.booksTouched },
   ];
   reportStats.innerHTML = stats.map(s => `
     <div class="report-stat">
