@@ -176,6 +176,8 @@ async function loadStatus(status, pushUrl) {
   chartSection.hidden = true;
   hideChartTip();
   lastSummary = null;
+  groupAnchors.clear();
+  pendingScrollTo = null;
   chartRange = { from: '', to: '' };
   if (chartFromInput) { chartFromInput.value = ''; chartToInput.value = ''; }
   if (chartFilterNote) chartFilterNote.hidden = true;
@@ -257,7 +259,7 @@ function renderSummary(summary) {
       </thead>
       <tbody>
         ${summary.groups.map(g => `
-          <tr class="status-summary__row--clickable" title="คลิกเพื่อเปิดแท็บนี้"
+          <tr class="status-summary__row--clickable" title="คลิกเพื่อเลื่อนไปดูรายการเคสของแท็บนี้"
               data-jump-book="${escapeHtml(g.book)}" data-jump-sheet="${escapeHtml(g.sheet)}">
             <td>${escapeHtml(g.book)}</td>
             <td>${escapeHtml(g.sheet)}</td>
@@ -274,6 +276,7 @@ function renderSummary(summary) {
 function renderGroup(result, expectedCount) {
   const wrap = document.createElement('div');
   wrap.className = 'status-group';
+  wrap.id = anchorIdFor(result.book, result.sheet); // ปลายทางตอนกดชื่อไฟล์/แท็บด้านบน
 
   const truncatedNote = result.truncated
     ? `<span class="status-group__warn">แสดง ${result.rows.length.toLocaleString()} จาก ${result.matched.toLocaleString()} เคส</span>`
@@ -286,9 +289,7 @@ function renderGroup(result, expectedCount) {
 
   wrap.innerHTML = `
     <h4 class="status-group__title">
-      <button type="button" class="status-group__jump"
-              data-jump-book="${escapeHtml(result.book)}" data-jump-sheet="${escapeHtml(result.sheet)}"
-              title="คลิกเพื่อเปิดแท็บนี้">${escapeHtml(result.book)} · ${escapeHtml(result.sheet)} ↗</button>
+      ${escapeHtml(result.book)} · ${escapeHtml(result.sheet)}
       <span class="status-group__count">${expectedCount.toLocaleString()} เคส</span>
       ${truncatedNote}
     </h4>
@@ -309,15 +310,18 @@ function renderGroup(result, expectedCount) {
     </div>`;
 
   detailGroups.appendChild(wrap);
+  flushPendingScroll_(); // เผื่อมีคนกดรอไว้ตอนกลุ่มนี้ยังโหลดไม่เสร็จ
 }
 
 function renderGroupError(group, message) {
   const wrap = document.createElement('div');
   wrap.className = 'status-group';
+  wrap.id = anchorIdFor(group.book, group.sheet);
   wrap.innerHTML = `
     <h4 class="status-group__title">${escapeHtml(group.book)} · ${escapeHtml(group.sheet)}</h4>
     <p class="status-page__status status-page__status--error">โหลดรายการเคสไม่สำเร็จ: ${escapeHtml(message)}</p>`;
   detailGroups.appendChild(wrap);
+  flushPendingScroll_();
 }
 
 /* ===== ดาวน์โหลดเป็น Excel (แยกชีทตามแท็บต้นทาง) ===== */
@@ -480,7 +484,7 @@ detailGroups.addEventListener('click', (e) => {
 
   // กดชื่อไฟล์/แท็บที่หัวข้อกลุ่ม = วาร์ปไปเปิดแท็บนั้นในหน้าหลัก
   const jump = e.target.closest('[data-jump-book]');
-  if (jump) { jumpToSheet_(jump.dataset.jumpBook, jump.dataset.jumpSheet); return; }
+  if (jump) { scrollToGroup_(jump.dataset.jumpBook, jump.dataset.jumpSheet); return; }
 
   const tr = e.target.closest('.status-group__row--clickable');
   if (!tr) return;
@@ -626,10 +630,49 @@ function renderChartByTab(groups, total) {
   bindBarHover(chartByTabEl);
 }
 
-/** กดแท่งแล้วไปเปิดแท็บนั้นในหน้าหลักทันที (ไม่ใช่เลื่อนลงไปดูตารางข้างล่าง) */
-function jumpToSheet_(book, sheet) {
-  const url = `index.html?book=${encodeURIComponent(book)}&sheet=${encodeURIComponent(sheet)}`;
-  window.location.href = url;
+/* ===== กดชื่อไฟล์/แท็บ แล้วเลื่อนไปที่กลุ่มนั้นใน "รายการเคสทั้งหมด" ด้านล่าง ===== */
+
+// ชื่อไฟล์และแท็บเป็นภาษาไทยและมีอักขระพิเศษ ใช้เป็น id ตรงๆ ไม่ได้
+// จึงจับคู่ชื่อกับหมายเลขลำดับไว้ แล้วใช้หมายเลขนั้นเป็น id ของกล่องแต่ละกลุ่ม
+const groupAnchors = new Map();
+function anchorIdFor(book, sheet) {
+  const key = `${book}\u0000${sheet}`;
+  if (!groupAnchors.has(key)) groupAnchors.set(key, `grp-${groupAnchors.size}`);
+  return groupAnchors.get(key);
+}
+
+// ถ้าผู้ใช้กดก่อนที่กลุ่มนั้นจะโหลดเสร็จ ให้จำไว้ แล้วเลื่อนไปให้เองทันทีที่โหลดมาถึง
+let pendingScrollTo = null;
+
+function scrollToGroup_(book, sheet) {
+  const el = document.getElementById(anchorIdFor(book, sheet));
+  if (!el) {
+    // ยังโหลดไม่ถึงกลุ่มนี้ จำไว้ก่อน แล้วบอกผู้ใช้ว่ากำลังรอ
+    pendingScrollTo = { book, sheet };
+    setPageStatus(`กำลังโหลด ${book} · ${sheet} ... จะเลื่อนไปให้เมื่อโหลดเสร็จ`, null);
+    return;
+  }
+  pendingScrollTo = null;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // กะพริบสั้นๆ ให้รู้ว่ามาถึงกลุ่มไหนแล้ว ไม่งั้นเลื่อนไปแล้วงงว่าอยู่ตรงไหน
+  //
+  // ต้องล้างเอฟเฟกต์ของ "ทุกกลุ่ม" ก่อน ไม่ใช่แค่กลุ่มปลายทาง
+  // ไม่งั้นกลุ่มที่กดไว้ก่อนหน้าจะยังมีกรอบค้างอยู่ กลายเป็นเห็นสว่าง 2 ที่พร้อมกันจนสับสน
+  detailGroups.querySelectorAll('.status-group--flash')
+    .forEach(g => g.classList.remove('status-group--flash'));
+  void el.offsetWidth; // บังคับให้เบราว์เซอร์เริ่มอนิเมชันใหม่
+  el.classList.add('status-group--flash');
+}
+
+/** เรียกหลัง render กลุ่มใหม่ เผื่อมีคนกดรอไว้ก่อนหน้านี้ */
+function flushPendingScroll_() {
+  if (!pendingScrollTo) return;
+  const el = document.getElementById(anchorIdFor(pendingScrollTo.book, pendingScrollTo.sheet));
+  if (!el) return;
+  const target = pendingScrollTo;
+  pendingScrollTo = null;
+  setPageStatus('', null);
+  scrollToGroup_(target.book, target.sheet);
 }
 
 function bindBarHover(root) {
@@ -639,12 +682,12 @@ function bindBarHover(root) {
       <div class="chart-tip__name">${escapeHtml(g.dataset.label)}</div>
       <div class="chart-tip__value">${(+g.dataset.value).toLocaleString()} เคส
         <span class="chart-tip__muted">(${g.dataset.pct}%)</span></div>
-      ${canJump ? '<div class="chart-tip__hint">คลิกเพื่อเปิดแท็บนี้</div>' : ''}`);
+      ${canJump ? '<div class="chart-tip__hint">คลิกเพื่อเลื่อนไปดูรายการเคสของแท็บนี้</div>' : ''}`);
 
     if (canJump) {
-      g.addEventListener('click', () => jumpToSheet_(g.dataset.book, g.dataset.sheet));
+      g.addEventListener('click', () => scrollToGroup_(g.dataset.book, g.dataset.sheet));
       g.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToSheet_(g.dataset.book, g.dataset.sheet); }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scrollToGroup_(g.dataset.book, g.dataset.sheet); }
       });
     }
     g.addEventListener('mouseenter', show);
@@ -781,7 +824,7 @@ function niceCeil(n) {
 summaryTable.addEventListener('click', (e) => {
   const row = e.target.closest('[data-jump-book]');
   if (!row) return;
-  jumpToSheet_(row.dataset.jumpBook, row.dataset.jumpSheet);
+  scrollToGroup_(row.dataset.jumpBook, row.dataset.jumpSheet);
 });
 
 /* ===== ปฏิทินกำหนดช่วงเวลาของกราฟ =====

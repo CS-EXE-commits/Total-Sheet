@@ -2499,16 +2499,16 @@ th.data-table__ticket-col {
 /* ชื่อไฟล์/แท็บที่กดได้ */
 .status-summary__row--clickable { cursor: pointer; }
 .status-summary__row--clickable:hover > td { background: var(--color-row-hover-bg); }
-.status-group__jump {
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  background: none;
-  border: none;
-  text-align: left;
+/* กะพริบสั้นๆ ตอนเลื่อนมาถึงกลุ่มนี้ ให้รู้ว่ามาถูกที่แล้ว */
+.status-group { scroll-margin-top: 16px; border-radius: var(--radius); }
+@keyframes statusGroupFlash {
+  0%   { box-shadow: 0 0 0 3px var(--color-accent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
 }
-.status-group__jump:hover { color: var(--color-accent); text-decoration: underline; }
+.status-group--flash { animation: statusGroupFlash 1.4s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .status-group--flash { animation: none; box-shadow: 0 0 0 2px var(--color-accent); }
+}
 
 @media (max-width: 720px) {
   .chart-toolbar { justify-content: flex-start; }
