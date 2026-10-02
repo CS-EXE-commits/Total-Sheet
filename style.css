@@ -2103,6 +2103,12 @@ th.data-table__ticket-col {
 
 .folder { position: relative; }
 
+/* ฟอร์มเพิ่มไฟล์ตอนถูกย้ายมาแปะใต้โฟลเดอร์ที่กด (ปกติอยู่มุมขวาบนของแถบ) */
+.topmenu__panel--anchored {
+  top: calc(100% + 6px);
+  z-index: 40;
+}
+
 .folder__btn {
   display: inline-flex;
   align-items: center;

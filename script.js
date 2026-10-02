@@ -867,6 +867,12 @@ function renderFolderBar(folders) {
     return;
   }
 
+  // ฟอร์มเพิ่มไฟล์อาจถูกย้ายมาแปะอยู่ในโฟลเดอร์ ต้องย้ายกลับก่อนล้างรายการ
+  // ไม่งั้นฟอร์มจะถูกลบไปพร้อมกับโฟลเดอร์เดิม แล้วปุ่มเพิ่มไฟล์จะใช้ไม่ได้อีกเลย
+  if (folderList.contains(addFilePanel)) {
+    addFilePanel.hidden = true;
+    anchorAddFilePanel_(null);
+  }
   folderList.innerHTML = '';
   folders.forEach(folder => {
     const wrap = document.createElement('div');
@@ -944,7 +950,7 @@ function renderFolderBar(folders) {
     addLine.addEventListener('click', (e) => {
       e.stopPropagation();
       closeAllFolders();
-      openAddFilePanel_(folder.name);
+      openAddFilePanel_(folder.name, wrap);
     });
     menu.appendChild(addLine);
 
@@ -1035,6 +1041,7 @@ async function removeBook(book, itemEl) {
 /** ปิดฟอร์มเพิ่มไฟล์ แล้วล้างค่าที่กรอกไว้ (ใช้ร่วมกันทั้งปุ่มบนแถบด้านบนและปุ่มยกเลิกในฟอร์ม) */
 function closeAddFilePanel_() {
   addFilePanel.hidden = true;
+  anchorAddFilePanel_(null); // ย้ายกลับที่เดิม ไม่ให้ค้างอยู่ในโฟลเดอร์ที่อาจถูกวาดใหม่
   addBookName.value = '';
   addBookUrl.value = '';
   if (addBookFile) addBookFile.value = '';
@@ -1045,7 +1052,39 @@ function closeAddFilePanel_() {
  * เปิดฟอร์มเพิ่มไฟล์ พร้อมเลือกโฟลเดอร์ปลายทางไว้ให้
  * เรียกจากปุ่ม "+ เพิ่มไฟล์" ท้ายเมนูของแต่ละโฟลเดอร์ จึงรู้อยู่แล้วว่าจะเอาไฟล์ไปไว้ที่ไหน
  */
-function openAddFilePanel_(folderName) {
+// ที่อยู่เดิมของฟอร์มเพิ่มไฟล์ (ในแถบด้านบนมุมขวา) ไว้ย้ายกลับเมื่อไม่ได้เปิดจากโฟลเดอร์
+const addFilePanelHome = addFilePanel.parentElement;
+
+/**
+ * ย้ายฟอร์มเพิ่มไฟล์ไปแปะใต้โฟลเดอร์ที่กดมา เพื่อให้ป๊อปอัปโผล่ตรงโฟลเดอร์นั้น
+ * ไม่ใช่ไปโผล่มุมขวาบนซึ่งอยู่คนละที่กับที่ผู้ใช้กด
+ */
+function anchorAddFilePanel_(anchorEl) {
+  const host = anchorEl || addFilePanelHome;
+  if (addFilePanel.parentElement !== host) host.appendChild(addFilePanel);
+  addFilePanel.classList.toggle('topmenu__panel--anchored', !!anchorEl);
+  if (!anchorEl) {
+    addFilePanel.style.left = '';
+    addFilePanel.style.right = '';
+    addFilePanel.style.transform = '';
+    return;
+  }
+
+  // โฟลเดอร์ที่อยู่ค่อนไปทางขวาของจอ ถ้าแปะชิดซ้ายฟอร์มจะล้นออกนอกจอ ให้สลับไปชิดขวาแทน
+  addFilePanel.style.left = '0';
+  addFilePanel.style.right = 'auto';
+  addFilePanel.style.transform = '';
+  let rect = addFilePanel.getBoundingClientRect();
+  if (rect.right > window.innerWidth - 12) {
+    addFilePanel.style.left = 'auto';
+    addFilePanel.style.right = '0';
+    rect = addFilePanel.getBoundingClientRect();
+  }
+  // จอแคบๆ ฟอร์มกว้างเกือบเต็มจอ สลับข้างแล้วอาจทะลุขอบซ้ายแทน ดันกลับเข้ามาให้พอดี
+  if (rect.left < 12) addFilePanel.style.transform = `translateX(${Math.round(12 - rect.left)}px)`;
+}
+
+function openAddFilePanel_(folderName, anchorEl) {
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
@@ -1054,6 +1093,7 @@ function openAddFilePanel_(folderName) {
   addBookUrl.value = '';
   if (addBookFile) addBookFile.value = '';
   setAddMode_('link');
+  anchorAddFilePanel_(anchorEl);
   // เลือกโฟลเดอร์ที่กดมาไว้ให้เลย ถ้าไม่มีชื่อนี้ในรายการก็ปล่อยเป็นค่าเดิม
   if (addBookFolder && folderName) {
     const match = Array.from(addBookFolder.options).some(o => o.value === folderName);
