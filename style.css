@@ -388,7 +388,8 @@ body {
 
 .sidebar-dashboard__subhead {
   margin: 0;
-  font-size: 11px;
+  /* ขนาดเท่าหัวข้อ "ภาพรวมวันนี้" ด้านบน จะได้ดูเป็นหัวข้อระดับเดียวกัน */
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
