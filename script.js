@@ -727,6 +727,20 @@ logoutButton.addEventListener('click', () => {
  * (จำไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น) แทนที่จะย้อนกลับไปหน้าเริ่มต้นเปล่าๆ ทุกครั้ง
  */
 function restoreLastView(books) {
+  // มาจากหน้าอื่นพร้อมระบุไฟล์/แท็บมาด้วย (เช่น กดชื่อแท็บในกราฟหน้าติดตามสถานะ)
+  // ให้เปิดแท็บนั้นเลย และสำคัญกว่าแท็บล่าสุดที่เคยเปิดไว้
+  try {
+    const params = new URLSearchParams(location.search);
+    const wantBook = params.get('book');
+    const wantSheet = params.get('sheet') || '';
+    if (wantBook && Array.isArray(books) && books.includes(wantBook)) {
+      openBook(wantBook, wantSheet);
+      // ล้าง query ออกจาก URL เพื่อให้กดรีเฟรชทีหลังไม่เด้งกลับมาแท็บนี้ซ้ำอีก
+      history.replaceState(null, '', location.pathname);
+      return;
+    }
+  } catch (e) { /* อ่าน URL ไม่ได้ ก็ถอยไปใช้แท็บล่าสุดตามปกติ */ }
+
   try {
     const savedBook = localStorage.getItem('sheetSearchLastBook');
     if (savedBook && Array.isArray(books) && books.includes(savedBook)) {

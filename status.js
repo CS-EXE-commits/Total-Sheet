@@ -175,6 +175,11 @@ async function loadStatus(status, pushUrl) {
   detailSection.hidden = true;
   chartSection.hidden = true;
   hideChartTip();
+  lastSummary = null;
+  chartRange = { from: '', to: '' };
+  if (chartFromInput) { chartFromInput.value = ''; chartToInput.value = ''; }
+  if (chartFilterNote) chartFilterNote.hidden = true;
+  setChartPresetActive('all');
   downloadBtn.hidden = true;
   statusMetaEl.textContent = '';
 
@@ -198,6 +203,7 @@ async function loadStatus(status, pushUrl) {
     if (!summary.ok) throw new Error(summary.error || 'โหลดสรุปไม่สำเร็จ');
 
     renderSummary(summary);
+    lastSummary = summary;
     chartSection.hidden = summary.groups.length === 0;
     if (summary.groups.length > 0) renderChartByTab(summary.groups, summary.total);
 
@@ -226,7 +232,7 @@ async function loadStatus(status, pushUrl) {
       }
     }
 
-    renderChartTrend(loadedGroups); // ต้องรอเคสครบทุกแท็บก่อน ถึงจะนับตามเดือนได้ครบ
+    applyChartRange(); // เคสครบทุกแท็บแล้ว วาดกราฟตามช่วงเวลาที่เลือกอยู่
     setPageStatus('', null);
     downloadBtn.hidden = false;
   } catch (err) {
@@ -251,7 +257,8 @@ function renderSummary(summary) {
       </thead>
       <tbody>
         ${summary.groups.map(g => `
-          <tr>
+          <tr class="status-summary__row--clickable" title="คลิกเพื่อเปิดแท็บนี้"
+              data-jump-book="${escapeHtml(g.book)}" data-jump-sheet="${escapeHtml(g.sheet)}">
             <td>${escapeHtml(g.book)}</td>
             <td>${escapeHtml(g.sheet)}</td>
             <td class="status-summary__num"><b>${g.count.toLocaleString()}</b></td>
@@ -279,7 +286,9 @@ function renderGroup(result, expectedCount) {
 
   wrap.innerHTML = `
     <h4 class="status-group__title">
-      ${escapeHtml(result.book)} · ${escapeHtml(result.sheet)}
+      <button type="button" class="status-group__jump"
+              data-jump-book="${escapeHtml(result.book)}" data-jump-sheet="${escapeHtml(result.sheet)}"
+              title="คลิกเพื่อเปิดแท็บนี้">${escapeHtml(result.book)} · ${escapeHtml(result.sheet)} ↗</button>
       <span class="status-group__count">${expectedCount.toLocaleString()} เคส</span>
       ${truncatedNote}
     </h4>
@@ -469,6 +478,10 @@ detailGroups.addEventListener('click', (e) => {
   // กดลิงก์ Ticket = เปิด Ticket ไม่ใช่เปิดกล่องรายละเอียด
   if (e.target.closest('a')) return;
 
+  // กดชื่อไฟล์/แท็บที่หัวข้อกลุ่ม = วาร์ปไปเปิดแท็บนั้นในหน้าหลัก
+  const jump = e.target.closest('[data-jump-book]');
+  if (jump) { jumpToSheet_(jump.dataset.jumpBook, jump.dataset.jumpSheet); return; }
+
   const tr = e.target.closest('.status-group__row--clickable');
   if (!tr) return;
   openCaseModal({
@@ -563,11 +576,14 @@ function monthLabel(key) {
 
 /** กราฟแท่งแนวนอน: เคสของสถานะนี้อยู่ไฟล์/แท็บไหนบ้าง */
 function renderChartByTab(groups, total) {
-  const items = groups.map(g => ({ label: `${g.book} · ${g.sheet}`, value: g.count }));
+  const items = groups.map(g => ({
+    label: `${g.book} · ${g.sheet}`, value: g.count, book: g.book, sheet: g.sheet
+  }));
   let shown = items;
   if (items.length > CHART_BAR_MAX_ITEMS) {
     const head = items.slice(0, CHART_BAR_MAX_ITEMS - 1);
     const restTotal = items.slice(CHART_BAR_MAX_ITEMS - 1).reduce((n, x) => n + x.value, 0);
+    // กลุ่ม "อื่นๆ" ไม่ผูกกับแท็บเดียว จึงกดไปไหนไม่ได้ (ไม่ใส่ book/sheet)
     shown = head.concat([{ label: `อื่นๆ อีก ${items.length - head.length} แท็บ`, value: restTotal }]);
   }
 
@@ -589,8 +605,11 @@ function renderChartByTab(groups, total) {
     const r = Math.min(4, barW);
     const barY = y + 19;
     const path = `M${padL},${barY} h${barW - r} a${r},${r} 0 0 1 ${r},${r} v${barH - 2 * r} a${r},${r} 0 0 1 -${r},${r} h-${barW - r} z`;
+    const jump = item.book
+      ? ` data-book="${escapeHtml(item.book)}" data-sheet="${escapeHtml(item.sheet)}"`
+      : '';
     return `
-      <g class="cbar" tabindex="0"
+      <g class="cbar${item.book ? ' cbar--clickable' : ''}" tabindex="0"${jump}
          data-label="${escapeHtml(item.label)}"
          data-value="${item.value}"
          data-pct="${pct.toFixed(1)}">
@@ -607,12 +626,27 @@ function renderChartByTab(groups, total) {
   bindBarHover(chartByTabEl);
 }
 
+/** กดแท่งแล้วไปเปิดแท็บนั้นในหน้าหลักทันที (ไม่ใช่เลื่อนลงไปดูตารางข้างล่าง) */
+function jumpToSheet_(book, sheet) {
+  const url = `index.html?book=${encodeURIComponent(book)}&sheet=${encodeURIComponent(sheet)}`;
+  window.location.href = url;
+}
+
 function bindBarHover(root) {
   root.querySelectorAll('.cbar').forEach(g => {
+    const canJump = !!g.dataset.book;
     const show = (e) => showChartTip(e, `
       <div class="chart-tip__name">${escapeHtml(g.dataset.label)}</div>
       <div class="chart-tip__value">${(+g.dataset.value).toLocaleString()} เคส
-        <span class="chart-tip__muted">(${g.dataset.pct}%)</span></div>`);
+        <span class="chart-tip__muted">(${g.dataset.pct}%)</span></div>
+      ${canJump ? '<div class="chart-tip__hint">คลิกเพื่อเปิดแท็บนี้</div>' : ''}`);
+
+    if (canJump) {
+      g.addEventListener('click', () => jumpToSheet_(g.dataset.book, g.dataset.sheet));
+      g.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToSheet_(g.dataset.book, g.dataset.sheet); }
+      });
+    }
     g.addEventListener('mouseenter', show);
     g.addEventListener('mousemove', show);
     g.addEventListener('mouseleave', hideChartTip);
@@ -625,7 +659,7 @@ function bindBarHover(root) {
 }
 
 /** กราฟเส้น: เคสของสถานะนี้เข้ามาเดือนไหนบ้าง (อ่านจากคอลัมน์วันที่ของเคสที่โหลดมาแล้ว) */
-function renderChartTrend(groups) {
+function renderChartTrend(groups, filtering) {
   const tally = {};
   let parsed = 0, unparsed = 0;
 
@@ -636,6 +670,7 @@ function renderChartTrend(groups) {
     (g.rows || []).forEach(r => {
       const key = monthKeyFromCell(r.cells[dateIndex]);
       if (!key) { unparsed++; return; }
+      if (filtering && !inChartRange(key)) return; // อยู่นอกช่วงเวลาที่เลือก
       tally[key] = (tally[key] || 0) + 1;
       parsed++;
     });
@@ -741,6 +776,131 @@ function niceCeil(n) {
   const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(s => n <= s * mag) || 10;
   return step * mag;
 }
+
+// แถวในตารางสรุป กดแล้ววาร์ปไปแท็บนั้นในหน้าหลัก
+summaryTable.addEventListener('click', (e) => {
+  const row = e.target.closest('[data-jump-book]');
+  if (!row) return;
+  jumpToSheet_(row.dataset.jumpBook, row.dataset.jumpSheet);
+});
+
+/* ===== ปฏิทินกำหนดช่วงเวลาของกราฟ =====
+ *
+ * กรองจาก "เคสที่โหลดมาแล้ว" เท่านั้น เพราะวันที่ของแต่ละเคสอยู่ในตัวข้อมูล
+ * ไม่ได้อยู่ในสรุปที่เซิร์ฟเวอร์ส่งมา
+ *
+ * ตอนไม่กรอง กราฟแท่งจะใช้ยอดจากสรุปของเซิร์ฟเวอร์ ซึ่งเป็นยอดจริงครบทุกเคส
+ * พอกรองช่วงเวลา ต้องนับใหม่จากเคสที่โหลดมา ซึ่งอาจไม่ครบถ้าแท็บนั้นมีเกินขีดจำกัด
+ * จึงต้องขึ้นข้อความบอกให้ชัด ไม่ปล่อยให้เข้าใจผิดว่าเป็นยอดจริงทั้งหมด
+ */
+
+const chartFromInput = document.getElementById('chartFrom');
+const chartToInput = document.getElementById('chartTo');
+const chartApplyBtn = document.getElementById('chartApply');
+const chartFilterNote = document.getElementById('chartFilterNote');
+
+let chartRange = { from: '', to: '' };   // รูปแบบ YYYY-MM-DD ว่าง = ไม่กรอง
+let lastSummary = null;                   // สรุปจากเซิร์ฟเวอร์ของสถานะที่กำลังดู
+
+function setChartPresetActive(range) {
+  document.querySelectorAll('.chart-preset[data-range]').forEach(btn => {
+    btn.dataset.active = String(btn.dataset.range === range);
+  });
+}
+
+/** เดือนของเคสนี้อยู่ในช่วงที่เลือกไหม (เทียบระดับเดือน เพราะกราฟนับเป็นรายเดือน) */
+function inChartRange(monthKey) {
+  if (!monthKey) return false;
+  if (chartRange.from && monthKey < chartRange.from.slice(0, 7)) return false;
+  if (chartRange.to && monthKey > chartRange.to.slice(0, 7)) return false;
+  return true;
+}
+
+/** หาตำแหน่งคอลัมน์วันที่ของกลุ่มนี้ */
+function dateIndexOf(group) {
+  return (group.headers || []).findIndex(h =>
+    /วันที่|วัน\s*เดือน|^date$|_date$|^date\b/i.test((h || '').toString().trim()));
+}
+
+/** วาดกราฟใหม่ทั้ง 2 ตัวตามช่วงเวลาที่เลือกอยู่ */
+function applyChartRange() {
+  if (!lastSummary) return;
+  const filtering = !!(chartRange.from || chartRange.to);
+
+  if (!filtering) {
+    chartFilterNote.hidden = true;
+    renderChartByTab(lastSummary.groups, lastSummary.total);
+    renderChartTrend(loadedGroups);
+    return;
+  }
+
+  // นับใหม่จากเคสที่โหลดมา เฉพาะที่อยู่ในช่วงเวลาที่เลือก
+  const groups = [];
+  let total = 0;
+  let noDate = 0;
+  loadedGroups.forEach(g => {
+    const di = dateIndexOf(g);
+    if (di === -1) { noDate += (g.rows || []).length; return; }
+    let count = 0;
+    (g.rows || []).forEach(r => { if (inChartRange(monthKeyFromCell(r.cells[di]))) count++; });
+    if (count > 0) { groups.push({ book: g.book, sheet: g.sheet, count }); total += count; }
+  });
+  groups.sort((a, b) => b.count - a.count);
+
+  const truncated = loadedGroups.some(g => g.truncated);
+  chartFilterNote.textContent =
+    `กำลังกรองช่วงเวลา — ตัวเลขในกราฟนับจากเคสที่โหลดมาแล้วเท่านั้น`
+    + (truncated ? ' (บางแท็บมีเคสเกินที่ระบบโหลดมาได้ ยอดจริงอาจมากกว่านี้)' : '')
+    + (noDate > 0 ? ` · มี ${noDate.toLocaleString()} เคสที่ไม่มีคอลัมน์วันที่ จึงไม่ถูกนับ` : '');
+  chartFilterNote.hidden = false;
+
+  if (groups.length === 0) {
+    chartByTabSub.textContent = 'ไม่มีเคสในช่วงเวลาที่เลือก';
+    chartByTabEl.innerHTML = '<p class="chart-card__empty">ไม่มีเคสในช่วงเวลาที่เลือก</p>';
+    chartTrendCard.hidden = true;
+    return;
+  }
+
+  renderChartByTab(groups, total);
+  renderChartTrend(loadedGroups, true);
+}
+
+/** ตั้งช่วงเวลาสำเร็จรูป */
+function applyChartPreset(range) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  if (range === 'all') {
+    chartRange = { from: '', to: '' };
+  } else if (range === '12m') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    chartRange = { from: fmt(start), to: fmt(now) };
+  } else if (range === 'year') {
+    chartRange = { from: fmt(new Date(now.getFullYear(), 0, 1)), to: fmt(now) };
+  }
+  chartFromInput.value = chartRange.from;
+  chartToInput.value = chartRange.to;
+  setChartPresetActive(range);
+  applyChartRange();
+}
+
+document.querySelectorAll('.chart-preset[data-range]').forEach(btn => {
+  btn.addEventListener('click', () => applyChartPreset(btn.dataset.range));
+});
+
+chartApplyBtn.addEventListener('click', () => {
+  const from = chartFromInput.value;
+  const to = chartToInput.value;
+  if (from && to && from > to) {
+    chartFilterNote.textContent = 'วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';
+    chartFilterNote.hidden = false;
+    return;
+  }
+  chartRange = { from, to };
+  setChartPresetActive(from || to ? '' : 'all');
+  applyChartRange();
+});
 
 // เริ่มทำงาน — ต้องอยู่ท้ายสุดของไฟล์ เพราะฟังก์ชันและตัวแปรด้านบนต้องถูกประกาศครบก่อน
 init();

@@ -58,6 +58,22 @@
 
       <!-- กราฟภาพรวมของสถานะที่กำลังดู -->
       <section class="status-page__section" id="chartSection" hidden>
+        <!-- ปฏิทินกำหนดช่วงเวลาที่จะให้กราฟแสดง -->
+        <div class="chart-toolbar">
+          <div class="chart-toolbar__presets">
+            <button type="button" class="chart-preset" data-range="all" data-active="true">ทั้งหมด</button>
+            <button type="button" class="chart-preset" data-range="12m">12 เดือนล่าสุด</button>
+            <button type="button" class="chart-preset" data-range="year">ปีนี้</button>
+          </div>
+          <div class="chart-toolbar__dates">
+            <input type="date" id="chartFrom" title="ตั้งแต่วันที่" aria-label="ตั้งแต่วันที่">
+            <span class="chart-toolbar__dash">–</span>
+            <input type="date" id="chartTo" title="ถึงวันที่" aria-label="ถึงวันที่">
+            <button type="button" class="chart-preset chart-preset--go" id="chartApply">ดูช่วงนี้</button>
+          </div>
+        </div>
+        <p class="chart-toolbar__note" id="chartFilterNote" hidden></p>
+
         <div class="chart-grid">
           <figure class="chart-card" id="chartByTabCard">
             <figcaption class="chart-card__head">

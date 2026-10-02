@@ -2423,3 +2423,94 @@ th.data-table__ticket-col {
   .chart-card { padding: 14px; }
 
 }
+
+/* แถบเลือกช่วงเวลาของกราฟ */
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.chart-toolbar__presets,
+.chart-toolbar__dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-toolbar__dash { color: var(--color-text-muted); }
+.chart-preset {
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+.chart-preset:hover { color: var(--color-accent); background: var(--color-btn-hover-bg); }
+.chart-preset[data-active="true"] {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+}
+.chart-preset--go { color: var(--color-accent); }
+.chart-toolbar__dates input[type="date"] {
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.chart-toolbar__note {
+  margin: 0 0 12px;
+  padding: 7px 11px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-radius: var(--radius-sm);
+}
+.chart-card__empty {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+/* แท่งที่กดได้ = วาร์ปไปเปิดแท็บนั้นในหน้าหลัก */
+.cbar--clickable { cursor: pointer; }
+.cbar--clickable:hover .cbar__name,
+.cbar--clickable:focus-visible .cbar__name { text-decoration: underline; }
+.chart-tip__hint {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* ชื่อไฟล์/แท็บที่กดได้ */
+.status-summary__row--clickable { cursor: pointer; }
+.status-summary__row--clickable:hover > td { background: var(--color-row-hover-bg); }
+.status-group__jump {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+}
+.status-group__jump:hover { color: var(--color-accent); text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .chart-toolbar { justify-content: flex-start; }
+  .chart-toolbar__dates { flex-wrap: wrap; }
+}
