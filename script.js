@@ -757,7 +757,58 @@ const TAB_CHUNK_SIZE = 2500;
  * หรือ deployment หมดอายุ) มันจะไม่เรียก callback และ onerror ก็ไม่ทำงาน (เพราะ HTTP 200)
  * Promise จะค้างตลอดกาล ทำให้ปุ่มขึ้น "กำลังโหลด..." ค้างและกดอะไรไม่ได้อีกเลยจนกว่าจะรีเฟรช
  */
+/* ===== แคชหน้าข้อมูลในเครื่อง (ภายในรอบการใช้งานนี้เท่านั้น) =====
+ *
+ * ค่าโสหุ้ยของ Apps Script อยู่ที่ประมาณ 1-2 วินาทีต่อคำขอ ไม่ว่าจะขอ 1 แถวหรือ 100 แถว
+ * ลดไม่ได้ด้วยการส่งข้อมูลให้น้อยลง แต่ "ตัดการรอทิ้ง" ได้ถ้าเคยโหลดหน้านั้นไปแล้ว
+ *
+ * วิธีทำงาน: กดแล้วเอาของที่จำไว้ขึ้นจอทันที พร้อมกับยิงคำขอจริงไปเช็คเบื้องหลัง
+ * ถ้าข้อมูลเปลี่ยนค่อยวาดทับ (stale-while-revalidate) ผู้ใช้จึงไม่ต้องรอ แต่ก็ไม่เห็นข้อมูลเก่าค้าง
+ *
+ * เก็บไว้ในหน่วยความจำเท่านั้น ปิดแท็บเบราว์เซอร์แล้วหาย — ตั้งใจให้เป็นแบบนั้น
+ * เพราะข้อมูลเคสเป็นข้อมูลลูกค้า ไม่ควรไปค้างอยู่ใน localStorage ของเครื่องใคร
+ */
+const TAB_PAGE_CACHE_MAX = 60; // จำนวนหน้าที่จำไว้ (เกินกว่านี้ทิ้งอันที่เก่าสุด)
+const tabPageCache_ = new Map();
+
+function tabCacheKey_(book, sheetName, keyword, status, size, page) {
+  return [book, sheetName, keyword || '', status || '', size, page].join('\u0000');
+}
+
+function tabCacheGet_(key) {
+  const hit = tabPageCache_.get(key);
+  if (!hit) return null;
+  // ใช้แล้วเลื่อนไปท้ายคิว อันที่ใช้บ่อยจะไม่โดนทิ้งก่อน
+  tabPageCache_.delete(key);
+  tabPageCache_.set(key, hit);
+  return hit;
+}
+
+function tabCacheSet_(key, payload) {
+  tabPageCache_.set(key, payload);
+  while (tabPageCache_.size > TAB_PAGE_CACHE_MAX) {
+    tabPageCache_.delete(tabPageCache_.keys().next().value);
+  }
+}
+
+/** ล้างแคชทั้งหมด — ต้องเรียกทุกครั้งที่มีการเขียนข้อมูล ไม่งั้นจะเห็นค่าเก่าหลังบันทึก */
+function clearTabPageCache_() {
+  tabPageCache_.clear();
+}
+
+// คำสั่งที่เปลี่ยนแปลงข้อมูล ถ้ายิงคำสั่งพวกนี้เมื่อไหร่ แคชที่จำไว้ใช้ไม่ได้แล้ว
+// ดักที่จุดเดียวตรงนี้ปลอดภัยกว่าไปไล่ล้างตามแต่ละปุ่ม เพราะไม่มีทางลืม
+const CACHE_BUSTING_ACTIONS = [
+  'add', 'deleteRow', 'updateRow', 'setRowColor', 'deleteColumn', 'restore',
+  'restoreBook', 'addBook', 'createBook', 'removeBook', 'renameBook',
+  'createSheet', 'repairDropdowns', 'uploadRows', 'splitYear'
+];
+
 function jsonpRequest(url, timeoutMs) {
+  const actionMatch = /[?&]action=([^&]*)/.exec(url);
+  if (actionMatch && CACHE_BUSTING_ACTIONS.indexOf(decodeURIComponent(actionMatch[1])) !== -1) {
+    clearTabPageCache_();
+  }
   return new Promise((resolve, reject) => {
     const callbackName = `jsonpCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
@@ -1488,6 +1539,9 @@ async function openBook(book, initialSheet) {
       : (result.sheets[0] ? result.sheets[0].name : '');
     if (sheetToSelect) {
       selectTab(sheetToSelect);
+      // ดักโหลดแท็บถัดไปไว้เงียบๆ คนมักเปิดไฟล์แล้วไล่ดูแท็บแรกๆ
+      const next = result.sheets.find(x => x.name !== sheetToSelect);
+      if (next) setTimeout(() => prefetchTabPage_(next.name, '', '', 1), 1200);
     } else {
       showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
     }
@@ -1514,6 +1568,9 @@ function createTabPill(label, sheetName) {
   pill.dataset.sheet = sheetName;
   pill.setAttribute('aria-pressed', 'false');
   pill.addEventListener('click', () => selectTab(sheetName));
+  // เอาเมาส์ไปวางก่อนกดจริงมักมีจังหวะ 200-500 มิลลิวินาที ใช้จังหวะนั้นโหลดรอไว้เลย
+  pill.addEventListener('mouseenter', () => prefetchTabOnHover_(sheetName));
+  pill.addEventListener('focus', () => prefetchTabOnHover_(sheetName));
   return pill;
 }
 
@@ -1565,9 +1622,7 @@ function fillRowSource_(rows, sheetName) {
 async function loadSingleTabView(sheetName, keyword, page) {
   lastKeyword = keyword;
   input.value = keyword;
-  setLoading(true);
   const targetPage = Math.max(1, parseInt(page, 10) || 1);
-  if (!filteredRows.length) showHint('กำลังโหลด...', false);
 
   // กันปัญหาข้อมูล/ลิงก์ Ticket ขึ้นๆ หายๆ ที่เกิดจาก "คำขอเก่าที่ช้ากว่า" กลับมาถึงทีหลัง
   // คำขอที่ใหม่กว่า แล้วไปเขียนทับผลลัพธ์ล่าสุดด้วยข้อมูลเก่า (race condition) — ถ้ามีคนกดค้นหา/สลับแท็บ
@@ -1583,66 +1638,142 @@ async function loadSingleTabView(sheetName, keyword, page) {
     filteredRows = [];
   }
 
+  const status = statusFilter.hidden ? '' : statusFilter.value;
+  const cacheKey = tabCacheKey_(currentBook, sheetName, keyword, status, pageSize, targetPage);
+  const cached = tabCacheGet_(cacheKey);
+
+  // เคยโหลดหน้านี้แล้ว เอาขึ้นจอทันทีโดยไม่ต้องรอ แล้วค่อยเช็คของจริงเบื้องหลัง
+  const servedFromCache = !!(cached && applyTabViewResult_(cached, sheetName, targetPage));
+  if (!servedFromCache) {
+    setLoading(true);
+    if (!filteredRows.length) showHint('กำลังโหลด...', false);
+  }
+
   try {
     const viewResult = await jsonpRequest(apiUrl({
       action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-      offset: (targetPage - 1) * pageSize, limit: pageSize, slim: 1,
-      status: statusFilter.hidden ? '' : statusFilter.value
+      offset: (targetPage - 1) * pageSize, limit: pageSize, slim: 1, status: status
     }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
 
-    // ได้หัวตารางมาด้วย = คำขอนี้เป็นหน้าแรก (เปลี่ยนแท็บ / ค้นหา / กรองใหม่) จึงตั้งค่าโครงตารางใหม่
-    const gotHeaders = !!(viewResult.headers && viewResult.headers.length);
-    if (gotHeaders) {
-      currentTableHeaders = viewResult.headers;
-      statusColIndex = viewResult.statusIndex;
-      currentHeadersMeta = viewResult.headersMeta || [];
-      fetchedLinkRows_.clear();
-    }
-
-    currentRows = fillRowSource_(viewResult.results, sheetName);
-    filteredRows = currentRows;
-    serverTotal = viewResult.total || 0;
-    currentPage = targetPage;
-    lastTruncated = !!viewResult.truncated;
-    // แท็บนี้ใหญ่เกินกว่าจะส่งลิงก์ Ticket มาพร้อมกัน จะขอทีหลังเฉพาะแถวที่แสดงอยู่
-    linksDeferred = !!viewResult.linksDeferred;
-
-    // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
-    // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
-    const maxCells = currentRows.reduce((max, r) => Math.max(max, r.cells.length), currentTableHeaders.length);
-    while (currentTableHeaders.length < maxCells) {
-      currentTableHeaders.push(`คอลัมน์ ${currentTableHeaders.length + 1}`);
-    }
-
-    if (gotHeaders) {
-      // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
-      // ตารางรายการแสดงแค่คอลัมน์ที่เซิร์ฟเวอร์ส่งมา (วันที่ / EXE ID / Ticket)
-      // คอลัมน์ที่เหลือดูได้จากปุ่ม "ดูข้อมูล" ของแต่ละแถว
-      visibleColumnIndices = (viewResult.listColumns && viewResult.listColumns.length)
-        ? viewResult.listColumns.filter(i => (currentTableHeaders[i] || '').trim() !== '')
-        : currentTableHeaders.map((h, i) => i).filter(i => currentTableHeaders[i].trim() !== '');
-      setupStatusFilter();
-    }
-
-    renderCurrentPage();
+    tabCacheSet_(cacheKey, viewResult);
+    applyTabViewResult_(viewResult, sheetName, targetPage);
 
     // ประวัติการแก้ไขเป็นภาพรวมทุกไฟล์ โหลดตั้งแต่เปิดหน้าเว็บแล้ว
     // ตรงนี้แค่ดึงใหม่ให้เห็นรายการล่าสุดหลังเพิ่ม/แก้ไข/ลบข้อมูล (ไม่ต้อง await)
     loadDailyReport();
+
+    // ดักโหลดหน้าถัดไป/ก่อนหน้าไว้เงียบๆ กดเปลี่ยนหน้าแล้วจะขึ้นทันที
+    prefetchNeighbourPages_(sheetName, keyword, status, targetPage, viewResult.total || 0);
   } catch (err) {
     if (requestId !== loadRequestSeq) return;
     markPagerActive_(currentPage); // ไปหน้านั้นไม่สำเร็จ ไฮไลต์ต้องกลับมาที่หน้าที่ยังแสดงอยู่จริง
-    showHint('เกิดข้อผิดพลาด: ' + err.message, true);
+    // ถ้ามีของเก่าขึ้นจออยู่แล้ว อย่าล้างทิ้ง แค่บอกว่าอัปเดตไม่สำเร็จ ดีกว่าหน้าจอว่างเปล่า
+    if (!servedFromCache) showHint('เกิดข้อผิดพลาด: ' + err.message, true);
   } finally {
     if (requestId === loadRequestSeq) setLoading(false);
   }
 }
 
+/**
+ * เอาผลลัพธ์ที่ได้ (จากเซิร์ฟเวอร์หรือจากแคช) ขึ้นแสดงบนตาราง
+ * @return {boolean} true ถ้าแสดงผลได้จริง
+ */
+function applyTabViewResult_(viewResult, sheetName, targetPage) {
+  // ได้หัวตารางมาด้วย = คำขอนี้เป็นหน้าแรก (เปลี่ยนแท็บ / ค้นหา / กรองใหม่) จึงตั้งค่าโครงตารางใหม่
+  const gotHeaders = !!(viewResult.headers && viewResult.headers.length);
+
+  // หน้าถัดๆ ไปเซิร์ฟเวอร์ไม่ส่งหัวตารางมา ต้องใช้ของเดิมที่เก็บไว้
+  // ถ้าบังเอิญไม่มีของเดิม (เช่น เอาหน้า 3 จากแคชมาแสดงตอนเพิ่งเปิดเว็บ) ก็ใช้ไม่ได้ ต้องรอของจริง
+  if (!gotHeaders && (!currentTableHeaders.length || sheetName !== statusOptionsSheet)) return false;
+
+  if (gotHeaders) {
+    currentTableHeaders = viewResult.headers;
+    statusColIndex = viewResult.statusIndex;
+    currentHeadersMeta = viewResult.headersMeta || [];
+    fetchedLinkRows_.clear();
+  }
+
+  currentRows = fillRowSource_(viewResult.results, sheetName);
+  filteredRows = currentRows;
+  serverTotal = viewResult.total || 0;
+  currentPage = targetPage;
+  lastTruncated = !!viewResult.truncated;
+  // แท็บนี้ใหญ่เกินกว่าจะส่งลิงก์ Ticket มาพร้อมกัน จะขอทีหลังเฉพาะแถวที่แสดงอยู่
+  linksDeferred = !!viewResult.linksDeferred;
+
+  // กันเหนียว: ถ้าหัวตารางที่ได้มาสั้นกว่าข้อมูลจริงของบางแถว (ไม่ว่าจะด้วยสาเหตุใด)
+  // ให้ขยายหัวตารางเพิ่มโดยอัตโนมัติ เพื่อไม่ให้มีคอลัมน์ไหนถูกตัดทิ้งไปเงียบๆ อีก
+  const maxCells = currentRows.reduce((max, r) => Math.max(max, r.cells.length), currentTableHeaders.length);
+  while (currentTableHeaders.length < maxCells) {
+    currentTableHeaders.push(`คอลัมน์ ${currentTableHeaders.length + 1}`);
+  }
+
+  if (gotHeaders) {
+    // ซ่อนคอลัมน์ที่ไม่มีชื่อหัวตารางจริงในชีต (ไม่มีอยู่จริง) ออกจากตารางที่แสดงบนหน้าเว็บไซต์
+    // ตารางรายการแสดงแค่คอลัมน์ที่เซิร์ฟเวอร์ส่งมา (วันที่ / EXE ID / Ticket)
+    // คอลัมน์ที่เหลือดูได้จากปุ่ม "ดูข้อมูล" ของแต่ละแถว
+    visibleColumnIndices = (viewResult.listColumns && viewResult.listColumns.length)
+      ? viewResult.listColumns.filter(i => (currentTableHeaders[i] || '').trim() !== '')
+      : currentTableHeaders.map((h, i) => i).filter(i => currentTableHeaders[i].trim() !== '');
+    setupStatusFilter();
+  }
+
+  renderCurrentPage();
+  return true;
+}
+
+/* ===== ดักโหลดล่วงหน้า =====
+ * คนมักกดหน้าถัดไป หรือสลับไปมาระหว่างแท็บเดิมๆ โหลดรอไว้ก่อนตั้งแต่ยังไม่กด
+ * พอกดจริงข้อมูลอยู่ในแคชแล้ว จึงขึ้นทันทีโดยไม่ต้องรอ
+ *
+ * คำขอพวกนี้ห้ามไปยุ่งกับหน้าจอ และห้ามแตะ loadRequestSeq เด็ดขาด
+ */
+let prefetchInFlight_ = 0;
+const PREFETCH_MAX_PARALLEL = 2; // ยิงพร้อมกันมากไปจะไปแย่งคิวกับคำขอที่ผู้ใช้กำลังรออยู่
+
+async function prefetchTabPage_(sheetName, keyword, status, page) {
+  if (!sheetName || page < 1) return;
+  if (prefetchInFlight_ >= PREFETCH_MAX_PARALLEL) return;
+  const key = tabCacheKey_(currentBook, sheetName, keyword, status, pageSize, page);
+  if (tabPageCache_.has(key)) return;
+
+  prefetchInFlight_++;
+  const book = currentBook;
+  try {
+    const result = await jsonpRequest(apiUrl({
+      action: 'tabView', book: book, sheet: sheetName, q: keyword,
+      offset: (page - 1) * pageSize, limit: pageSize, slim: 1, status: status
+    }), BIG_TAB_TIMEOUT_MS);
+    // ผู้ใช้สลับไฟล์ไปแล้วระหว่างรอ ของที่ได้มาใช้ไม่ได้
+    if (result && result.ok && book === currentBook) tabCacheSet_(key, result);
+  } catch (e) {
+    // ดักโหลดไม่สำเร็จไม่ใช่เรื่องใหญ่ ตอนกดจริงจะโหลดใหม่เองตามปกติ
+  } finally {
+    prefetchInFlight_--;
+  }
+}
+
+function prefetchNeighbourPages_(sheetName, keyword, status, page, total) {
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  // หน่วงไว้นิดหนึ่ง ให้หน้าที่ผู้ใช้กำลังดูวาดเสร็จและโหลดลิงก์ Ticket ของหน้านั้นก่อน
+  setTimeout(() => {
+    if (sheetName !== selectedSheet) return; // ผู้ใช้เปลี่ยนแท็บไปแล้ว ไม่ต้องดักโหลดของเก่า
+    if (page < totalPages) prefetchTabPage_(sheetName, keyword, status, page + 1);
+    if (page > 1) prefetchTabPage_(sheetName, keyword, status, page - 1);
+  }, 400);
+}
+
 // ค่าสถานะที่เคยเจอในข้อมูลของแท็บนี้ (สะสมข้ามหน้า) — ล้างเมื่อเปลี่ยนแท็บ
 let discoveredStatusValues = new Set();
 let statusOptionsSheet = '';
+
+/** ดักโหลดหน้าแรกของแท็บที่เอาเมาส์ไปวาง (ยังไม่ได้กด) */
+function prefetchTabOnHover_(sheetName) {
+  if (!sheetName || sheetName === selectedSheet) return;
+  prefetchTabPage_(sheetName, '', '', 1);
+}
 
 function setupStatusFilter() {
   if (statusColIndex === -1) {
