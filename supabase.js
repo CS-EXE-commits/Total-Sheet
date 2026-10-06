@@ -254,39 +254,96 @@ function supaLikePattern_(keyword) {
 // ช่วยให้การเปลี่ยนหน้าไม่ต้องยิงคำขอซ้ำเรื่องเดิม
 const supaMetaCache_ = new Map();
 
-async function supaSheetMeta_(book, sheet) {
-  const key = book + '\u0000' + sheet;
-  if (supaMetaCache_.has(key)) return supaMetaCache_.get(key);
-  const res = await supaSelect_(
-    '/sheet_meta?select=headers,header_row_index,list_columns,status_header,date_header,dropdown_options' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(book)) +
-    '&sheet=eq.' + encodeURIComponent(supaQuote_(sheet)) +
-    '&limit=1'
-  );
-  const rows = await res.json();
-  supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
-  if (!rows.length) {
-    throw new Error('ไม่พบแท็บ "' + sheet + '" ของไฟล์ "' + book + '"' + supaDiagnostic_());
+/**
+ * ทำให้ชื่อไฟล์/ชื่อแท็บอยู่ในรูปแบบมาตรฐานก่อนนำมาเทียบกัน
+ *
+ * จำเป็นมากกับภาษาไทย เพราะสระและวรรณยุกต์เก็บได้หลายรูปแบบในระดับไบต์
+ * เช่น "พิ" เก็บเป็น พ + สระอิ (2 หน่วย) หรือเป็นอักขระรวม (1 หน่วย) ก็ได้
+ * มองด้วยตาเหมือนกันทุกประการ แต่คอมพิวเตอร์เทียบแล้วไม่ตรง แล้วหาข้อมูลไม่เจอแบบไม่มีสัญญาณเตือน
+ *
+ * normalize('NFC') รวมให้เป็นรูปแบบเดียว ส่วนการยุบช่องว่างกันกรณีเผลอเคาะเว้นวรรคซ้ำในชื่อแท็บ
+ */
+function supaNormalizeName_(value) {
+  let s = String(value === null || value === undefined ? '' : value);
+  try { s = s.normalize('NFC'); } catch (e) { /* เบราว์เซอร์เก่ามาก ข้ามไป ยังเทียบแบบตัดช่องว่างได้ */ }
+  return s.trim().replace(/\s+/g, ' ');
+}
+
+function supaMetaKey_(book, sheet) {
+  return supaNormalizeName_(book) + '\u0000' + supaNormalizeName_(sheet);
+}
+
+/**
+ * โหลดโครงสร้างของ "ทุกแท็บทุกไฟล์" มาเก็บไว้ครั้งเดียว แล้วค้นในหน่วยความจำแทน
+ *
+ * ทำไมถึงเลิกค้นด้วยชื่อผ่านฐานข้อมูล: การส่งชื่อภาษาไทยไปเป็นเงื่อนไขใน URL
+ * มีจุดที่พลาดได้หลายชั้น (รูปแบบการเก็บสระ การแปลงอักขระใน URL เครื่องหมายคำพูด วงเล็บ)
+ * และทุกความผิดพลาดให้ผลเหมือนกันหมดคือ "ไม่พบข้อมูล" ซึ่งแยกสาเหตุไม่ได้เลย
+ *
+ * ทั้งระบบมีแค่ 26 แท็บ ข้อมูลส่วนนี้เล็กมาก (ไม่กี่สิบกิโลไบต์) โหลดทีเดียวจบ
+ * แล้วใช้ "ชื่อที่ฐานข้อมูลเก็บไว้จริง" ไปค้นข้อมูลแถวต่อ จึงตรงกันแน่นอนเสมอ
+ *
+ * ผลพลอยได้: เร็วขึ้นด้วย เพราะไม่ต้องยิงคำขอถามโครงสร้างทีละแท็บอีกต่อไป
+ */
+let supaMetaLoaded_ = false;
+let supaMetaLoading_ = null;
+
+async function supaLoadAllMeta(force) {
+  if (supaMetaLoaded_ && !force) return supaMetaCache_.size;
+  if (supaMetaLoading_) return supaMetaLoading_;
+
+  supaMetaLoading_ = (async () => {
+    const res = await supaSelect_(
+      '/sheet_meta?select=book,sheet,headers,header_row_index,list_columns,' +
+      'status_header,date_header,dropdown_options,row_count,position&order=position.asc,id.asc'
+    );
+    const rows = await res.json();
+    supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
+    if (!rows.length) throw new Error('ไม่พบโครงสร้างแท็บใดเลยใน Supabase' + supaDiagnostic_());
+
+    supaMetaCache_.clear();
+    rows.forEach(meta => {
+      meta.headers = meta.headers || [];
+      meta.statusIndex = meta.status_header
+        ? meta.headers.indexOf(meta.status_header)
+        : meta.headers.findIndex(h => h === 'สถานะ' || String(h || '').toLowerCase() === 'status');
+      const dd = meta.dropdown_options || {};
+      meta.headersMeta = Object.keys(dd).map(name => ({ name: name, options: dd[name] }));
+      supaMetaCache_.set(supaMetaKey_(meta.book, meta.sheet), meta);
+    });
+    supaMetaLoaded_ = true;
+    return supaMetaCache_.size;
+  })();
+
+  try {
+    return await supaMetaLoading_;
+  } finally {
+    supaMetaLoading_ = null;
   }
-  const meta = rows[0];
-  meta.headers = meta.headers || [];
-  meta.statusIndex = meta.status_header
-    ? meta.headers.indexOf(meta.status_header)
-    : meta.headers.findIndex(h => h === 'สถานะ' || String(h || '').toLowerCase() === 'status');
+}
 
-  // แปลงตัวเลือก dropdown ให้เป็นรูปแบบ [{name, options}] ตามที่หน้าเว็บใช้อยู่
-  // ต้องได้ตัวเลือก "ครบทุกค่าที่ตั้งไว้ในชีต" ไม่ใช่เฉพาะค่าที่บังเอิญมีในหน้าที่กำลังดู
-  // ไม่งั้นช่องเปลี่ยนสถานะในตารางจะขาดตัวเลือกไปเงียบๆ แล้วแก้สถานะเป็นค่านั้นไม่ได้เลย
-  const dd = meta.dropdown_options || {};
-  meta.headersMeta = Object.keys(dd).map(name => ({ name: name, options: dd[name] }));
-
-  supaMetaCache_.set(key, meta);
+async function supaSheetMeta_(book, sheet) {
+  await supaLoadAllMeta();
+  const meta = supaMetaCache_.get(supaMetaKey_(book, sheet));
+  if (!meta) {
+    // ถึงตรงนี้แปลว่าโหลดโครงสร้างมาได้แล้ว แต่ไม่มีแท็บชื่อนี้อยู่จริง
+    // (เพิ่งสร้างแท็บใหม่แล้วยังไม่ถึงรอบซิงก์ หรือเปลี่ยนชื่อแท็บ)
+    const known = Array.from(supaMetaCache_.values())
+      .filter(m => supaNormalizeName_(m.book) === supaNormalizeName_(book))
+      .map(m => m.sheet);
+    throw new Error(
+      'ไม่พบแท็บ "' + sheet + '" ของไฟล์ "' + book + '" ในข้อมูลที่ซิงก์ไว้ ' +
+      '(แท็บที่มีของไฟล์นี้: ' + (known.length ? known.join(', ') : 'ไม่มีเลย') + ')'
+    );
+  }
+  // หัวตาราง ตำแหน่งคอลัมน์สถานะ และตัวเลือก dropdown เตรียมไว้ตอนโหลดแล้ว (ดู supaLoadAllMeta)
   return meta;
 }
 
 /** ล้างโครงสร้างที่จำไว้ ต้องเรียกเมื่อมีการเพิ่ม/ลบคอลัมน์ หรือสร้างแท็บใหม่ */
 function supaClearMetaCache() {
   supaMetaCache_.clear();
+  supaMetaLoaded_ = false;   // ต้องโหลดใหม่ ไม่งั้นแท็บ/คอลัมน์ที่เพิ่งเพิ่มจะไม่โผล่
 }
 
 /**
@@ -299,22 +356,8 @@ function supaClearMetaCache() {
  * เรียกตอนโหลดรายชื่อแท็บครั้งเดียว หลังจากนั้นทุกแท็บในไฟล์เหลือคำขอเดียว
  * เวลาที่ประหยัดได้ = เวลาไป-กลับหนึ่งรอบ ประมาณ 100-200 มิลลิวินาทีต่อการกดแท็บ 1 ครั้ง
  */
-async function supaWarmBookMeta(book) {
-  const res = await supaSelect_(
-    '/sheet_meta?select=book,sheet,headers,header_row_index,list_columns,status_header,date_header,dropdown_options' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(book))
-  );
-  const rows = await res.json();
-  rows.forEach(meta => {
-    meta.headers = meta.headers || [];
-    meta.statusIndex = meta.status_header
-      ? meta.headers.indexOf(meta.status_header)
-      : meta.headers.findIndex(h => h === 'สถานะ' || String(h || '').toLowerCase() === 'status');
-    const dd = meta.dropdown_options || {};
-    meta.headersMeta = Object.keys(dd).map(name => ({ name: name, options: dd[name] }));
-    supaMetaCache_.set(meta.book + '\u0000' + meta.sheet, meta);
-  });
-  return rows.length;
+async function supaWarmBookMeta() {
+  return await supaLoadAllMeta();
 }
 
 /**
@@ -322,25 +365,20 @@ async function supaWarmBookMeta(book) {
  * เดิมคำสั่งนี้ต้องเปิดไฟล์ Google Sheets จริงเพื่อนับแถวของทุกแท็บ ซึ่งช้าที่สุดตอนเพิ่งเปิดไฟล์
  */
 async function supaSheetList(book) {
-  const res = await supaSelect_(
-    '/sheet_list?select=book,sheet,row_count,position' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(book)) +
-    // ต้องเรียงตามตำแหน่งจริงในชีท (ซ้ายไปขวา) ไม่ใช่ตามตัวอักษร
-    // ไม่งั้นแท็บจะสลับที่จากที่ผู้ใช้คุ้นเคย
-    // แท็บที่ตัวซิงก์ยังไม่เติมตำแหน่งให้ (position = 0) จะถอยไปเรียงตามลำดับที่ซิงก์เข้ามา
-    // ซึ่งตรงกับลำดับในชีทอยู่แล้ว
-    '&order=position.asc,id.asc'
-  );
-  const rows = await res.json();
-  supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
-  if (!rows.length) {
-    throw new Error('ไม่พบไฟล์ "' + book + '"' + supaDiagnostic_());
+  await supaLoadAllMeta();
+  // คัดจากโครงสร้างที่โหลดไว้แล้ว ไม่ต้องยิงคำขอใหม่ และไม่ต้องส่งชื่อไทยไปเป็นเงื่อนไขใน URL
+  // ลำดับที่ได้คือลำดับที่โหลดมา ซึ่งเรียงตามตำแหน่งจริงในชีท (ซ้ายไปขวา) อยู่แล้ว
+  const want = supaNormalizeName_(book);
+  const sheets = [];
+  supaMetaCache_.forEach(meta => {
+    if (supaNormalizeName_(meta.book) !== want) return;
+    sheets.push({ book: meta.book, name: meta.sheet, rowCount: meta.row_count || 0 });
+  });
+  if (!sheets.length) {
+    const books = Array.from(new Set(Array.from(supaMetaCache_.values()).map(m => m.book)));
+    throw new Error('ไม่พบไฟล์ "' + book + '" ในข้อมูลที่ซิงก์ไว้ (ไฟล์ที่มี: ' + books.join(' | ') + ')');
   }
-  return {
-    ok: true,
-    sheets: rows.map(r => ({ book: r.book, name: r.sheet, rowCount: r.row_count || 0 })),
-    source: 'supabase'
-  };
+  return { ok: true, sheets: sheets, source: 'supabase' };
 }
 
 /* ===== แปลงแถวของ Supabase ให้เป็นรูปแบบเดิมที่หน้าเว็บเข้าใจ ===== */
@@ -397,9 +435,12 @@ async function supaTabView(params) {
 
   const meta = await supaSheetMeta_(book, sheet);
 
+  // ใช้ชื่อที่ "ฐานข้อมูลเก็บไว้จริง" ไม่ใช่ชื่อที่หน้าเว็บส่งมา
+  // สองค่านี้อาจต่างกันในระดับไบต์ได้ (รูปแบบการเก็บสระภาษาไทย ช่องว่างเกิน)
+  // ซึ่งทำให้หาข้อมูลไม่เจอแบบไม่มีสัญญาณเตือนอะไรเลย
   let query = '/sheet_rows?select=row_index,data,links,row_color' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(book)) +
-    '&sheet=eq.' + encodeURIComponent(supaQuote_(sheet));
+    '&book=eq.' + encodeURIComponent(supaQuote_(meta.book)) +
+    '&sheet=eq.' + encodeURIComponent(supaQuote_(meta.sheet));
 
   if (keyword) {
     // ค้นแบบไม่สนตัวพิมพ์เล็กใหญ่ จากคอลัมน์ search_text ที่รวมทุกช่องไว้แล้วตอนซิงก์
@@ -472,10 +513,11 @@ function supaParseContentRange_(header, fallbackCount, offset) {
  * ใช้วิวที่สร้างไว้ในฐานข้อมูลแล้ว จึงไม่ต้องดึงข้อมูลทั้งแท็บมานับฝั่งหน้าเว็บ
  */
 async function supaStatusTally(book, sheet) {
+  const meta = await supaSheetMeta_(book, sheet);  // เพื่อให้ได้ชื่อที่ฐานข้อมูลเก็บไว้จริง
   const res = await supaSelect_(
     '/sheet_status_tally?select=status,count' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(book)) +
-    '&sheet=eq.' + encodeURIComponent(supaQuote_(sheet))
+    '&book=eq.' + encodeURIComponent(supaQuote_(meta.book)) +
+    '&sheet=eq.' + encodeURIComponent(supaQuote_(meta.sheet))
   );
   const rows = await res.json();
   const tally = {};
@@ -498,6 +540,14 @@ async function supaStatusTally(book, sheet) {
  * ไม่ throw ไม่ว่าเกิดอะไรขึ้น เป็นแค่เครื่องมือช่วยวินิจฉัย ห้ามทำให้ล็อกอินล้มเหลว
  */
 async function supaSelfTest() {
+  try {
+    // โหลดโครงสร้างทั้งหมดไปเลยในตัว ถือเป็นการตรวจและเตรียมข้อมูลพร้อมกัน
+    const count = await supaLoadAllMeta(true);
+    console.log('[Supabase] พร้อมใช้งาน — โหลดโครงสร้างแล้ว ' + count + ' แท็บ');
+    return true;
+  } catch (errLoad) {
+    console.error('[Supabase] โหลดโครงสร้างไม่สำเร็จ: ' + errLoad.message);
+  }
   try {
     const res = await supaSelect_('/sheet_meta?select=book,sheet&limit=3');
     const rows = await res.json();
