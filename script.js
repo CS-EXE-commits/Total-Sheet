@@ -1,3 +1,11 @@
+/* ===== เวอร์ชันของโค้ดหน้าเว็บ =====
+ * ต้องตรงกับเลข ?v= ใน index.html เสมอ ขยับพร้อมกันทุกครั้งที่แก้ไฟล์ .js / .css
+ * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
+ * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
+ */
+const APP_VERSION = '20261006-1700';
+console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
+
 /* ===== อ้างอิง element ===== */
 const loginModal = document.getElementById('loginModal');
 const googleSignInButton = document.getElementById('googleSignInButton');
