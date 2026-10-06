@@ -671,6 +671,9 @@ async function ensureSupabaseSession_(idToken, email) {
     } else {
       await supaRestoreSession();
     }
+    // ตรวจหนึ่งครั้งว่าอ่านข้อมูลได้จริงไหม แล้วสรุปสาเหตุลง Console ถ้าไม่ได้
+    // ไม่ต้องรอผล เพราะเป็นแค่เครื่องมือช่วยวินิจฉัย ไม่ควรถ่วงการเปิดหน้าเว็บ
+    if (supaReady() && typeof supaSelfTest === 'function') supaSelfTest();
     return supaReady();
   } catch (err) {
     console.warn('[Supabase] เข้าสู่ระบบไม่สำเร็จ จะใช้ Apps Script แทน:', err.message);

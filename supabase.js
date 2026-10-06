@@ -166,12 +166,48 @@ async function supaReadError_(res) {
  * ยิงคำขออ่านข้อมูลไปที่ PostgREST พร้อมตั๋วของผู้ใช้
  * ตั๋วนี้แหละที่ทำให้กฎ RLS รู้ว่าเป็นใคร และตัดสินว่าจะให้เห็นแถวไหนบ้าง
  */
+/**
+ * ข้อมูลของคำขอล่าสุด ไว้ใส่ในข้อความแจ้งเตือนเวลาผลลัพธ์ว่าง
+ *
+ * จำเป็นเพราะ "ไม่มีข้อมูล" เกิดได้จากหลายสาเหตุที่หน้าเว็บแยกไม่ออกเลย
+ * (สิทธิ์ RLS ปฏิเสธ / ชื่อไม่ตรง / ตั๋วหมดอายุ / ตารางผิด) ทุกกรณีได้ 0 แถวเหมือนกันหมด
+ * ถ้าไม่บอกรหัสตอบกลับกับอีเมลในตั๋วมาด้วย จะต้องไปไล่ดูใน DevTools ทุกครั้ง
+ */
+let supaLastCall_ = { status: 0, path: '', count: -1 };
+
+/** อ่านอีเมลจากตั๋ว ใช้เทียบกับรายชื่อในตาราง allowed_users ตอนหาสาเหตุ */
+function supaTokenEmail_() {
+  try {
+    return JSON.parse(atob((supaSession.access_token || '').split('.')[1])).email || '(ไม่มีอีเมลในตั๋ว)';
+  } catch (e) {
+    return '(อ่านตั๋วไม่ออก)';
+  }
+}
+
+/** ข้อความอธิบายว่าคำขอล่าสุดเกิดอะไรขึ้น ใช้ต่อท้าย error ให้วินิจฉัยได้ทันที */
+function supaDiagnostic_() {
+  const d = supaLastCall_;
+  let hint = '';
+  if (d.status === 200 && d.count === 0) {
+    hint = ' — เซิร์ฟเวอร์ตอบสำเร็จแต่ไม่มีแถวไหนที่อ่านได้ ' +
+           'แปลว่ากฎความปลอดภัย (RLS) ปฏิเสธ หรือชื่อที่ใช้ค้นไม่ตรงกับในฐานข้อมูล';
+  } else if (d.status === 401 || d.status === 403) {
+    hint = ' — ตั๋วเข้าใช้งานใช้ไม่ได้';
+  } else if (d.status === 404) {
+    hint = ' — ไม่พบตารางหรือวิวนี้ในฐานข้อมูล';
+  }
+  return ' [รหัส ' + d.status + ', ได้ ' + d.count + ' แถว, อีเมลในตั๋ว: ' +
+         supaTokenEmail_() + ', คำขอ: ' + decodeURIComponent(d.path) + ']' + hint;
+}
+
 async function supaSelect_(path, extraHeaders) {
   const token = await supaAccessToken_();
+  supaLastCall_ = { status: 0, path: path, count: -1 };
   const res = await supaFetchRaw_('/rest/v1' + path, {
     method: 'GET',
     headers: Object.assign({ Authorization: 'Bearer ' + token }, extraHeaders || {})
   });
+  supaLastCall_.status = res.status;
   if (res.status === 401 || res.status === 403) {
     // ตั๋วหมดอายุระหว่างทาง หรือสิทธิ์ถูกถอน — ลองต่ออายุหนึ่งครั้งแล้วยิงใหม่
     await supaRefreshSession_();
@@ -180,6 +216,7 @@ async function supaSelect_(path, extraHeaders) {
       method: 'GET',
       headers: Object.assign({ Authorization: 'Bearer ' + token2 }, extraHeaders || {})
     });
+    supaLastCall_.status = res2.status;
     if (!res2.ok) throw new Error(await supaReadError_(res2));
     return res2;
   }
@@ -227,7 +264,10 @@ async function supaSheetMeta_(book, sheet) {
     '&limit=1'
   );
   const rows = await res.json();
-  if (!rows.length) throw new Error('ยังไม่มีข้อมูลแท็บนี้ใน Supabase');
+  supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
+  if (!rows.length) {
+    throw new Error('ไม่พบแท็บ "' + sheet + '" ของไฟล์ "' + book + '"' + supaDiagnostic_());
+  }
   const meta = rows[0];
   meta.headers = meta.headers || [];
   meta.statusIndex = meta.status_header
@@ -292,7 +332,10 @@ async function supaSheetList(book) {
     '&order=position.asc,id.asc'
   );
   const rows = await res.json();
-  if (!rows.length) throw new Error('ยังไม่มีข้อมูลไฟล์นี้ใน Supabase');
+  supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
+  if (!rows.length) {
+    throw new Error('ไม่พบไฟล์ "' + book + '"' + supaDiagnostic_());
+  }
   return {
     ok: true,
     sheets: rows.map(r => ({ book: r.book, name: r.sheet, rowCount: r.row_count || 0 })),
@@ -441,6 +484,41 @@ async function supaStatusTally(book, sheet) {
     tally[label] = (tally[label] || 0) + Number(r.count || 0);
   });
   return { ok: true, tally: tally, source: 'supabase' };
+}
+
+/**
+ * ตรวจสุขภาพการเชื่อมต่อหนึ่งครั้งหลังล็อกอิน แล้วสรุปผลลง Console
+ *
+ * ทำไมต้องมี: เวลาอ่านข้อมูลไม่ได้ สาเหตุที่เป็นไปได้มีหลายอย่างและหน้าเว็บแยกไม่ออก
+ * การตรวจแบบ "ขอข้อมูลโดยไม่ใส่เงื่อนไขอะไรเลย" แยกสองสาเหตุหลักออกจากกันได้ทันที
+ *
+ *   ได้ 0 แถว ทั้งที่ไม่ได้กรองอะไร  → กฎความปลอดภัย (RLS) ปฏิเสธ
+ *   ได้แถวมา แต่พอกรองด้วยชื่อแล้วหาย → ชื่อไฟล์หรือชื่อแท็บไม่ตรงกัน
+ *
+ * ไม่ throw ไม่ว่าเกิดอะไรขึ้น เป็นแค่เครื่องมือช่วยวินิจฉัย ห้ามทำให้ล็อกอินล้มเหลว
+ */
+async function supaSelfTest() {
+  try {
+    const res = await supaSelect_('/sheet_meta?select=book,sheet&limit=3');
+    const rows = await res.json();
+    supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
+
+    if (!rows.length) {
+      console.error(
+        '[Supabase] อ่านข้อมูลไม่ได้เลยแม้แต่แถวเดียว แม้จะไม่ได้กรองอะไร\n' +
+        'สาเหตุคือกฎความปลอดภัย (RLS) ปฏิเสธ ไม่ใช่เรื่องชื่อไม่ตรง\n' +
+        'อีเมลในตั๋ว: ' + supaTokenEmail_() + '\n' +
+        'ให้ตรวจว่าอีเมลนี้มีอยู่ในตาราง allowed_users และสะกดเหมือนกันทุกตัวอักษร'
+      );
+      return false;
+    }
+
+    console.log('[Supabase] เชื่อมต่อและอ่านข้อมูลได้ปกติ — ตัวอย่างที่อ่านได้:', rows);
+    return true;
+  } catch (err) {
+    console.error('[Supabase] ตรวจการเชื่อมต่อไม่ผ่าน: ' + err.message);
+    return false;
+  }
 }
 
 // ต้องตรงกับค่า NO_STATUS_LABEL ใน Code.gs เป๊ะ
