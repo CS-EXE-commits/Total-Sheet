@@ -843,7 +843,7 @@ const CACHE_BUSTING_ACTIONS = [
 // คำสั่งอ่านข้อมูลที่ย้ายไปดึงจาก Supabase แล้ว (เร็วกว่า Apps Script หลายเท่า)
 // ถ้า Supabase ใช้ไม่ได้ด้วยเหตุใดก็ตาม จะถอยไปยิง Apps Script เส้นเดิมให้อัตโนมัติ
 // ผู้ใช้จึงไม่มีทางเจอหน้าจอว่าง แค่ช้าลงเท่าเดิมกับก่อนย้าย
-const SUPABASE_ACTIONS = ['tabView', 'sheetStatusTally'];
+const SUPABASE_ACTIONS = ['tabView', 'sheetStatusTally', 'sheets'];
 
 /**
  * ไฟล์ที่เพิ่งถูกแก้ไข จะยังอ่านจาก Google Sheets ต่อไปอีกพักหนึ่ง
@@ -918,6 +918,9 @@ async function serveFromSupabase_(action, url, timeoutMs) {
     }
     if (action === 'sheetStatusTally') {
       return await supaStatusTally(params.get('book'), params.get('sheet'));
+    }
+    if (action === 'sheets') {
+      return await supaSheetList(params.get('book'));
     }
     throw new Error('ไม่รู้จักคำสั่ง ' + action);
   } catch (err) {
@@ -1650,6 +1653,13 @@ async function openBook(book, initialSheet) {
     const result = await jsonpRequest(apiUrl({ action: 'sheets', book }));
     if (!result.ok) throw new Error(result.error || 'โหลดแท็บไม่สำเร็จ');
     renderTabs(result.sheets);
+
+    // ดึงโครงสร้างของทุกแท็บในไฟล์มาจำไว้ด้วยคำขอเดียว
+    // หลังจากนี้การกดแท็บเหลือคำขอเดียว (ขอข้อมูลแถว) แทนที่จะเป็นสองคำขอเรียงกัน
+    // ไม่ต้องรอผล เพราะแท็บแรกเริ่มโหลดได้เลย แท็บที่เหลือได้ประโยชน์ตอนผู้ใช้กด
+    if (typeof supaWarmBookMeta === 'function' && typeof supaReady === 'function' && supaReady()) {
+      supaWarmBookMeta(book).catch(() => { /* ไม่สำเร็จก็แค่กลับไปถามทีละแท็บเหมือนเดิม */ });
+    }
     // ถ้าระบุแท็บล่าสุดไว้ (เช่น ตอนรีเฟรชหน้าเว็บ) และแท็บนั้นยังมีอยู่จริง ให้เปิดแท็บนั้นต่อ
     // ไม่งั้นเปิดแท็บแรกของไฟล์ให้เลย (ไม่มีโหมดรวมทุกแท็บแล้ว)
     const sheetToSelect = (initialSheet && result.sheets.some(s => s.name === initialSheet))
@@ -1657,9 +1667,9 @@ async function openBook(book, initialSheet) {
       : (result.sheets[0] ? result.sheets[0].name : '');
     if (sheetToSelect) {
       selectTab(sheetToSelect);
-      // ดักโหลดแท็บถัดไปไว้เงียบๆ คนมักเปิดไฟล์แล้วไล่ดูแท็บแรกๆ
-      const next = result.sheets.find(x => x.name !== sheetToSelect);
-      if (next) setTimeout(() => prefetchTabPage_(next.name, '', '', 1), 1200);
+      // ดักโหลดแท็บที่เหลือไว้เงียบๆ หลังแท็บแรกวาดเสร็จ
+      // หน่วงไว้ก่อนเพื่อให้แท็บที่ผู้ใช้เห็นอยู่โหลดเสร็จก่อน ไม่ไปแย่งช่องทางกัน
+      setTimeout(() => prefetchAllTabsInBook_(result.sheets, sheetToSelect), 1200);
     } else {
       showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
     }
@@ -1886,6 +1896,32 @@ function prefetchNeighbourPages_(sheetName, keyword, status, page, total) {
 // ค่าสถานะที่เคยเจอในข้อมูลของแท็บนี้ (สะสมข้ามหน้า) — ล้างเมื่อเปลี่ยนแท็บ
 let discoveredStatusValues = new Set();
 let statusOptionsSheet = '';
+
+/**
+ * ดักโหลดหน้าแรกของ "ทุกแท็บในไฟล์" ไว้เงียบๆ หลังเปิดไฟล์
+ *
+ * เป้าหมาย: กดแท็บไหนก็ขึ้นทันที ไม่ใช่แค่แท็บที่เผลอเอาเมาส์ไปวางไว้ก่อน
+ * เพราะหลายคนกดตรงไปที่แท็บเลยโดยไม่ได้ลากเมาส์ผ่าน การดักโหลดตอน hover จึงไม่ทัน
+ *
+ * ทำเฉพาะตอนใช้ Supabase เท่านั้น
+ * ถ้ายังใช้ Apps Script อยู่ การยิง 26 คำขอรวดเดียวจะไปแย่งคิวกับคำขอที่ผู้ใช้กำลังรอ
+ * แล้วกลายเป็นช้าลงกว่าเดิม (Apps Script รับงานพร้อมกันได้จำกัดมาก)
+ *
+ * ยิงทีละคำขอเรียงกัน ไม่ยิงพร้อมกันทั้งหมด เพื่อให้คำขอที่ผู้ใช้กดจริงได้คิวก่อนเสมอ
+ */
+async function prefetchAllTabsInBook_(sheets, skipSheet) {
+  if (typeof supaReady !== 'function' || !supaReady()) return;
+  const book = currentBook;
+  for (const s of sheets) {
+    if (book !== currentBook) return;  // ผู้ใช้สลับไฟล์ไปแล้ว หยุดทันที
+    if (s.name === skipSheet) continue;
+    const key = tabCacheKey_(book, s.name, '', '', pageSize, 1);
+    if (tabPageCache_.has(key)) continue;
+    await prefetchTabPage_(s.name, '', '', 1);
+    // เว้นจังหวะให้คำขอที่ผู้ใช้กดจริงแทรกเข้ามาได้ ไม่ให้การดักโหลดกินช่องทางทั้งหมด
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
 
 /** ดักโหลดหน้าแรกของแท็บที่เอาเมาส์ไปวาง (ยังไม่ได้กด) */
 function prefetchTabOnHover_(sheetName) {

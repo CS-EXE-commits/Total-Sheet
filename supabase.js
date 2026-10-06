@@ -249,6 +249,57 @@ function supaClearMetaCache() {
   supaMetaCache_.clear();
 }
 
+/**
+ * ดึงโครงสร้างของ "ทุกแท็บในไฟล์" มาจำไว้ล่วงหน้าด้วยคำขอเดียว
+ *
+ * ทำไมถึงช่วยให้เร็วขึ้นชัดเจน: เดิมการกดแท็บต้องยิง 2 คำขอเรียงกัน
+ * คำขอแรกถามโครงสร้าง (หัวตาราง ตำแหน่งคอลัมน์สถานะ) แล้วค่อยถามข้อมูลแถว
+ * คำขอที่สองเริ่มไม่ได้จนกว่าคำขอแรกจะกลับมา เวลารอจึงเป็นผลบวกของทั้งคู่
+ *
+ * เรียกตอนโหลดรายชื่อแท็บครั้งเดียว หลังจากนั้นทุกแท็บในไฟล์เหลือคำขอเดียว
+ * เวลาที่ประหยัดได้ = เวลาไป-กลับหนึ่งรอบ ประมาณ 100-200 มิลลิวินาทีต่อการกดแท็บ 1 ครั้ง
+ */
+async function supaWarmBookMeta(book) {
+  const res = await supaSelect_(
+    '/sheet_meta?select=book,sheet,headers,header_row_index,list_columns,status_header,date_header,dropdown_options' +
+    '&book=eq.' + encodeURIComponent(supaQuote_(book))
+  );
+  const rows = await res.json();
+  rows.forEach(meta => {
+    meta.headers = meta.headers || [];
+    meta.statusIndex = meta.status_header
+      ? meta.headers.indexOf(meta.status_header)
+      : meta.headers.findIndex(h => h === 'สถานะ' || String(h || '').toLowerCase() === 'status');
+    const dd = meta.dropdown_options || {};
+    meta.headersMeta = Object.keys(dd).map(name => ({ name: name, options: dd[name] }));
+    supaMetaCache_.set(meta.book + '\u0000' + meta.sheet, meta);
+  });
+  return rows.length;
+}
+
+/**
+ * แทน action 'sheets' — รายชื่อแท็บของไฟล์ พร้อมจำนวนแถว
+ * เดิมคำสั่งนี้ต้องเปิดไฟล์ Google Sheets จริงเพื่อนับแถวของทุกแท็บ ซึ่งช้าที่สุดตอนเพิ่งเปิดไฟล์
+ */
+async function supaSheetList(book) {
+  const res = await supaSelect_(
+    '/sheet_list?select=book,sheet,row_count,position' +
+    '&book=eq.' + encodeURIComponent(supaQuote_(book)) +
+    // ต้องเรียงตามตำแหน่งจริงในชีท (ซ้ายไปขวา) ไม่ใช่ตามตัวอักษร
+    // ไม่งั้นแท็บจะสลับที่จากที่ผู้ใช้คุ้นเคย
+    // แท็บที่ตัวซิงก์ยังไม่เติมตำแหน่งให้ (position = 0) จะถอยไปเรียงตามลำดับที่ซิงก์เข้ามา
+    // ซึ่งตรงกับลำดับในชีทอยู่แล้ว
+    '&order=position.asc,id.asc'
+  );
+  const rows = await res.json();
+  if (!rows.length) throw new Error('ยังไม่มีข้อมูลไฟล์นี้ใน Supabase');
+  return {
+    ok: true,
+    sheets: rows.map(r => ({ book: r.book, name: r.sheet, rowCount: r.row_count || 0 })),
+    source: 'supabase'
+  };
+}
+
 /* ===== แปลงแถวของ Supabase ให้เป็นรูปแบบเดิมที่หน้าเว็บเข้าใจ ===== */
 
 /**
