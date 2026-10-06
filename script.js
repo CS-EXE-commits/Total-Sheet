@@ -758,7 +758,23 @@ logoutButton.addEventListener('click', () => {
   selectedSheet = '';
   appLayout.hidden = true;
   topbarAccount.hidden = true;
-  if (folderBar) { folderBar.hidden = true; folderBar.innerHTML = ''; }
+  // ซ่อนแถบโฟลเดอร์และล้างเฉพาะ "รายการข้างใน" เท่านั้น
+  //
+  // ห้ามใช้ folderBar.innerHTML = '' เด็ดขาด เพราะจะลบกล่อง folderList กับฟอร์มเพิ่มไฟล์ทิ้งไปด้วย
+  // ซึ่งโค้ดจดตำแหน่งไว้ตั้งแต่ตอนเปิดหน้าเว็บ (getElementById ครั้งเดียว)
+  // พอล็อกอินใหม่ โฟลเดอร์จะถูกใส่ลงในกล่องใบเก่าที่หลุดจากหน้าจอไปแล้ว ใส่สำเร็จแต่ไม่มีใครเห็น
+  // ผู้ใช้ต้องรีเฟรชทุกครั้งหลังล็อกอิน — เคยเกิดขึ้นจริงและหาสาเหตุอยู่นาน
+  if (folderBar) folderBar.hidden = true;
+  if (folderList) {
+    // ฟอร์มเพิ่มไฟล์อาจถูกย้ายไปแปะอยู่ในโฟลเดอร์ ต้องย้ายกลับก่อนล้างรายการ
+    // ไม่งั้นฟอร์มจะถูกลบไปด้วย แล้วปุ่มเพิ่มไฟล์จะใช้ไม่ได้อีกเลยจนกว่าจะรีเฟรช
+    // (เหตุผลเดียวกับที่ renderFolderBar ทำ)
+    if (addFilePanel && folderList.contains(addFilePanel)) {
+      addFilePanel.hidden = true;
+      anchorAddFilePanel_(null);
+    }
+    folderList.innerHTML = '';
+  }
   setAdminLinkVisible(false);
   setLoginStatus('', null);
   loginModal.hidden = false;
