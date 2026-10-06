@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261006-1730';
+const APP_VERSION = '20261006-1750';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1217,12 +1217,29 @@ function renderFolderBar(folders) {
     btn.querySelector('.folder__name').textContent = folder.name;
     wrap.appendChild(btn);
 
-    // ป้ายบอกว่ากำลังเปิดไฟล์ไหนของโฟลเดอร์นี้อยู่ (แสดงเฉพาะโฟลเดอร์ที่มีไฟล์ที่เปิดอยู่)
-    // ค่าข้างในตั้งโดย markActiveFolderItem() ทุกครั้งที่เปลี่ยนไฟล์
-    const current = document.createElement('span');
-    current.className = 'folder__current';
-    current.hidden = true;
-    wrap.appendChild(current);
+    // แถบรายชื่อไฟล์ทั้งหมดของโฟลเดอร์นี้ ห้อยอยู่ใต้ปุ่มโฟลเดอร์ เรียงไปทางขวา
+    // แสดงเฉพาะโฟลเดอร์ที่มีไฟล์ที่เปิดอยู่ (markActiveFolderItem เป็นคนเปิด/ปิด)
+    // กดชื่อไฟล์ได้ทันที ไม่ต้องกดเปิดเมนูโฟลเดอร์ก่อน
+    if (folder.books.length > 0) {
+      const files = document.createElement('div');
+      files.className = 'folder__files';
+      files.hidden = true;
+      folder.books.forEach(book => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'folder__file';
+        chip.dataset.book = book;
+        chip.textContent = '📄 ' + book;
+        chip.title = 'เปิดไฟล์ ' + book;
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeAllFolders();
+          if (book !== currentBook) openBook(book);
+        });
+        files.appendChild(chip);
+      });
+      wrap.appendChild(files);
+    }
 
     const menu = document.createElement('div');
     menu.className = 'folder__menu';
@@ -1330,13 +1347,17 @@ function markActiveFolderItem() {
     const has = !!currentBook && Array.from(folder.querySelectorAll('.folder__item'))
       .some(i => i.dataset.book === currentBook);
     if (!has) folder.removeAttribute('data-active');
-    const label = folder.querySelector('.folder__current');
-    if (label) {
-      label.hidden = !has;
-      label.textContent = has ? '📄 ' + currentBook : '';
-      label.title = has ? 'กำลังเปิด: ' + currentBook : '';
+    const files = folder.querySelector('.folder__files');
+    if (files) {
+      files.hidden = !has;
+      files.querySelectorAll('.folder__file').forEach(chip => {
+        chip.setAttribute('data-active', String(chip.dataset.book === currentBook));
+      });
     }
   });
+  // เว้นที่ใต้แถบโฟลเดอร์ให้แถบรายชื่อไฟล์ เฉพาะตอนที่มีโฟลเดอร์ถูกเปิดใช้อยู่
+  folderBar.classList.toggle('folder-bar--with-files',
+    !!folderBar.querySelector('.folder__files:not([hidden])'));
 }
 
 // คลิกที่อื่นในหน้าเว็บให้ปิดเมนูโฟลเดอร์ที่เปิดค้างอยู่

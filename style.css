@@ -2792,29 +2792,44 @@ th.data-table__ticket-col {
   border-color: var(--color-danger);
 }
 
-/* ===== ชื่อไฟล์ที่เปิดอยู่ ใต้ปุ่มโฟลเดอร์ ===== */
-.folder {
+/* ===== รายชื่อไฟล์ของโฟลเดอร์ที่เปิดอยู่ ใต้ปุ่มโฟลเดอร์ =====
+   วางแบบลอย (absolute) ใต้ปุ่มแล้วยาวไปทางขวา ไม่ให้ดันโฟลเดอร์อื่นออกไป
+   แถบโฟลเดอร์เว้นที่ด้านล่างให้เองเฉพาะตอนมีรายการนี้ (.folder-bar--with-files) */
+.folder__files {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-.folder__current {
-  max-width: 220px;
-  margin: 5px 0 0 6px;
-  padding: 2px 9px;
-  overflow: hidden;
-  font-size: 11.5px;
-  font-weight: 600;
+  gap: 6px;
   white-space: nowrap;
+}
+.folder__files[hidden] { display: none; }
+.folder__file {
+  max-width: 240px;
+  padding: 3px 10px;
+  overflow: hidden;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
   text-overflow: ellipsis;
-  color: var(--color-accent);
-  background: var(--color-accent-bg);
-  border: 1px solid var(--color-accent);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
 }
-.folder__current[hidden] { display: none; }
-/* แถบโฟลเดอร์เรียงชิดบน ไม่งั้นโฟลเดอร์อื่นจะลอยไปอยู่กลางเวลามีป้ายชื่อไฟล์ห้อยอยู่ใต้โฟลเดอร์เดียว */
-.folder-bar__folders { align-items: flex-start; }
+.folder__file:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.folder__file[data-active="true"] {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+  cursor: default;
+}
+.folder-bar--with-files { padding-bottom: 44px; }
 
 /* ===== ประวัติการแก้ไข (กล่องเด้งจากปุ่มมุมขวาบน) ===== */
 .topbtn--active {
