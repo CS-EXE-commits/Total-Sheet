@@ -2747,3 +2747,99 @@ th.data-table__ticket-col {
   margin: 3px 0 0;
   padding-left: 15px;
 }
+
+/* ===== ปุ่มคัดลอก (EXE ID) =====
+   เล็กและจางไว้ ไม่แย่งสายตาจากตัวข้อมูล เด่นขึ้นเมื่อเอาเมาส์ไปวาง */
+.cell-with-copy {
+  white-space: nowrap;
+}
+.cell-with-copy > span { white-space: normal; }
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: middle;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  opacity: 0.7;
+  transition: opacity .15s, color .15s, border-color .15s, background .15s;
+}
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  opacity: 1;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+.copy-btn--done {
+  opacity: 1;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.copy-btn--fail {
+  opacity: 1;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* ===== ชื่อไฟล์ที่เปิดอยู่ ใต้ปุ่มโฟลเดอร์ ===== */
+.folder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.folder__current {
+  max-width: 220px;
+  margin: 5px 0 0 6px;
+  padding: 2px 9px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+}
+.folder__current[hidden] { display: none; }
+/* แถบโฟลเดอร์เรียงชิดบน ไม่งั้นโฟลเดอร์อื่นจะลอยไปอยู่กลางเวลามีป้ายชื่อไฟล์ห้อยอยู่ใต้โฟลเดอร์เดียว */
+.folder-bar__folders { align-items: flex-start; }
+
+/* ===== ประวัติการแก้ไข (กล่องเด้งจากปุ่มมุมขวาบน) ===== */
+.topbtn--active {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-color: var(--color-accent);
+}
+.topmenu__panel--history {
+  width: 380px;
+  padding: 0;
+  overflow: hidden;
+}
+.sidebar-report--popover {
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+}
+.sidebar-report--popover .report-log-list { max-height: 46vh; }
+
+/* "ออกจากระบบ" ให้เห็นชัดว่าเป็นขาออก ต่างจากการเข้าใช้และการแก้ไขข้อมูล */
+.report-log-row__action--logout {
+  font-weight: 700;
+  color: #d1242f;
+}
+:root[data-theme="dark"] .report-log-row__action--logout { color: #ff6b6b; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .report-log-row__action--logout { color: #ff6b6b; }
+}

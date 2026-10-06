@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261006-1700';
+const APP_VERSION = '20261006-1730';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -333,6 +333,70 @@ function makeRowClickable_(tr, row) {
   }));
 }
 
+/* ===== ปุ่มคัดลอก ===== */
+
+function isExeIdHeader_(name) {
+  return /exe\s*[_-]?\s*id/i.test((name || '').toString());
+}
+
+/** escapeHtml ไม่ได้หนีเครื่องหมายคำพูด ใช้ใส่ในค่าของ attribute ตรงๆ ไม่ได้ */
+function escapeAttr_(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function createCopyButton_(text) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'copy-btn';
+  btn.textContent = '⧉';
+  btn.title = 'คัดลอก';
+  btn.setAttribute('aria-label', 'คัดลอก ' + text);
+  btn.addEventListener('click', (e) => {
+    // ต้องหยุดไม่ให้ไปถึงแถว ไม่งั้นกดคัดลอกแล้วหน้าต่างรายละเอียดเคสจะเด้งขึ้นมาด้วย
+    e.stopPropagation();
+    copyText_(text, btn);
+  });
+  return btn;
+}
+
+function wireCopyButtons_(container) {
+  container.querySelectorAll('.copy-btn[data-copy]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyText_(btn.dataset.copy, btn);
+    });
+  });
+}
+
+async function copyText_(text, btn) {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (e) {
+    // บางเบราว์เซอร์/บางสถานการณ์ไม่ให้ใช้ clipboard API ถอยไปใช้วิธีเดิมที่รองรับกว้างกว่า
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    ta.remove();
+  }
+  btn.textContent = ok ? '✓' : '!';
+  btn.title = ok ? 'คัดลอกแล้ว' : 'คัดลอกไม่สำเร็จ';
+  btn.classList.toggle('copy-btn--done', ok);
+  btn.classList.toggle('copy-btn--fail', !ok);
+  clearTimeout(btn._copyTimer);
+  btn._copyTimer = setTimeout(() => {
+    btn.textContent = '⧉';
+    btn.title = 'คัดลอก';
+    btn.classList.remove('copy-btn--done', 'copy-btn--fail');
+  }, 1200);
+}
+
 function buildSingleRow(row) {
   const tr = document.createElement('tr');
 
@@ -370,6 +434,12 @@ function buildSingleRow(row) {
       } else {
         td.innerHTML = highlightMatch(cellValue, lastKeyword);
       }
+    } else if (isExeIdHeader_(h) && cellValue.trim()) {
+      // EXE ID ต้องคัดลอกไปใช้ต่อบ่อย (ค้นในระบบเกม แจ้งทีมอื่น) จึงมีปุ่มคัดลอกเล็กๆ ต่อท้าย
+      td.className = 'cell-with-copy';
+      const text = document.createElement('span');
+      text.innerHTML = highlightMatch(cellValue, lastKeyword);
+      td.append(text, createCopyButton_(cellValue.trim()));
     } else {
       td.innerHTML = highlightMatch(cellValue, lastKeyword);
     }
@@ -773,6 +843,8 @@ logoutButton.addEventListener('click', () => {
   // พอล็อกอินใหม่ โฟลเดอร์จะถูกใส่ลงในกล่องใบเก่าที่หลุดจากหน้าจอไปแล้ว ใส่สำเร็จแต่ไม่มีใครเห็น
   // ผู้ใช้ต้องรีเฟรชทุกครั้งหลังล็อกอิน — เคยเกิดขึ้นจริงและหาสาเหตุอยู่นาน
   if (folderBar) folderBar.hidden = true;
+  // ปิดกล่องประวัติการแก้ไขด้วย ไม่งั้นล็อกอินครั้งถัดไปจะเห็นกล่องค้างเปิดอยู่พร้อมข้อมูลของรอบก่อน
+  if (typeof setHistoryOpen_ === 'function') setHistoryOpen_(false);
   if (folderList) {
     // ฟอร์มเพิ่มไฟล์อาจถูกย้ายไปแปะอยู่ในโฟลเดอร์ ต้องย้ายกลับก่อนล้างรายการ
     // ไม่งั้นฟอร์มจะถูกลบไปด้วย แล้วปุ่มเพิ่มไฟล์จะใช้ไม่ได้อีกเลยจนกว่าจะรีเฟรช
@@ -1145,6 +1217,13 @@ function renderFolderBar(folders) {
     btn.querySelector('.folder__name').textContent = folder.name;
     wrap.appendChild(btn);
 
+    // ป้ายบอกว่ากำลังเปิดไฟล์ไหนของโฟลเดอร์นี้อยู่ (แสดงเฉพาะโฟลเดอร์ที่มีไฟล์ที่เปิดอยู่)
+    // ค่าข้างในตั้งโดย markActiveFolderItem() ทุกครั้งที่เปลี่ยนไฟล์
+    const current = document.createElement('span');
+    current.className = 'folder__current';
+    current.hidden = true;
+    wrap.appendChild(current);
+
     const menu = document.createElement('div');
     menu.className = 'folder__menu';
     menu.hidden = true;
@@ -1248,9 +1327,15 @@ function markActiveFolderItem() {
     if (isActive && folder) folder.setAttribute('data-active', 'true');
   });
   folderBar.querySelectorAll('.folder').forEach(folder => {
-    const has = Array.from(folder.querySelectorAll('.folder__item'))
+    const has = !!currentBook && Array.from(folder.querySelectorAll('.folder__item'))
       .some(i => i.dataset.book === currentBook);
     if (!has) folder.removeAttribute('data-active');
+    const label = folder.querySelector('.folder__current');
+    if (label) {
+      label.hidden = !has;
+      label.textContent = has ? '📄 ' + currentBook : '';
+      label.title = has ? 'กำลังเปิด: ' + currentBook : '';
+    }
   });
 }
 
@@ -1619,6 +1704,42 @@ createBookSubmit.addEventListener('click', async () => {
 function setCreateBookStatus(message, type) {
   createBookStatus.textContent = message;
   createBookStatus.className = 'sidebar-panel__status' + (type ? ` sidebar-panel__status--${type}` : '');
+}
+
+/* ===== ประวัติการแก้ไข (ปุ่มมุมขวาบน กดแล้วกล่องเด้งลงมา) ===== */
+
+const historyMenu = document.getElementById('historyMenu');
+const historyToggle = document.getElementById('historyToggle');
+const historyPanel = document.getElementById('historyPanel');
+
+function setHistoryOpen_(open) {
+  if (!historyPanel) return;
+  historyPanel.hidden = !open;
+  historyToggle.setAttribute('aria-expanded', String(open));
+  historyToggle.classList.toggle('topbtn--active', open);
+}
+
+if (historyToggle) {
+  historyToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = historyPanel.hidden;
+    // ปิดกล่องอื่นที่อยู่บนแถบเดียวกัน ไม่ให้ซ้อนทับกัน
+    addFilePanel.hidden = true;
+    createBookPanel.hidden = true;
+    bookTrashPanel.hidden = true;
+    closeAllFolders();
+    setHistoryOpen_(willOpen);
+    // โหลดใหม่ทุกครั้งที่เปิด ให้เห็นเหตุการณ์ล่าสุดจริง ไม่ใช่ของตอนเปิดหน้าเว็บ
+    if (willOpen) loadDailyReport();
+  });
+
+  // คลิกข้างนอกหรือกด Esc เพื่อปิด
+  document.addEventListener('click', (e) => {
+    if (!historyPanel.hidden && !historyMenu.contains(e.target)) setHistoryOpen_(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !historyPanel.hidden) setHistoryOpen_(false);
+  });
 }
 
 /* ===== ถังขยะไฟล์ ===== */
@@ -2850,7 +2971,7 @@ function renderReportLogList(result) {
     const where = [item.book, item.sheet].filter(Boolean).join(' · ');
     return `
     <div class="report-log-row">
-      <b>${escapeHtml(item.time)}</b> · ${escapeHtml(item.action)} · ${escapeHtml(item.editor)}
+      <b>${escapeHtml(item.time)}</b> · <span class="report-log-row__action${item.action === 'ออกจากระบบ' ? ' report-log-row__action--logout' : ''}">${escapeHtml(item.action)}</span> · ${escapeHtml(item.editor)}
       ${where ? `<div class="report-log-row__where">📄 ${escapeHtml(where)}</div>` : ''}
       ${item.detail ? `<div class="report-log-row__detail">${formatEventDetail_(item.detail)}</div>` : ''}
     </div>`;
@@ -3280,7 +3401,10 @@ function buildCaseFieldsTable_(fields) {
           ? `<a class="ticket-link" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
           : escapeHtml(value))
       : '<span class="case-fields__empty">(ว่าง)</span>';
-    return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}</td></tr>`;
+    const copy = (value && isExeIdHeader_(f.name))
+      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="คัดลอก" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
+      : '';
+    return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}${copy}</td></tr>`;
   }).join('') + '</tbody></table>';
 }
 
@@ -3315,6 +3439,7 @@ function renderCaseModal(result) {
     caseModalFields.innerHTML = '<p class="case-modal__empty">แท็บนี้ไม่มีคอลัมน์ที่ตั้งชื่อไว้</p>';
   } else {
     caseModalFields.innerHTML = buildCaseFieldsTable_(result.fields);
+    wireCopyButtons_(caseModalFields);
   }
 
   // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน)
