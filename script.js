@@ -610,9 +610,9 @@ async function trySessionRestore(token) {
     setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
     setLoginStatus('', null);
-    // กู้ตั๋ว Supabase ที่จำไว้ ต้องทำก่อนโหลดตารางแรก ไม่งั้นแท็บแรกจะไปดึงจาก Apps Script แบบช้าๆ
-    await ensureSupabaseSession_();
+    const supaTask = ensureSupabaseSession_();
     const books = await loadBooks();
+    await waitForSupabaseOrGiveUp_(supaTask);
     restoreLastView(books);
     initGlobalDashboard();
     loadDailyReport();
@@ -663,6 +663,23 @@ window.onGoogleLibraryLoad = function () {
  * ถ้า Supabase มีปัญหา (เช่นยังไม่ได้ตั้งค่า Client ID หรือเน็ตมีปัญหา)
  * ต้องให้ผู้ใช้เข้าใช้งานได้ตามปกติผ่าน Apps Script ไม่ใช่ล็อกอินไม่ผ่านทั้งระบบ
  */
+/**
+ * รอการเชื่อมต่อ Supabase ได้ไม่เกิน 2.5 วินาที แล้วไปต่อไม่ว่าจะเสร็จหรือไม่
+ *
+ * ทำไมต้องจำกัดเวลา: Supabase เป็นแค่ตัวเร่งความเร็ว ไม่ใช่สิ่งที่ระบบขาดไม่ได้
+ * ถ้าปล่อยให้รอจนเสร็จ (ซึ่งรอได้ถึง 15 วินาทีตามเวลาตัดคำขอ) ผู้ใช้จะเห็นหน้าจอว่างเปล่า
+ * ไม่มีแถบโฟลเดอร์ ไม่มีอะไรเลย แล้วเข้าใจว่าเว็บพัง — เคยเกิดขึ้นจริงมาแล้ว
+ *
+ * ถ้ายังไม่ทันเสร็จใน 2.5 วินาที แท็บแรกจะไปอ่านจาก Google Sheets ตามปกติ (ช้าหน่อยครั้งเดียว)
+ * แล้วตั๋วจะพร้อมเองเบื้องหลัง การกดแท็บครั้งต่อๆ ไปจึงได้ความเร็วเต็มที่
+ */
+function waitForSupabaseOrGiveUp_(task) {
+  return Promise.race([
+    Promise.resolve(task).catch(() => false),
+    new Promise(resolve => setTimeout(() => resolve(false), 2500))
+  ]);
+}
+
 async function ensureSupabaseSession_(idToken, email) {
   if (typeof supaSignInWithGoogle !== 'function') return false;
   try {
@@ -702,8 +719,10 @@ async function tryLoginGoogle(idToken) {
     setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
     // แลก ID token ใบเดียวกันเป็นตั๋วของ Supabase ผู้ใช้ไม่ต้องกดล็อกอินเพิ่ม
-    await ensureSupabaseSession_(idToken, result.email);
+    // ยิงคู่ขนานไปกับการโหลดรายชื่อไฟล์ ไม่ใช่รอให้เสร็จก่อน (ดู waitForSupabaseOrGiveUp_)
+    const supaTask = ensureSupabaseSession_(idToken, result.email);
     const books = await loadBooks();
+    await waitForSupabaseOrGiveUp_(supaTask);
     restoreLastView(books);
     initGlobalDashboard();
     loadDailyReport();
@@ -1024,16 +1043,30 @@ async function loadBooks() {
     return [];
   }
   booksHint.textContent = 'กำลังโหลด...';
-  try {
-    const result = await jsonpRequest(apiUrl({ action: 'books' }));
-    if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
-    booksHint.textContent = '';
-    renderFolderBar(result.folders || []);
-    return result.books;
-  } catch (err) {
-    booksHint.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
-    return [];
+
+  // ลองใหม่หนึ่งครั้งถ้าพลาด เพราะถ้าคำขอนี้ล้มเหลว แถบโฟลเดอร์จะว่างทั้งหน้า
+  // ผู้ใช้จะใช้งานอะไรไม่ได้เลยและต้องรีเฟรชเอง ซึ่งดูเหมือนเว็บพัง
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const result = await jsonpRequest(apiUrl({ action: 'books' }));
+      if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
+      booksHint.textContent = '';
+      renderFolderBar(result.folders || []);
+      if (!(result.folders || []).length) {
+        console.warn('[หน้าเว็บ] เซิร์ฟเวอร์ไม่ได้ส่งรายชื่อโฟลเดอร์มา แถบโฟลเดอร์จึงว่าง ' +
+          '— ตรวจค่า BOOK_FOLDERS_JSON ใน Script Properties');
+      }
+      return result.books;
+    } catch (err) {
+      console.warn('[หน้าเว็บ] โหลดรายชื่อไฟล์ไม่สำเร็จ (ครั้งที่ ' + attempt + '): ' + err.message);
+      if (attempt === 2) {
+        booksHint.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+        return [];
+      }
+      await new Promise(r => setTimeout(r, 600));
+    }
   }
+  return [];
 }
 
 
