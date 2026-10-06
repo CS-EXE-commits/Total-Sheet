@@ -467,6 +467,20 @@ async function supaTabView(params) {
   const res = await supaSelect_(query, { Prefer: 'count=exact' });
   const rows = await res.json();
   const total = supaParseContentRange_(res.headers.get('content-range'), rows.length, offset);
+  supaLastCall_.count = Array.isArray(rows) ? rows.length : -1;
+
+  // ตาข่ายกันหน้าจอว่าง
+  //
+  // ถ้าโครงสร้างบอกว่าแท็บนี้มีข้อมูลอยู่ แต่ถามข้อมูลแถวแล้วได้ 0 แถว แปลว่ามีอะไรผิดปกติ
+  // (สิทธิ์ของตารางข้อมูลแถวต่างจากตารางโครงสร้าง หรือซิงก์โครงสร้างมาแต่ยังไม่ได้ซิงก์แถว)
+  // ห้ามแสดงว่า "ไม่พบข้อมูล" เด็ดขาด เพราะผู้ใช้จะเข้าใจว่าข้อมูลในชีทหายไป
+  // โยน error ออกไปให้ถอยไปอ่านจาก Google Sheets แทน ซึ่งเป็นต้นฉบับจริงเสมอ
+  if (total === 0 && !keyword && !status && (meta.row_count || 0) > 0) {
+    throw new Error(
+      'แท็บ "' + meta.sheet + '" ควรมี ' + meta.row_count + ' แถว แต่อ่านข้อมูลแถวได้ 0 แถว' +
+      supaDiagnostic_()
+    );
+  }
 
   // ส่งเฉพาะคอลัมน์ที่ตารางรายการแสดงจริง เหมือนที่ Apps Script ทำ
   // แต่ต้องเก็บคอลัมน์ "สถานะ" ไว้เสมอ เพราะช่องกรองสถานะด้านบนตารางอ่านค่าจากแถวที่โหลดมา
