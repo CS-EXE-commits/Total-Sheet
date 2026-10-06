@@ -610,6 +610,8 @@ async function trySessionRestore(token) {
     setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
     setLoginStatus('', null);
+    // กู้ตั๋ว Supabase ที่จำไว้ ต้องทำก่อนโหลดตารางแรก ไม่งั้นแท็บแรกจะไปดึงจาก Apps Script แบบช้าๆ
+    await ensureSupabaseSession_();
     const books = await loadBooks();
     restoreLastView(books);
     initGlobalDashboard();
@@ -654,6 +656,28 @@ window.onGoogleLibraryLoad = function () {
   // ด้านบนแทน ซึ่งเช็คกับรายชื่อที่อนุญาตตรงๆ ไม่ต้องพึ่ง Google popup ทุกครั้งที่รีเฟรช
 };
 
+/**
+ * เตรียมตั๋ว Supabase ให้พร้อมใช้งาน — มี ID token ก็แลกใหม่ ไม่มีก็กู้ของเดิมที่จำไว้
+ *
+ * ห้ามโยน error ออกไปเด็ดขาด เพราะฟังก์ชันนี้ถูกเรียกระหว่างขั้นตอนล็อกอิน
+ * ถ้า Supabase มีปัญหา (เช่นยังไม่ได้ตั้งค่า Client ID หรือเน็ตมีปัญหา)
+ * ต้องให้ผู้ใช้เข้าใช้งานได้ตามปกติผ่าน Apps Script ไม่ใช่ล็อกอินไม่ผ่านทั้งระบบ
+ */
+async function ensureSupabaseSession_(idToken, email) {
+  if (typeof supaSignInWithGoogle !== 'function') return false;
+  try {
+    if (idToken) {
+      await supaSignInWithGoogle(idToken, email);
+    } else {
+      await supaRestoreSession();
+    }
+    return supaReady();
+  } catch (err) {
+    console.warn('[Supabase] เข้าสู่ระบบไม่สำเร็จ จะใช้ Apps Script แทน:', err.message);
+    return false;
+  }
+}
+
 /** เรียกโดย Google หลังผู้ใช้กดเข้าสู่ระบบสำเร็จ (ปุ่ม Sign in with Google หรือ One Tap) พร้อม ID token ที่เซ็นชื่อมาจริงจาก Google */
 function handleGoogleCredential(response) {
   tryLoginGoogle(response.credential);
@@ -674,6 +698,8 @@ async function tryLoginGoogle(idToken) {
     setTopbarAccountEmail(currentUserEmail);
     setAdminLinkVisible(result.isAdmin);
     appLayout.hidden = false;
+    // แลก ID token ใบเดียวกันเป็นตั๋วของ Supabase ผู้ใช้ไม่ต้องกดล็อกอินเพิ่ม
+    await ensureSupabaseSession_(idToken, result.email);
     const books = await loadBooks();
     restoreLastView(books);
     initGlobalDashboard();
@@ -692,6 +718,9 @@ async function tryLoginGoogle(idToken) {
 
 logoutButton.addEventListener('click', () => {
   localStorage.removeItem('sheetSearchToken');
+  // ต้องล้างตั๋ว Supabase ด้วย ไม่งั้นคนถัดไปที่ใช้เครื่องนี้ยังอ่านข้อมูลจาก Supabase ได้ทั้งที่ออกจากระบบแล้ว
+  if (typeof supaClearSession === 'function') supaClearSession();
+  if (typeof supaClearMetaCache === 'function') supaClearMetaCache();
   currentSessionToken = '';
   localStorage.removeItem('sheetSearchLastBook');
   localStorage.removeItem('sheetSearchLastSheet');
@@ -804,11 +833,93 @@ const CACHE_BUSTING_ACTIONS = [
   'createSheet', 'repairDropdowns', 'uploadRows', 'splitYear'
 ];
 
+// คำสั่งอ่านข้อมูลที่ย้ายไปดึงจาก Supabase แล้ว (เร็วกว่า Apps Script หลายเท่า)
+// ถ้า Supabase ใช้ไม่ได้ด้วยเหตุใดก็ตาม จะถอยไปยิง Apps Script เส้นเดิมให้อัตโนมัติ
+// ผู้ใช้จึงไม่มีทางเจอหน้าจอว่าง แค่ช้าลงเท่าเดิมกับก่อนย้าย
+const SUPABASE_ACTIONS = ['tabView', 'sheetStatusTally'];
+
+/**
+ * ไฟล์ที่เพิ่งถูกแก้ไข จะยังอ่านจาก Google Sheets ต่อไปอีกพักหนึ่ง
+ *
+ * ทำไมต้องมี: Supabase เป็น "สำเนา" ที่ตามหลังอยู่ ซิงก์รอบละ 15 นาที
+ * ถ้าไม่กันไว้ ผู้ใช้กดบันทึกแล้วตารางจะรีเฟรชไปอ่านสำเนาเก่าที่ยังไม่มีการแก้ไขนั้น
+ * ขึ้นค่าเดิมกลับมาเหมือนบันทึกไม่ติด ซึ่งน่าตกใจกว่าช้าไปสองสามวินาทีมาก
+ *
+ * ตั้งไว้ 20 นาที = เผื่อรอบซิงก์ 15 นาที บวกเวลาที่ตัวซิงก์ใช้ทำงานจริง
+ * กันทั้งไฟล์ ไม่ใช่เฉพาะแท็บ เพราะบางคำสั่ง (เช่น แยกแท็บตามปี) กระทบหลายแท็บพร้อมกัน
+ */
+const SUPABASE_STALE_GUARD_MS = 20 * 60 * 1000;
+const supaStaleBooks_ = new Map(); // ชื่อไฟล์ -> เวลาที่หมดระยะกัน
+
+function markBookRecentlyEdited_(book) {
+  if (book) supaStaleBooks_.set(book, Date.now() + SUPABASE_STALE_GUARD_MS);
+}
+
+function bookRecentlyEdited_(book) {
+  const until = supaStaleBooks_.get(book);
+  if (!until) return false;
+  if (Date.now() > until) { supaStaleBooks_.delete(book); return false; }
+  return true;
+}
+
 function jsonpRequest(url, timeoutMs) {
   const actionMatch = /[?&]action=([^&]*)/.exec(url);
-  if (actionMatch && CACHE_BUSTING_ACTIONS.indexOf(decodeURIComponent(actionMatch[1])) !== -1) {
+  const action = actionMatch ? decodeURIComponent(actionMatch[1]) : '';
+  if (action && CACHE_BUSTING_ACTIONS.indexOf(action) !== -1) {
     clearTabPageCache_();
+    // โครงสร้างแท็บอาจเปลี่ยนไปด้วย (เพิ่ม/ลบคอลัมน์ สร้างแท็บใหม่) ต้องให้ถามใหม่
+    if (typeof supaClearMetaCache === 'function') supaClearMetaCache();
+    let editedBook = '';
+    try { editedBook = new URL(url).searchParams.get('book') || ''; } catch (e) { /* ไม่เป็นไร */ }
+    // บางคำสั่ง (เพิ่ม/ลบ/เปลี่ยนชื่อไฟล์) ไม่ได้ส่งชื่อไฟล์มาในพารามิเตอร์ book
+    // กรณีนั้นกันไฟล์ที่กำลังเปิดอยู่แทน ซึ่งเป็นไฟล์ที่ผู้ใช้จะเห็นผลทันที
+    markBookRecentlyEdited_(editedBook || currentBook);
   }
+
+  if (action && SUPABASE_ACTIONS.indexOf(action) !== -1 &&
+      typeof supaReady === 'function' && supaReady()) {
+    let book = '';
+    try { book = new URL(url).searchParams.get('book') || ''; } catch (e) { /* ไม่เป็นไร */ }
+    if (!bookRecentlyEdited_(book)) {
+      return serveFromSupabase_(action, url, timeoutMs);
+    }
+  }
+
+  return jsonpRequestRaw_(url, timeoutMs);
+}
+
+/**
+ * ดึงข้อมูลจาก Supabase แทน Apps Script โดยคืนค่าในรูปแบบเดิมเป๊ะ
+ * ถ้าล้มเหลวจะยิง Apps Script ต่อให้เอง ไม่โยน error ออกไปให้ผู้เรียก
+ *
+ * เหตุผลที่ต้องถอยเองตรงนี้ ไม่ปล่อยให้ผู้เรียกจัดการ: จุดเรียก jsonpRequest มีกว่า 30 ที่
+ * ถ้าให้แต่ละที่ดักเอง จะมีที่ลืมแน่นอน แล้วกลายเป็นหน้าจอค้างโดยไม่มีข้อความบอก
+ */
+async function serveFromSupabase_(action, url, timeoutMs) {
+  try {
+    const params = new URL(url).searchParams;
+    if (action === 'tabView') {
+      return await supaTabView({
+        book: params.get('book'),
+        sheet: params.get('sheet'),
+        q: params.get('q'),
+        status: params.get('status'),
+        offset: params.get('offset'),
+        limit: params.get('limit'),
+        slim: params.get('slim') !== '0'
+      });
+    }
+    if (action === 'sheetStatusTally') {
+      return await supaStatusTally(params.get('book'), params.get('sheet'));
+    }
+    throw new Error('ไม่รู้จักคำสั่ง ' + action);
+  } catch (err) {
+    console.warn('[Supabase] ดึงข้อมูลไม่สำเร็จ ถอยไปใช้ Apps Script:', err.message);
+    return jsonpRequestRaw_(url, timeoutMs);
+  }
+}
+
+function jsonpRequestRaw_(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const callbackName = `jsonpCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
