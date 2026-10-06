@@ -227,10 +227,16 @@ async function supaSelect_(path, extraHeaders) {
 /* ===== เครื่องมือประกอบคำค้น ===== */
 
 /**
- * ใส่เครื่องหมายคำพูดให้ค่าที่จะส่งเป็นเงื่อนไขของ PostgREST
+ * ใส่เครื่องหมายคำพูดให้ค่า — ใช้ได้เฉพาะในรายการแบบ in.(ก,ข,ค) เท่านั้น
  *
- * จำเป็นมากกับข้อมูลชุดนี้ เพราะชื่อไฟล์และชื่อแท็บภาษาไทยมีทั้งเว้นวรรค วงเล็บ และจุลภาค
- * ถ้าไม่ใส่ PostgREST จะอ่านจุลภาคเป็นตัวคั่นเงื่อนไข แล้วได้ผลลัพธ์ผิดแบบเงียบๆ
+ * ===== ห้ามใช้กับเงื่อนไขแบบ eq. เด็ดขาด =====
+ *
+ * PostgREST ไม่ถอดเครื่องหมายคำพูดออกให้ในเงื่อนไขแบบ eq. มันเอาไปค้นทั้งเครื่องหมาย
+ * กลายเป็นค้นหาคำว่า  "พิจารณาปลด 2026"  ที่มีอัญประกาศติดอยู่จริงๆ ซึ่งไม่มีในฐานข้อมูล
+ * ผลคือได้ 0 แถวทุกครั้ง โดยไม่มี error ใดๆ ให้เห็น — เป็นบั๊กที่หายากที่สุดของโปรเจกต์นี้
+ *
+ * เงื่อนไขแบบ eq. ให้ส่งค่าดิบผ่าน encodeURIComponent อย่างเดียวพอ
+ * จุลภาคในค่าไม่เป็นปัญหา เพราะ PostgREST อ่านจุลภาคเป็นตัวคั่นเฉพาะใน in.() และ or() เท่านั้น
  */
 function supaQuote_(value) {
   return '"' + String(value === null || value === undefined ? '' : value)
@@ -439,8 +445,8 @@ async function supaTabView(params) {
   // สองค่านี้อาจต่างกันในระดับไบต์ได้ (รูปแบบการเก็บสระภาษาไทย ช่องว่างเกิน)
   // ซึ่งทำให้หาข้อมูลไม่เจอแบบไม่มีสัญญาณเตือนอะไรเลย
   let query = '/sheet_rows?select=row_index,data,links,row_color' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(meta.book)) +
-    '&sheet=eq.' + encodeURIComponent(supaQuote_(meta.sheet));
+    '&book=eq.' + encodeURIComponent(meta.book) +
+    '&sheet=eq.' + encodeURIComponent(meta.sheet);
 
   if (keyword) {
     // ค้นแบบไม่สนตัวพิมพ์เล็กใหญ่ จากคอลัมน์ search_text ที่รวมทุกช่องไว้แล้วตอนซิงก์
@@ -455,7 +461,7 @@ async function supaTabView(params) {
       // ทั้งที่หน้าสรุปแสดงว่ามีอยู่หลายร้อยเคส
       query += '&or=(status.is.null,status.eq.)';
     } else {
-      query += '&status=eq.' + encodeURIComponent(supaQuote_(status));
+      query += '&status=eq.' + encodeURIComponent(status);
     }
   }
 
@@ -530,8 +536,8 @@ async function supaStatusTally(book, sheet) {
   const meta = await supaSheetMeta_(book, sheet);  // เพื่อให้ได้ชื่อที่ฐานข้อมูลเก็บไว้จริง
   const res = await supaSelect_(
     '/sheet_status_tally?select=status,count' +
-    '&book=eq.' + encodeURIComponent(supaQuote_(meta.book)) +
-    '&sheet=eq.' + encodeURIComponent(supaQuote_(meta.sheet))
+    '&book=eq.' + encodeURIComponent(meta.book) +
+    '&sheet=eq.' + encodeURIComponent(meta.sheet)
   );
   const rows = await res.json();
   const tally = {};
