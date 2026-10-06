@@ -717,6 +717,13 @@ async function tryLoginGoogle(idToken) {
 }
 
 logoutButton.addEventListener('click', () => {
+  // บอกเซิร์ฟเวอร์ก่อนล้างตั๋ว ไม่งั้นคำขอจะไม่มีตั๋วแนบไปและถูกปฏิเสธ
+  // ไม่ต้องรอผล (ไม่ใส่ await) เพราะผู้ใช้ควรออกจากระบบทันที ไม่ต้องค้างรอเซิร์ฟเวอร์
+  // ถ้าบันทึกไม่สำเร็จก็ยังออกจากระบบได้ปกติ แค่ไม่มีบรรทัดขาออกใน Log
+  if (currentSessionToken) {
+    jsonpRequest(apiUrl({ action: 'logout' }))
+      .catch(() => { /* บันทึกไม่ได้ก็ไม่ควรขวางการออกจากระบบ */ });
+  }
   localStorage.removeItem('sheetSearchToken');
   // ต้องล้างตั๋ว Supabase ด้วย ไม่งั้นคนถัดไปที่ใช้เครื่องนี้ยังอ่านข้อมูลจาก Supabase ได้ทั้งที่ออกจากระบบแล้ว
   if (typeof supaClearSession === 'function') supaClearSession();
