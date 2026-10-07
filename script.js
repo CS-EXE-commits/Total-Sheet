@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1225';
+const APP_VERSION = '20261007-1235';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -102,7 +102,9 @@ const addFields = document.getElementById('addFields');
 const addSubmitButton = document.getElementById('addSubmitButton');
 const addStatus = document.getElementById('addStatus');
 
-const manageToggle = document.getElementById('manageToggle');
+// ปุ่ม "จัดการข้อมูลชีทนี้" (เดิม "จัดการคอลัมน์") ถูกเอาออกจากหน้าเว็บตามที่ผู้ใช้ขอ
+// คงตัวแปรไว้เป็นของเปล่า เพื่อให้โค้ดเดิมที่สั่งซ่อน/แสดง/รีเซ็ตปุ่มนี้ทำงานต่อได้โดยไม่พัง
+const manageToggle = document.getElementById('manageToggle') || document.createElement('button');
 const managePanel = document.getElementById('managePanel');
 const manageChips = document.getElementById('manageChips');
 const manageStatus = document.getElementById('manageStatus');
