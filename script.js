@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1600';
+const APP_VERSION = '20261007-1610';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1114,10 +1114,11 @@ const ROW_ONLY_WRITE_ACTIONS = ['add', 'updateRow', 'deleteRow', 'setRowColor'];
  * ถ้าไม่กันไว้ ผู้ใช้กดบันทึกแล้วตารางจะรีเฟรชไปอ่านสำเนาเก่าที่ยังไม่มีการแก้ไขนั้น
  * ขึ้นค่าเดิมกลับมาเหมือนบันทึกไม่ติด ซึ่งน่าตกใจกว่าช้าไปสองสามวินาทีมาก
  *
- * ตั้งไว้ 20 นาที = เผื่อรอบซิงก์ 15 นาที บวกเวลาที่ตัวซิงก์ใช้ทำงานจริง
+ * ตั้งไว้ 2 นาที — ตอนนี้ทั้งการบันทึกจากหน้าเว็บและการแก้ในชีทตรงๆ (ตัวดัก onEdit/onChange)
+ * ส่งเข้า Supabase ภายในไม่กี่วินาทีแล้ว (เดิม 20 นาที เผื่อรอบซิงก์ 15 นาที ทำให้ทั้งไฟล์ช้าไปนาน)
  * กันทั้งไฟล์ ไม่ใช่เฉพาะแท็บ เพราะบางคำสั่ง (เช่น แยกแท็บตามปี) กระทบหลายแท็บพร้อมกัน
  */
-const SUPABASE_STALE_GUARD_MS = 20 * 60 * 1000;
+const SUPABASE_STALE_GUARD_MS = 2 * 60 * 1000;
 const supaStaleBooks_ = new Map(); // ชื่อไฟล์ -> เวลาที่หมดระยะกัน
 
 function markBookRecentlyEdited_(book) {
@@ -3855,11 +3856,11 @@ async function openCaseModal(target) {
   setCaseModalStatus('กำลังโหลดรายละเอียด...', null);
   caseModal.hidden = false;
 
-  // 1) ข้อมูลเคสจาก Supabase แสดงทันที (เสี้ยววินาที)
-  // ไฟล์ที่เพิ่งแก้แล้วส่งเข้า Supabase ไม่สำเร็จ ข้ามขั้นนี้ไปใช้ข้อมูลจากชีทอย่างเดียว กันเห็นค่าเก่า
+  // 1) ข้อมูลเคสจาก Supabase แสดงทันที (เสี้ยววินาที) — ทุกกรณี รวมถึงไฟล์ที่เพิ่งแก้
+  // ข้อมูลจากชีท (ของจริงล่าสุด) จะมาวาดทับในขั้นที่ 2 อยู่แล้ว ถ้าค่าเพิ่งเปลี่ยนก็เห็นค่าใหม่ในไม่กี่วินาที
+  // (เดิมข้ามขั้นนี้ถ้าไฟล์เพิ่งถูกแก้ ทำให้ต้องรอ Apps Script อ่านทั้ง Log ก่อนเห็นอะไรเลย)
   let shownFast = false;
-  if (typeof supaCaseFields === 'function' && typeof supaReady === 'function' && supaReady() &&
-      !bookRecentlyEdited_(target.book)) {
+  if (typeof supaCaseFields === 'function' && typeof supaReady === 'function' && supaReady()) {
     try {
       const fields = await supaCaseFields(target.book, target.sheet, target.row);
       if (caseModalTarget !== target) return; // ผู้ใช้ปิดหรือเปิดเคสอื่นไปแล้ว
