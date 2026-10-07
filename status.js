@@ -557,10 +557,57 @@ async function openCaseModal(target) {
  * ต้องให้เหมือนกับ buildCaseFieldsTable_ ใน script.js เพื่อให้ 2 หน้าหน้าตาตรงกัน
  */
 function buildCaseFieldsTable(fields) {
-  return '<table class="case-fields"><tbody>' + (fields || []).map(f =>
-    `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${buildDetailValueHtml(f.value)}</td></tr>`
-  ).join('') + '</tbody></table>';
+  return '<table class="case-fields"><tbody>' + (fields || []).map(f => {
+    const value = (f.value || '').toString().trim();
+    // ปุ่มคัดลอก EXE ID เหมือนหน้าต่างรายละเอียดเคสของหน้าหลัก
+    const copy = (value && isExeIdHeader_(f.name))
+      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="คัดลอก" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
+      : '';
+    return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${buildDetailValueHtml(f.value)}${copy}</td></tr>`;
+  }).join('') + '</tbody></table>';
 }
+
+/* ===== ปุ่มคัดลอก (สำเนาจาก script.js ให้หน้านี้ทำงานได้ด้วยตัวเอง) ===== */
+function isExeIdHeader_(name) {
+  return /exe\s*[_-]?\s*id/i.test((name || '').toString());
+}
+function escapeAttr_(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+async function copyText_(text, btn) {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    ta.remove();
+  }
+  btn.textContent = ok ? '✓' : '!';
+  btn.title = ok ? 'คัดลอกแล้ว' : 'คัดลอกไม่สำเร็จ';
+  btn.classList.toggle('copy-btn--done', ok);
+  btn.classList.toggle('copy-btn--fail', !ok);
+  clearTimeout(btn._copyTimer);
+  btn._copyTimer = setTimeout(() => {
+    btn.textContent = '⧉';
+    btn.title = 'คัดลอก';
+    btn.classList.remove('copy-btn--done', 'copy-btn--fail');
+  }, 1200);
+}
+// ผูกครั้งเดียวที่กล่องข้อมูลเคส ใช้ได้กับทุกเคสทุกสถานะ (เนื้อหาข้างในถูกวาดใหม่ทุกครั้งที่เปิด)
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('#caseModalFields .copy-btn[data-copy]');
+  if (!btn) return;
+  e.stopPropagation();
+  copyText_(btn.dataset.copy, btn);
+});
 
 /** ค่าที่เป็น URL ให้กดเปิดได้เลย */
 function buildDetailValueHtml(value) {
