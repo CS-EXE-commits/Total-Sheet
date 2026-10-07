@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-0945';
+const APP_VERSION = '20261007-1000';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2734,7 +2734,51 @@ function buildFieldInput(header, idPrefix) {
   inputEl.type = isDateColumn ? 'date' : 'text';
   inputEl.id = `${prefix}${header.name}`;
   inputEl.dataset.header = header.name;
+  if (isExeIdHeader_(header.name)) restrictToEnglish_(inputEl);
   return inputEl;
+}
+
+/**
+ * ช่อง EXE ID พิมพ์ได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข และสัญลักษณ์บนแป้นพิมพ์อังกฤษเท่านั้น
+ *
+ * EXE ID เป็นรหัสบัญชีในระบบเกม ถ้าเผลอพิมพ์ตอนแป้นยังเป็นภาษาไทย (เช่น "flukeksnc" กลายเป็น "ดสีา...")
+ * จะได้ค่าที่ค้นหาในระบบเกมไม่เจอ และค้นในเว็บนี้ก็ไม่เจอด้วย
+ *
+ * ตัดทิ้งตอนพิมพ์และตอนวาง (ใช้เหตุการณ์ input ซึ่งครอบคลุมทั้งสองแบบ)
+ * แล้วขึ้นข้อความเตือนสั้นๆ ใต้ช่อง ให้รู้ว่าแป้นพิมพ์ยังเป็นภาษาอื่นอยู่ ไม่ใช่ช่องเสีย
+ */
+function restrictToEnglish_(inputEl) {
+  inputEl.setAttribute('lang', 'en');
+  inputEl.setAttribute('autocomplete', 'off');
+  inputEl.setAttribute('autocapitalize', 'off');
+  inputEl.setAttribute('spellcheck', 'false');
+  inputEl.setAttribute('inputmode', 'latin');
+  inputEl.placeholder = 'ภาษาอังกฤษ ตัวเลข และสัญลักษณ์เท่านั้น';
+
+  let warn = null;
+  let warnTimer = null;
+  inputEl.addEventListener('input', () => {
+    const before = inputEl.value;
+    const after = before.replace(/[^\x20-\x7E]/g, ''); // อนุญาตเฉพาะตัวอักษรที่พิมพ์ได้บนแป้นภาษาอังกฤษ
+    if (after === before) return;
+
+    // ตัดออกแล้วให้เคอร์เซอร์อยู่ตำแหน่งเดิม ไม่เด้งไปท้ายข้อความ
+    const caret = inputEl.selectionStart || after.length;
+    const removedBeforeCaret = before.slice(0, caret).length - before.slice(0, caret).replace(/[^\x20-\x7E]/g, '').length;
+    inputEl.value = after;
+    const pos = Math.max(0, caret - removedBeforeCaret);
+    try { inputEl.setSelectionRange(pos, pos); } catch (e) { /* บางชนิดช่องไม่รองรับ ไม่เป็นไร */ }
+
+    if (!warn) {
+      warn = document.createElement('p');
+      warn.className = 'field-warn';
+      inputEl.insertAdjacentElement('afterend', warn);
+    }
+    warn.textContent = 'EXE ID พิมพ์ได้เฉพาะภาษาอังกฤษ — กรุณาเปลี่ยนแป้นพิมพ์เป็นภาษาอังกฤษ';
+    warn.hidden = false;
+    clearTimeout(warnTimer);
+    warnTimer = setTimeout(() => { if (warn) warn.hidden = true; }, 3000);
+  });
 }
 
 /* ===== เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถว (ใช้ทั้งตอนเพิ่มข้อมูลและแก้ไขข้อมูล) ===== */

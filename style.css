@@ -2911,3 +2911,12 @@ th.data-table__ticket-col {
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
+
+/* ข้อความเตือนใต้ช่องกรอก (เช่น EXE ID พิมพ์ภาษาไทย) */
+.field-warn {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+.field-warn[hidden] { display: none; }
