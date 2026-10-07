@@ -2885,3 +2885,23 @@ th.data-table__ticket-col {
 .toast--pending { border-left-color: var(--color-text-muted); }
 .toast--success { border-left-color: var(--color-accent); }
 .toast--error   { border-left-color: var(--color-danger); color: var(--color-danger); }
+
+/* ===== ถังขยะรวม (ข้อมูลที่ลบ + ไฟล์ที่เอาออก) ===== */
+.topmenu__panel--trash { width: 380px; }
+.trash-section__title {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.trash-section__title + .trash-list { margin-bottom: 4px; }
+#bookTrashPanel .trash-list { max-height: 30vh; overflow-y: auto; }
+.trash-item__where {
+  margin-bottom: 2px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-accent);
+}

@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-0900';
+const APP_VERSION = '20261007-0910';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -107,8 +107,10 @@ const managePanel = document.getElementById('managePanel');
 const manageChips = document.getElementById('manageChips');
 const manageStatus = document.getElementById('manageStatus');
 
-const trashToggle = document.getElementById('trashToggle');
-const trashPanel = document.getElementById('trashPanel');
+// ปุ่มถังขยะแยกของแต่ละไฟล์ถูกเอาออกแล้ว (รวมเข้าถังขยะไฟล์มุมขวาบน)
+// คงตัวแปรไว้เป็นของเปล่า เพื่อให้โค้ดเดิมที่สั่งปิด/รีเซ็ตปุ่มนี้ทำงานต่อได้โดยไม่พัง
+const trashToggle = document.getElementById('trashToggle') || document.createElement('button');
+const trashPanel = document.getElementById('trashPanel') || document.createElement('section');
 const trashList = document.getElementById('trashList');
 const trashStatus = document.getElementById('trashStatus');
 
@@ -1874,7 +1876,95 @@ bookTrashToggle.addEventListener('click', () => {
   if (!isOpen) loadBookTrash();
 });
 
+const dataTrashList = document.getElementById('dataTrashList');
+const dataTrashStatus = document.getElementById('dataTrashStatus');
+
+function setDataTrashStatus(message, type) {
+  if (!dataTrashStatus) return;
+  dataTrashStatus.textContent = message;
+  dataTrashStatus.className = 'sidebar-panel__status' + (type ? ` sidebar-panel__status--${type}` : '');
+}
+
+/**
+ * ข้อมูลที่ลบ (แถว/คอลัมน์) ของ "ทุกไฟล์" รวมไว้ที่เดียว
+ * แต่ละไฟล์เก็บถังขยะของตัวเองไว้ในแท็บซ่อน _Trash จึงต้องถามทีละไฟล์ (ยิงพร้อมกัน)
+ * ไฟล์ที่เปิดอยู่ขึ้นก่อน เพราะเป็นไฟล์ที่ผู้ใช้น่าจะเพิ่งลบของไป
+ */
+async function loadDataTrash() {
+  if (!dataTrashList) return;
+  dataTrashList.innerHTML = '';
+  const books = [];
+  (knownFolders || []).forEach(f => (f.books || []).forEach(b => { if (books.indexOf(b) === -1) books.push(b); }));
+  if (currentBook && books.indexOf(currentBook) > 0) {
+    books.splice(books.indexOf(currentBook), 1);
+    books.unshift(currentBook);
+  }
+  if (!books.length) { setDataTrashStatus('ยังไม่มีไฟล์ในระบบ', null); return; }
+
+  setDataTrashStatus('กำลังโหลด...', null);
+  const results = await Promise.all(books.map(book =>
+    jsonpRequest(apiUrl({ action: 'trash', book }))
+      .then(r => ({ book, items: (r && r.ok) ? r.items : [], error: (r && !r.ok) ? r.error : '' }))
+      .catch(err => ({ book, items: [], error: err.message }))
+  ));
+
+  let total = 0;
+  const failed = [];
+  results.forEach(r => {
+    if (r.error) failed.push(r.book);
+    r.items.forEach(item => {
+      item.book = r.book;
+      dataTrashList.appendChild(buildDataTrashRow_(item));
+      total++;
+    });
+  });
+  const failNote = failed.length ? ` (โหลดไม่สำเร็จ: ${failed.join(', ')})` : '';
+  setDataTrashStatus(total === 0 ? 'ยังไม่มีข้อมูลที่ถูกลบ' + failNote : failNote, failed.length ? 'error' : null);
+}
+
+function buildDataTrashRow_(item) {
+  const row = document.createElement('div');
+  row.className = 'trash-item';
+  const typeLabel = item.type === 'row' ? 'ลบแถว' : 'ลบคอลัมน์';
+  row.innerHTML = `
+    <div class="trash-item__info">
+      <div class="trash-item__meta">${escapeHtml(typeLabel)} · ${escapeHtml(formatDateTime(item.deletedAt))}</div>
+      <div class="trash-item__where">📄 ${escapeHtml(item.book)} · ${escapeHtml(item.sheetName)}</div>
+      <div class="trash-item__preview">${escapeHtml(item.preview)}</div>
+    </div>`;
+  const restoreBtn = document.createElement('button');
+  restoreBtn.type = 'button';
+  restoreBtn.className = 'trash-item__restore';
+  restoreBtn.textContent = 'กู้คืน';
+  restoreBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    restoreDataTrashItem_(item, row, restoreBtn);
+  });
+  row.appendChild(restoreBtn);
+  return row;
+}
+
+async function restoreDataTrashItem_(item, rowEl, buttonEl) {
+  buttonEl.disabled = true;
+  buttonEl.textContent = 'กำลังกู้คืน...';
+  try {
+    // ต้องส่งไฟล์ของรายการนั้นเอง ไม่ใช่ไฟล์ที่เปิดอยู่ เพราะถังขยะรวมรายการของทุกไฟล์
+    const result = await jsonpRequest(apiUrl({ action: 'restore', book: item.book, id: item.id }));
+    if (!result.ok) throw new Error(result.error || 'กู้คืนไม่สำเร็จ');
+    rowEl.remove();
+    setDataTrashStatus(result.message, 'success');
+    if (item.book === currentBook && selectedSheet === item.sheetName) {
+      await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    }
+  } catch (err) {
+    setDataTrashStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    buttonEl.disabled = false;
+    buttonEl.textContent = 'กู้คืน';
+  }
+}
+
 async function loadBookTrash() {
+  loadDataTrash();
   bookTrashList.innerHTML = '';
   setBookTrashStatus('กำลังโหลด...', null);
   try {
@@ -3129,8 +3219,13 @@ function renderReportStatusList(result) {
  * เพราะถ้ากรองแค่แท็บเดียว วันที่ไปแก้งานอยู่แท็บอื่น ช่องนี้จะว่างเหมือนไม่มีใครทำอะไรเลย
  * (ตัวเลขสรุปด้านบนยังเป็นของแท็บที่เปิดอยู่เหมือนเดิม)
  */
+// การเข้า/ออกจากระบบไม่ใช่การแก้ไขข้อมูล ไม่ต้องแสดงในประวัติการแก้ไข
+// (ยังดูได้ครบในหน้าตรวจสอบการใช้งาน และตาราง login_history ใน Supabase)
+const NON_EDIT_ACTIONS = ['เข้าสู่ระบบ', 'ออกจากระบบ'];
+
 function renderReportLogList(result) {
-  const events = result.recentAll || result.recentToday || [];
+  const events = (result.recentAll || result.recentToday || [])
+    .filter(item => NON_EDIT_ACTIONS.indexOf((item.action || '').trim()) === -1);
   if (events.length === 0) {
     reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในไฟล์ใดเลย</p>';
     return;
