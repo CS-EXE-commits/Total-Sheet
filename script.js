@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1235';
+const APP_VERSION = '20261007-1340';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -438,12 +438,6 @@ function buildSingleRow(row) {
       } else {
         td.innerHTML = highlightMatch(cellValue, lastKeyword);
       }
-    } else if (isExeIdHeader_(h) && cellValue.trim()) {
-      // EXE ID ต้องคัดลอกไปใช้ต่อบ่อย (ค้นในระบบเกม แจ้งทีมอื่น) จึงมีปุ่มคัดลอกเล็กๆ ต่อท้าย
-      td.className = 'cell-with-copy';
-      const text = document.createElement('span');
-      text.innerHTML = highlightMatch(cellValue, lastKeyword);
-      td.append(text, createCopyButton_(cellValue.trim()));
     } else {
       td.innerHTML = highlightMatch(cellValue, lastKeyword);
     }
