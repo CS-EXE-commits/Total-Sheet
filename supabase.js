@@ -660,6 +660,142 @@ async function supaSelfTest() {
   }
 }
 
+/* ===== หน้ารายละเอียดตามสถานะ (status.html) =====
+ *
+ * เดิม Apps Script ต้องเปิดไล่อ่านทุกไฟล์ทุกแท็บเพื่อนับสถานะ แล้วเปิดอ่านทั้งแท็บอีกรอบเพื่อหาเคส
+ * ใช้เวลาหลายวินาทีถึงหลายสิบวินาที ตอนนี้ถามฐานข้อมูลที่มีดัชนีตามสถานะอยู่แล้ว
+ *
+ * ทุกฟังก์ชันคืนรูปแบบเดียวกับ Apps Script เป๊ะ status.js จึงไม่ต้องแก้วิธีแสดงผล
+ * นับเฉพาะแท็บที่ "มีคอลัมน์สถานะ" เหมือน Apps Script ไม่งั้นแท็บที่ไม่มีคอลัมน์นี้
+ * จะถูกนับเป็น "ตรวจสอบสถานะ" ทั้งแท็บ แล้วตัวเลขจะไม่ตรงกับหน้าหลัก
+ */
+
+function supaStatusKey_(status) {
+  const s = (status || '').toString().trim();
+  return s || NO_STATUS_LABEL_CLIENT;
+}
+
+/** แท็บไหนมีคอลัมน์สถานะบ้าง (คีย์: ไฟล์ + แท็บ) */
+async function supaStatusSheets_() {
+  await supaLoadAllMeta();
+  const map = {};
+  supaMetaCache_.forEach(meta => {
+    if (meta.status_header) map[meta.book + '\u0000' + meta.sheet] = meta;
+  });
+  return map;
+}
+
+/** อ่านยอดนับสถานะทุกแท็บทั้งระบบ (จากวิว sheet_status_tally) */
+async function supaAllStatusTally_() {
+  const res = await supaSelect_('/sheet_status_tally?select=book,sheet,status,count');
+  const rows = await res.json();
+  const withStatus = await supaStatusSheets_();
+  return rows.filter(r => withStatus[r.book + '\u0000' + r.sheet]);
+}
+
+/** แทน action 'globalDashboard' สำหรับแถบรายชื่อสถานะด้านซ้าย (ใช้แค่ statusBreakdown) */
+async function supaStatusBreakdown() {
+  const rows = await supaAllStatusTally_();
+  const tally = {};
+  rows.forEach(r => {
+    const key = supaStatusKey_(r.status);
+    tally[key] = (tally[key] || 0) + Number(r.count || 0);
+  });
+  const statusBreakdown = Object.keys(tally)
+    .map(status => ({ status: status, count: tally[status] }))
+    .sort((a, b) => b.count - a.count);
+  return { ok: true, statusBreakdown: statusBreakdown, source: 'supabase' };
+}
+
+/** แทน action 'statusSummary' — สถานะนี้อยู่ที่ไฟล์/แท็บไหนบ้าง กี่เคส */
+async function supaStatusSummary(status) {
+  const target = (status || '').toString().trim();
+  if (!target) throw new Error('กรุณาระบุสถานะที่ต้องการดู');
+  const rows = await supaAllStatusTally_();
+  const groups = [];
+  let total = 0;
+  rows.forEach(r => {
+    if (supaStatusKey_(r.status) !== target) return;
+    const count = Number(r.count || 0);
+    if (count <= 0) return;
+    groups.push({ book: r.book, sheet: r.sheet, count: count });
+    total += count;
+  });
+  groups.sort((a, b) => b.count - a.count);
+  return { ok: true, status: target, total: total, groups: groups, source: 'supabase' };
+}
+
+// ต้องตรงกับ pickListColumns_ ใน Code.gs (คอลัมน์ที่ตารางแสดง: วันที่ / EXE ID / Ticket)
+function supaPickListColumns_(headers) {
+  const picked = [];
+  (headers || []).forEach((name, index) => {
+    const h = (name || '').toString().trim();
+    if (!h) return;
+    const isDate = /วันที่|วัน\s*เดือน|^date$|_date$|^date\b/i.test(h) || h.toLowerCase() === 'date';
+    const isExeId = /exe\s*[_-]?\s*id/i.test(h);
+    const isTicket = /ticket/i.test(h);
+    if (isDate || isExeId || isTicket) picked.push(index);
+  });
+  return picked;
+}
+
+const SUPA_STATUS_ROWS_LIMIT = 2000; // ต้องเท่ากับ STATUS_ROWS_LIMIT ใน Code.gs
+
+/**
+ * แทน action 'statusRows' — เคสทุกคอลัมน์ของสถานะนี้ในแท็บเดียว
+ *
+ * ส่งครบทุกคอลัมน์ (ไม่ตัด) เพราะปุ่มดาวน์โหลด Excel ของหน้านี้ใช้ข้อมูลชุดนี้ตรงๆ
+ * หัวตารางเป็นเฉพาะคอลัมน์ที่มีชื่อ เรียงตามชีท (เหมือน getHeaderMap_ ฝั่ง Apps Script)
+ * คีย์ของลิงก์คือตำแหน่งในรายการหัวตารางชุดนี้ ไม่ใช่เลขคอลัมน์จริงในชีท
+ */
+async function supaStatusRows(status, book, sheet) {
+  const target = (status || '').toString().trim();
+  if (!target) throw new Error('กรุณาระบุสถานะที่ต้องการดู');
+  const meta = await supaSheetMeta_(book, sheet);
+  if (!meta.status_header) throw new Error(`แท็บ "${sheet}" ไม่มีคอลัมน์สถานะ`);
+
+  const headers = [];
+  meta.headers.forEach(name => {
+    const n = (name || '').toString().trim();
+    if (n && headers.indexOf(n) === -1) headers.push(n);
+  });
+
+  let query = '/sheet_rows?select=row_index,data,links' +
+    '&book=eq.' + encodeURIComponent(meta.book) +
+    '&sheet=eq.' + encodeURIComponent(meta.sheet);
+  query += target === NO_STATUS_LABEL_CLIENT
+    ? '&or=(status.is.null,status.eq.)'
+    : '&status=eq.' + encodeURIComponent(target);
+  query += '&order=row_index.asc&limit=' + SUPA_STATUS_ROWS_LIMIT;
+
+  const res = await supaSelect_(query, { Prefer: 'count=exact' });
+  const data = await res.json();
+  const matched = supaParseContentRange_(res.headers.get('content-range'), data.length, 0);
+
+  const rows = data.map(r => {
+    const d = r.data || {};
+    const item = { row: r.row_index, cells: headers.map(n => (d[n] === null || d[n] === undefined) ? '' : String(d[n])) };
+    const links = {};
+    headers.forEach((n, j) => { if (r.links && r.links[n]) links[j] = r.links[n]; });
+    if (Object.keys(links).length) item.links = links;
+    return item;
+  });
+
+  const listColumns = supaPickListColumns_(headers);
+  return {
+    ok: true,
+    book: meta.book,
+    sheet: meta.sheet,
+    status: target,
+    headers: headers,
+    listColumns: listColumns.length ? listColumns : null,
+    rows: rows,
+    matched: matched,
+    truncated: matched > rows.length,
+    source: 'supabase'
+  };
+}
+
 // ต้องตรงกับค่า NO_STATUS_LABEL ใน Code.gs เป๊ะ
 // เป็นทั้งป้ายที่แสดงและคีย์ที่ใช้ค้นต่อ ถ้าไม่ตรงกัน กดจากหน้าสรุปแล้วจะค้นไม่เจอ
 const NO_STATUS_LABEL_CLIENT = 'ตรวจสอบสถานะ';

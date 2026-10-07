@@ -31,7 +31,44 @@ let loadSeq = 0;
 
 /* ===== เครื่องมือกลาง (สำเนาแบบย่อจาก script.js ให้หน้านี้ทำงานได้ด้วยตัวเอง) ===== */
 
-function jsonpRequest(url, timeoutMs) {
+/* ===== อ่านจาก Supabase แทน Apps Script (เร็วกว่าหลายเท่า) =====
+ * ถ้า Supabase ใช้ไม่ได้ด้วยเหตุใดก็ตาม จะถอยไปยิง Apps Script เส้นเดิมให้อัตโนมัติ
+ * หน้านี้ไม่มีปุ่มล็อกอินของตัวเอง จึงใช้ตั๋ว Supabase ที่หน้าหลักจำไว้ให้ (localStorage)
+ */
+let supaSessionTask_ = null;
+function ensureSupaOnStatusPage_() {
+  if (typeof supaRestoreSession !== 'function') return Promise.resolve(false);
+  if (!supaSessionTask_) {
+    supaSessionTask_ = supaRestoreSession().then(() => supaReady()).catch(() => false);
+  }
+  // รอได้ไม่เกิน 2.5 วินาที เกินกว่านั้นใช้ Apps Script ไปก่อน ไม่ให้หน้าค้าง
+  return Promise.race([supaSessionTask_, new Promise(r => setTimeout(() => r(false), 2500))]);
+}
+
+async function serveStatusFromSupabase_(action, url) {
+  const p = new URL(url).searchParams;
+  if (action === 'globalDashboard') return await supaStatusBreakdown();
+  if (action === 'statusSummary') return await supaStatusSummary(p.get('status'));
+  if (action === 'statusRows') return await supaStatusRows(p.get('status'), p.get('book'), p.get('sheet'));
+  throw new Error('ไม่รู้จักคำสั่ง ' + action);
+}
+
+const STATUS_SUPABASE_ACTIONS = ['globalDashboard', 'statusSummary', 'statusRows'];
+
+async function jsonpRequest(url, timeoutMs) {
+  const m = /[?&]action=([^&]*)/.exec(url);
+  const action = m ? decodeURIComponent(m[1]) : '';
+  if (STATUS_SUPABASE_ACTIONS.indexOf(action) !== -1 && await ensureSupaOnStatusPage_()) {
+    try {
+      return await serveStatusFromSupabase_(action, url);
+    } catch (err) {
+      console.warn('[Supabase] ดึงข้อมูลไม่สำเร็จ ถอยไปใช้ Apps Script:', err.message);
+    }
+  }
+  return jsonpRequestRaw_(url, timeoutMs);
+}
+
+function jsonpRequestRaw_(url, timeoutMs) {
   return new Promise((resolve, reject) => {
     const callbackName = `statusCallback_${Date.now()}_${jsonpCounter++}`;
     const script = document.createElement('script');
@@ -215,13 +252,23 @@ async function loadStatus(status, pushUrl) {
     // ไล่ขอรายการเคสทีละแท็บ แล้วแสดงผลทันทีที่ได้มา ไม่ต้องรอให้ครบทุกแท็บก่อน
     // (ถ้าขอทีเดียวทั้งหมด สถานะที่มีหลายพันเคสจะตอบกลับเป็นก้อนใหญ่มากจนช้าหรือพัง)
     detailSection.hidden = false;
+    // ยิงขอทุกแท็บพร้อมกันตั้งแต่แรก แล้วค่อยวาดตามลำดับทีละแท็บ
+    // เดิมขอทีละแท็บรอให้เสร็จก่อนค่อยขอแท็บถัดไป สถานะที่กระจายอยู่ 10 แท็บต้องรอ 10 รอบเต็มๆ
+    // ลำดับการวาดยังเหมือนเดิม (มากไปน้อย) ลิงก์วาร์ปไปแต่ละกลุ่มจึงยังตรงตำแหน่ง
+    // แต่ถ้าใช้ Supabase ไม่ได้ (ถอยไปใช้ Apps Script) ต้องกลับไปขอทีละแท็บเหมือนเดิม
+    // เพราะ Apps Script รับงานพร้อมกันได้น้อย ยิงพร้อมกันหลายแท็บจะยิ่งช้าและหมดเวลา
+    const fetchGroup = group => jsonpRequest(apiUrl({
+      action: 'statusRows', status, book: group.book, sheet: group.sheet
+    })).then(r => ({ r }), e => ({ e }));
+    const parallel = await ensureSupaOnStatusPage_();
+    const pending = summary.groups.map(group => parallel ? fetchGroup(group) : null);
     for (let i = 0; i < summary.groups.length; i++) {
       const group = summary.groups[i];
       setPageStatus(`กำลังโหลดรายการเคส ${i + 1}/${summary.groups.length} — ${group.book} · ${group.sheet}`, null);
       try {
-        const result = await jsonpRequest(apiUrl({
-          action: 'statusRows', status, book: group.book, sheet: group.sheet
-        }));
+        const got = await (pending[i] || fetchGroup(group));
+        if (got.e) throw got.e;
+        const result = got.r;
         if (requestId !== loadSeq) return;
         if (!result.ok) throw new Error(result.error || 'โหลดไม่สำเร็จ');
         loadedGroups.push(Object.assign({ count: group.count }, result));
