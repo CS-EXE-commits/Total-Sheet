@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1520';
+const APP_VERSION = '20261007-1600';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -745,34 +745,94 @@ document.addEventListener('DOMContentLoaded', () => {
   // ไว้ใช้ตอนล็อกอินครั้งแรก หรือตอน trySessionRestore ด้านบนล้มเหลว (เช่นอีเมลถูกถอนสิทธิ์ไปแล้ว)
 });
 
-/** เช็คอีเมลที่เคยล็อกอินไว้ (จำใน localStorage) กับรายชื่อที่อนุญาตอีกครั้งตอนรีเฟรชหน้าเว็บ โดยไม่ต้องกดปุ่ม Google ซ้ำ */
-async function trySessionRestore(token) {
-  setLoginStatus('กำลังเข้าสู่ระบบ...', null);
+/**
+ * รายชื่อโฟลเดอร์/ไฟล์ล่าสุด จำไว้ในเบราว์เซอร์ (มีแค่ชื่อไฟล์ ไม่มีข้อมูลเคส)
+ * ใช้ตอนรีเฟรชหน้าเว็บ: วาดแถบโฟลเดอร์และเปิดไฟล์ล่าสุดได้ทันที ไม่ต้องรอ Apps Script 2 รอบ
+ * ล้างทิ้งตอนออกจากระบบ
+ */
+const FOLDERS_CACHE_KEY = 'sheetSearchFoldersCache';
+function saveFoldersCache_(folders, books) {
   try {
-    const result = await jsonpRequest(rawApiUrl({ action: 'session', token }));
-    if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    localStorage.setItem(FOLDERS_CACHE_KEY, JSON.stringify({ folders, books, email: currentUserEmail || '' }));
+  } catch (e) { /* ไม่เป็นไร */ }
+}
+function readFoldersCache_() {
+  try {
+    const c = JSON.parse(localStorage.getItem(FOLDERS_CACHE_KEY) || 'null');
+    return (c && Array.isArray(c.folders) && c.folders.length && Array.isArray(c.books)) ? c : null;
+  } catch (e) { return null; }
+}
 
-    currentSessionToken = token;
-    currentUserEmail = result.email;
+/**
+ * รีเฟรชหน้าเว็บ: เข้าสู่ระบบด้วยตั๋วที่จำไว้
+ *
+ * ถ้ามีรายชื่อโฟลเดอร์ที่จำไว้ → แสดงหน้าเว็บ + เปิดไฟล์/แท็บล่าสุดทันที (ข้อมูลตารางมาจาก Supabase)
+ * แล้วค่อยตรวจตั๋วกับ Apps Script เบื้องหลัง ถ้าตั๋วใช้ไม่ได้แล้วค่อยเด้งกลับหน้าล็อกอิน
+ * ตรวจตั๋ว + โหลดรายชื่อไฟล์ + เชื่อม Supabase ยิงพร้อมกันทั้งหมด ไม่รอกันเป็นทอดๆ
+ */
+async function trySessionRestore(token) {
+  currentSessionToken = token;
+  const cached = readFoldersCache_();
+  const supaTask = ensureSupabaseSession_();
+  const sessionTask = jsonpRequest(rawApiUrl({ action: 'session', token }));
+  sessionTask.catch(() => {}); // กัน unhandled rejection ระหว่างที่ยังไม่ได้ await
+  let booksTask = null;
+
+  if (cached) {
     loginModal.hidden = true;
     topbarAccount.hidden = false;
-    setTopbarAccountEmail(currentUserEmail);
-    setAdminLinkVisible(result.isAdmin);
+    if (cached.email) { currentUserEmail = cached.email; setTopbarAccountEmail(cached.email); }
     appLayout.hidden = false;
-    setLoginStatus('', null);
-    const supaTask = ensureSupabaseSession_();
-    const books = await loadBooks();
+    renderFolderBar(cached.folders);
     await waitForSupabaseOrGiveUp_(supaTask);
-    restoreLastView(books);
-    initGlobalDashboard();
-    loadDailyReport();
+    restoreLastView(cached.books);
+  } else {
+    setLoginStatus('กำลังเข้าสู่ระบบ...', null);
+    booksTask = loadBooks(); // ยิงพร้อมกับตรวจตั๋ว ไม่ต้องรอกัน
+  }
+
+  let result;
+  try {
+    result = await sessionTask;
   } catch (err) {
-    // อีเมลนี้อาจถูกถอนสิทธิ์ไปแล้ว หรือ session เก่าใช้ไม่ได้แล้ว ให้กลับไปหน้าล็อกอินด้วย Google ปกติ
+    if (cached) {
+      // เน็ตสะดุดชั่วคราว ตั๋วอาจยังดีอยู่ — ใช้งานต่อได้ ไม่เด้งผู้ใช้ออก
+      console.warn('[หน้าเว็บ] ตรวจตั๋วไม่สำเร็จ (จะลองใหม่รอบหน้า):', err.message);
+      loadBooks(); initGlobalDashboard(); loadDailyReport();
+      return;
+    }
+    result = { ok: false };
+  }
+
+  if (!result || !result.ok) {
+    // ตั๋วหมดอายุหรือถูกถอนสิทธิ์ → ออกจากระบบให้สะอาด แล้วกลับหน้าล็อกอิน
+    if (cached) { logoutButton.click(); return; }
     localStorage.removeItem('sheetSearchToken');
     currentSessionToken = '';
     loginModal.hidden = false;
     setLoginStatus('', null);
+    return;
   }
+
+  currentUserEmail = result.email;
+  loginModal.hidden = true;
+  topbarAccount.hidden = false;
+  setTopbarAccountEmail(currentUserEmail);
+  setAdminLinkVisible(result.isAdmin);
+  appLayout.hidden = false;
+  setLoginStatus('', null);
+
+  if (cached) {
+    // อัปเดตรายชื่อไฟล์ เผื่อมีไฟล์เพิ่ม/เปลี่ยนชื่อ (Apps Script ใหม่แนบมากับ session แล้ว)
+    if (Array.isArray(result.folders) && result.folders.length) applyBooksResult_(result);
+    else loadBooks();
+  } else {
+    const books = await booksTask;
+    await waitForSupabaseOrGiveUp_(supaTask);
+    restoreLastView(books);
+  }
+  initGlobalDashboard();
+  loadDailyReport();
 }
 
 /* ===== เข้าสู่ระบบ / ออกจากระบบ ด้วย Google Sign-In จริง ===== */
@@ -871,7 +931,10 @@ async function tryLoginGoogle(idToken) {
     // แลก ID token ใบเดียวกันเป็นตั๋วของ Supabase ผู้ใช้ไม่ต้องกดล็อกอินเพิ่ม
     // ยิงคู่ขนานไปกับการโหลดรายชื่อไฟล์ ไม่ใช่รอให้เสร็จก่อน (ดู waitForSupabaseOrGiveUp_)
     const supaTask = ensureSupabaseSession_(idToken, result.email);
-    const books = await loadBooks();
+    // Apps Script เวอร์ชันใหม่แนบรายชื่อไฟล์มากับผลล็อกอินแล้ว ไม่ต้องรอขออีกรอบ
+    const books = Array.isArray(result.folders) && result.folders.length
+      ? applyBooksResult_(result)
+      : await loadBooks();
     await waitForSupabaseOrGiveUp_(supaTask);
     restoreLastView(books);
     initGlobalDashboard();
@@ -897,6 +960,11 @@ logoutButton.addEventListener('click', () => {
       .catch(() => { /* บันทึกไม่ได้ก็ไม่ควรขวางการออกจากระบบ */ });
   }
   localStorage.removeItem('sheetSearchToken');
+  localStorage.removeItem(FOLDERS_CACHE_KEY);
+  // ล้างรายการถังขยะที่โหลดค้างไว้ (มีตัวอย่างข้อมูลที่ถูกลบ) ไม่ให้คนถัดไปเห็น
+  if (dataTrashList) dataTrashList.innerHTML = '';
+  if (bookTrashList) bookTrashList.innerHTML = '';
+  trashPrefetchedAt_ = 0;
   // ต้องล้างตั๋ว Supabase ด้วย ไม่งั้นคนถัดไปที่ใช้เครื่องนี้ยังอ่านข้อมูลจาก Supabase ได้ทั้งที่ออกจากระบบแล้ว
   if (typeof supaClearSession === 'function') supaClearSession();
   if (typeof supaClearMetaCache === 'function') supaClearMetaCache();
@@ -1229,6 +1297,19 @@ function formatDateTime(isoString) {
 
 /* ===== ซ้าย: รายชื่อไฟล์ ===== */
 
+/** วาดแถบโฟลเดอร์จากผลรายชื่อไฟล์ (มาจาก action=books หรือแนบมากับ session/loginGoogle) */
+function applyBooksResult_(result) {
+  booksHint.textContent = '';
+  renderFolderBar(result.folders || []);
+  if (currentBook) markActiveFolderItem(); // วาดแถบใหม่แล้ว ไฮไลต์ไฟล์ที่เปิดอยู่ต่อ
+  saveFoldersCache_(result.folders || [], result.books || []);
+  if (!(result.folders || []).length) {
+    console.warn('[หน้าเว็บ] เซิร์ฟเวอร์ไม่ได้ส่งรายชื่อโฟลเดอร์มา แถบโฟลเดอร์จึงว่าง ' +
+      '— ตรวจค่า BOOK_FOLDERS_JSON ใน Script Properties');
+  }
+  return result.books || [];
+}
+
 async function loadBooks() {
   if (!API_URL || API_URL.includes('วาง_URL')) {
     booksHint.textContent = 'ยังไม่ได้ตั้งค่า API_URL ใน config.js';
@@ -1242,13 +1323,7 @@ async function loadBooks() {
     try {
       const result = await jsonpRequest(apiUrl({ action: 'books' }));
       if (!result.ok) throw new Error(result.error || 'โหลดรายชื่อไฟล์ไม่สำเร็จ');
-      booksHint.textContent = '';
-      renderFolderBar(result.folders || []);
-      if (!(result.folders || []).length) {
-        console.warn('[หน้าเว็บ] เซิร์ฟเวอร์ไม่ได้ส่งรายชื่อโฟลเดอร์มา แถบโฟลเดอร์จึงว่าง ' +
-          '— ตรวจค่า BOOK_FOLDERS_JSON ใน Script Properties');
-      }
-      return result.books;
+      return applyBooksResult_(result);
     } catch (err) {
       console.warn('[หน้าเว็บ] โหลดรายชื่อไฟล์ไม่สำเร็จ (ครั้งที่ ' + attempt + '): ' + err.message);
       if (attempt === 2) {
@@ -1861,6 +1936,14 @@ if (historyToggle) {
 
 /* ===== ถังขยะไฟล์ ===== */
 
+// เอาเมาส์ไปวางที่ปุ่มถังขยะ = เริ่มโหลดรอไว้เลย พอกดเปิดก็เห็นข้อมูลทันที (กันยิงซ้ำภายใน 30 วินาที)
+let trashPrefetchedAt_ = 0;
+bookTrashToggle.addEventListener('mouseenter', () => {
+  if (!currentSessionToken || Date.now() - trashPrefetchedAt_ < 30000) return;
+  trashPrefetchedAt_ = Date.now();
+  loadBookTrash();
+});
+
 bookTrashToggle.addEventListener('click', () => {
   const isOpen = !bookTrashPanel.hidden;
   bookTrashPanel.hidden = isOpen;
@@ -1868,7 +1951,7 @@ bookTrashToggle.addEventListener('click', () => {
   createBookPanel.hidden = true;
   createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
-  if (!isOpen) loadBookTrash();
+  if (!isOpen && Date.now() - trashPrefetchedAt_ > 5000) loadBookTrash();
 });
 
 const dataTrashList = document.getElementById('dataTrashList');
@@ -1887,34 +1970,40 @@ function setDataTrashStatus(message, type) {
  */
 async function loadDataTrash() {
   if (!dataTrashList) return;
-  dataTrashList.innerHTML = '';
   const books = [];
   (knownFolders || []).forEach(f => (f.books || []).forEach(b => { if (books.indexOf(b) === -1) books.push(b); }));
   if (currentBook && books.indexOf(currentBook) > 0) {
     books.splice(books.indexOf(currentBook), 1);
     books.unshift(currentBook);
   }
-  if (!books.length) { setDataTrashStatus('ยังไม่มีไฟล์ในระบบ', null); return; }
+  if (!books.length) { dataTrashList.innerHTML = ''; setDataTrashStatus('ยังไม่มีไฟล์ในระบบ', null); return; }
 
-  setDataTrashStatus('กำลังโหลด...', null);
-  const results = await Promise.all(books.map(book =>
-    jsonpRequest(apiUrl({ action: 'trash', book }))
-      .then(r => ({ book, items: (r && r.ok) ? r.items : [], error: (r && !r.ok) ? r.error : '' }))
-      .catch(err => ({ book, items: [], error: err.message }))
-  ));
-
-  let total = 0;
-  const failed = [];
-  results.forEach(r => {
-    if (r.error) failed.push(r.book);
-    r.items.forEach(item => {
+  // รายการรอบก่อนยังแสดงค้างไว้ระหว่างโหลด (ไม่ล้างเป็นหน้าว่าง) แล้ววาดใหม่ทีละไฟล์ทันทีที่ได้คำตอบ
+  // ไม่รอให้ครบทุกไฟล์ก่อน — ไฟล์ที่ตอบเร็วขึ้นก่อน
+  setDataTrashStatus(dataTrashList.children.length ? 'กำลังอัปเดต...' : 'กำลังโหลด...', null);
+  const results = books.map(book => ({ book, items: null, error: '' }));
+  const redraw = () => {
+    const done = results.filter(r => r.items !== null);
+    if (!done.length) return;
+    dataTrashList.innerHTML = '';
+    let total = 0;
+    done.forEach(r => r.items.forEach(item => {
       item.book = r.book;
       dataTrashList.appendChild(buildDataTrashRow_(item));
       total++;
-    });
-  });
-  const failNote = failed.length ? ` (โหลดไม่สำเร็จ: ${failed.join(', ')})` : '';
-  setDataTrashStatus(total === 0 ? 'ยังไม่มีข้อมูลที่ถูกลบ' + failNote : failNote, failed.length ? 'error' : null);
+    }));
+    const failed = done.filter(r => r.error).map(r => r.book);
+    const pending = results.length - done.length;
+    const failNote = failed.length ? ` (โหลดไม่สำเร็จ: ${failed.join(', ')})` : '';
+    if (pending) setDataTrashStatus(`กำลังโหลดอีก ${pending} ไฟล์...` + failNote, null);
+    else setDataTrashStatus(total === 0 ? 'ยังไม่มีข้อมูลที่ถูกลบ' + failNote : failNote, failed.length ? 'error' : null);
+  };
+  await Promise.all(results.map(r =>
+    jsonpRequest(apiUrl({ action: 'trash', book: r.book }))
+      .then(res => { r.items = (res && res.ok && Array.isArray(res.items)) ? res.items : []; r.error = (res && !res.ok) ? res.error : ''; })
+      .catch(err => { r.items = []; r.error = err.message; })
+      .then(redraw)
+  ));
 }
 
 function buildDataTrashRow_(item) {
@@ -1960,13 +2049,14 @@ async function restoreDataTrashItem_(item, rowEl, buttonEl) {
 
 async function loadBookTrash() {
   loadDataTrash();
-  bookTrashList.innerHTML = '';
-  setBookTrashStatus('กำลังโหลด...', null);
+  // รายการรอบก่อนแสดงค้างไว้ระหว่างโหลด ไม่ล้างเป็นหน้าว่าง
+  setBookTrashStatus(bookTrashList.children.length ? 'กำลังอัปเดต...' : 'กำลังโหลด...', null);
   try {
     const result = await jsonpRequest(apiUrl({ action: 'bookTrash' }));
     if (!result.ok) throw new Error(result.error || 'โหลดถังขยะไฟล์ไม่สำเร็จ');
-    renderBookTrashItems(result.items);
-    setBookTrashStatus(result.items.length === 0 ? 'ยังไม่มีไฟล์ที่ถูกเอาออก' : '', null);
+    const items = Array.isArray(result.items) ? result.items : [];
+    renderBookTrashItems(items);
+    setBookTrashStatus(items.length === 0 ? 'ยังไม่มีไฟล์ที่ถูกเอาออก' : '', null);
   } catch (err) {
     setBookTrashStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
   }
@@ -3301,6 +3391,12 @@ const GLOBAL_DASHBOARD_TIMEOUT_MS = 150000;
 /** เรียกครั้งเดียวตอนล็อกอินสำเร็จ: โหลดข้อมูลทันที แล้วตั้งเวลารีเฟรชอัตโนมัติต่อเนื่อง */
 function initGlobalDashboard() {
   loadGlobalDashboard();
+  // โหลดถังขยะรอไว้เงียบๆ หลังหน้าเว็บพร้อมแล้ว กดเปิดเมื่อไหร่ก็เห็นรายการทันที
+  setTimeout(() => {
+    if (!currentSessionToken || Date.now() - trashPrefetchedAt_ < 30000) return;
+    trashPrefetchedAt_ = Date.now();
+    loadBookTrash();
+  }, 6000);
   if (globalDashboardTimer) clearInterval(globalDashboardTimer);
   globalDashboardTimer = setInterval(loadGlobalDashboard, GLOBAL_DASHBOARD_REFRESH_MS);
 }
@@ -3308,16 +3404,31 @@ function initGlobalDashboard() {
 async function loadGlobalDashboard() {
   if (globalDashboardLoading) return; // รอบก่อนยังโหลดไม่เสร็จ ข้ามรอบนี้ไป ไม่ยิงซ้อน
   globalDashboardLoading = true;
-  // รอบแรกบอกว่ากำลังโหลด รอบถัดๆ ไปบอกว่ากำลังอัปเดต เพื่อให้รู้ว่าตัวเลขที่เห็นอยู่คือค่าก่อนหน้า
-  setDashboardStatus(globalDashboardLoadedOnce ? 'กำลังอัปเดต...' : 'กำลังโหลด... (ครั้งแรกอาจใช้เวลาสักครู่)', null);
+  setDashboardStatus(globalDashboardLoadedOnce ? 'กำลังอัปเดต...' : 'กำลังโหลด...', null);
+
+  // ยอดสถานะทั้งระบบ (การ์ดตรวจสอบสถานะ) อ่านจาก Supabase ได้ทันที ไม่ต้องรอ Apps Script ไล่นับทุกชีท
+  let statusFromSupabase = false;
+  const supaPart = (typeof supaReady === 'function' && supaReady() && typeof supaStatusBreakdown === 'function')
+    ? supaStatusBreakdown().then(r => { renderDashboardStatusList(r); statusFromSupabase = true; })
+        .catch(err => console.warn('[Supabase] นับสถานะไม่สำเร็จ ใช้ Apps Script แทน:', err.message))
+    : Promise.resolve();
+
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), GLOBAL_DASHBOARD_TIMEOUT_MS);
+    // ยิงคู่ขนานกับ Supabase — ถ้า Supabase พร้อม ขอ Apps Script แค่ "เคสวันนี้" (lite) ไม่ต้องไล่นับทุกชีทซ้ำ
+    const useLite = typeof supaReady === 'function' && supaReady();
+    const params = { action: 'globalDashboard' };
+    if (useLite) params.lite = '1';
+    let result = await jsonpRequest(apiUrl(params), GLOBAL_DASHBOARD_TIMEOUT_MS);
     if (!result.ok) throw new Error(result.error || 'โหลดจำนวนงานวันนี้ไม่สำเร็จ');
     dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
     renderDashboardTodayStatus_(result);
-    renderDashboardNewCasesList(result);
-    renderDashboardStatusList(result);
+    await supaPart;
+    if (!statusFromSupabase) {
+      // Supabase ใช้ไม่ได้ และรอบนี้ขอแบบ lite ไป ต้องขอยอดเต็มจาก Apps Script อีกรอบ
+      if (useLite) result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), GLOBAL_DASHBOARD_TIMEOUT_MS);
+      if (result.ok) renderDashboardStatusList(result);
+    }
     globalDashboardLoadedOnce = true;
     setDashboardStatus('', null);
   } catch (err) {

@@ -349,6 +349,7 @@ async function supaSheetMeta_(book, sheet) {
 /** ล้างโครงสร้างที่จำไว้ ต้องเรียกเมื่อมีการเพิ่ม/ลบคอลัมน์ หรือสร้างแท็บใหม่ */
 function supaClearMetaCache() {
   supaMetaCache_.clear();
+  supaTallyMemo_ = null;
   supaMetaLoaded_ = false;   // ต้องโหลดใหม่ ไม่งั้นแท็บ/คอลัมน์ที่เพิ่งเพิ่มจะไม่โผล่
 }
 
@@ -704,25 +705,38 @@ async function supaStatusSheets_() {
 }
 
 /** อ่านยอดนับสถานะทุกแท็บทั้งระบบ (จากวิว sheet_status_tally) */
-async function supaAllStatusTally_() {
-  const res = await supaSelect_('/sheet_status_tally?select=book,sheet,status,count');
-  const rows = await res.json();
-  const withStatus = await supaStatusSheets_();
-  return rows.filter(r => withStatus[r.book + '\u0000' + r.sheet]);
+// ผลนับสถานะใช้ร่วมกันได้ 15 วินาที — แถบสถานะด้านข้างกับสรุปของสถานะที่เลือกขอพร้อมกันตอนเปิดหน้า
+// จะได้ยิงคำขอเดียว ไม่ต้องรอ 2 รอบ
+let supaTallyMemo_ = null;
+function supaAllStatusTally_() {
+  if (supaTallyMemo_ && Date.now() - supaTallyMemo_.at < 15000) return supaTallyMemo_.p;
+  const p = Promise.all([
+    supaSelect_('/sheet_status_tally?select=book,sheet,status,count').then(res => res.json()),
+    supaStatusSheets_()   // ยิงพร้อมกัน ไม่รอกันเป็นทอด
+  ]).then(([rows, withStatus]) => rows.filter(r => withStatus[r.book + '\u0000' + r.sheet]));
+  supaTallyMemo_ = { at: Date.now(), p };
+  p.catch(() => { supaTallyMemo_ = null; });
+  return p;
 }
 
 /** แทน action 'globalDashboard' สำหรับแถบรายชื่อสถานะด้านซ้าย (ใช้แค่ statusBreakdown) */
 async function supaStatusBreakdown() {
   const rows = await supaAllStatusTally_();
   const tally = {};
+  const sheets = {};
+  let totalRows = 0;
   rows.forEach(r => {
     const key = supaStatusKey_(r.status);
-    tally[key] = (tally[key] || 0) + Number(r.count || 0);
+    const n = Number(r.count || 0);
+    tally[key] = (tally[key] || 0) + n;
+    totalRows += n;
+    sheets[r.book + '\u0001' + r.sheet] = true;
   });
   const statusBreakdown = Object.keys(tally)
     .map(status => ({ status: status, count: tally[status] }))
     .sort((a, b) => b.count - a.count);
-  return { ok: true, statusBreakdown: statusBreakdown, source: 'supabase' };
+  return { ok: true, statusBreakdown: statusBreakdown, totalRows: totalRows,
+    sheetsScanned: Object.keys(sheets).length, source: 'supabase' };
 }
 
 /** แทน action 'statusSummary' — สถานะนี้อยู่ที่ไฟล์/แท็บไหนบ้าง กี่เคส */
