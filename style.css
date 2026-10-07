@@ -2961,15 +2961,16 @@ th.data-table__ticket-col {
   color: var(--color-text-muted);
 }
 
-/* ===== จำนวนงานวันนี้: กลุ่มตามสถานะ (เฉพาะที่มีเคส) + เคสพร้อมวันเวลา ===== */
-.today-work { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
-.today-work__group { border: 1px solid var(--border, rgba(255,255,255,.08)); border-radius: 10px; overflow: hidden; }
-.today-work__head { display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 8px 10px; background: rgba(43,179,163,.12); }
-.today-work__name { font-weight: 600; font-size: 14px; }
-.today-work__count { font-weight: 700; font-size: 14px; color: var(--accent, #2bb3a3); white-space: nowrap; }
-.today-work__case { padding: 7px 10px; border-top: 1px solid var(--border, rgba(255,255,255,.06)); }
+/* ===== จำนวนงานวันนี้: รายการเคส + สถานะของแต่ละเคสด้านขวา ===== */
+.today-work { display: flex; flex-direction: column; margin: 8px 0;
+  border: 1px solid var(--border, rgba(255,255,255,.08)); border-radius: 10px; overflow: hidden; }
+.today-work__case { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; }
+.today-work__case + .today-work__case { border-top: 1px solid var(--border, rgba(255,255,255,.06)); }
 .today-work__case.sidebar-dashboard__case--clickable { cursor: pointer; }
 .today-work__case.sidebar-dashboard__case--clickable:hover { background: rgba(255,255,255,.05); }
+.today-work__info { min-width: 0; flex: 1; }
 .today-work__when { font-size: 13px; font-weight: 600; }
 .today-work__where { font-size: 12px; opacity: .7; margin-top: 2px; }
+.today-work__status { flex-shrink: 0; max-width: 45%; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+  background: rgba(43,179,163,.15); color: var(--accent, #2bb3a3); text-align: center; }
+.today-work__status--none { background: rgba(255,255,255,.06); color: inherit; opacity: .6; font-weight: 400; }

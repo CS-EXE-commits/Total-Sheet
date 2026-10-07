@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1510';
+const APP_VERSION = '20261007-1520';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3349,37 +3349,19 @@ function renderDashboardTodayStatus_(result) {
     box.innerHTML = '<p class="sidebar-dashboard__empty">วันนี้ยังไม่มีเคสเข้า</p>';
     return;
   }
-  // จัดกลุ่มเคสตามสถานะปัจจุบัน แสดงเฉพาะสถานะที่วันนี้มีเคส
-  const groups = {};
-  cases.forEach(c => {
-    const st = (c.status || '').trim() || NO_STATUS_LABEL_TODAY;
-    (groups[st] = groups[st] || []).push(c);
-  });
-  // จำนวนเต็มจากเซิร์ฟเวอร์ (นับทุกเคสของวันนี้) ถ้ามี
-  const fullCount = {};
-  (result.todayStatusBreakdown || []).forEach(s => { fullCount[s.status] = s.count; });
-  Object.keys(fullCount).forEach(st => { if (fullCount[st] > 0 && !groups[st]) groups[st] = []; });
-
-  const names = Object.keys(groups).sort((a, b) =>
-    todayStatusRank_(a) - todayStatusRank_(b) ||
-    (fullCount[b] || groups[b].length) - (fullCount[a] || groups[a].length));
   const dateText = formatDateDisplay(result.date);
-
-  box.innerHTML = names.map(st => {
-    const list = groups[st];
-    const count = fullCount[st] || list.length;
+  // รายการเคสวันนี้ (ใหม่สุดก่อน) แต่ละเคสแสดงสถานะปัจจุบันของเคสนั้นไว้ด้านขวา
+  box.innerHTML = cases.map(c => {
+    const st = (c.status || '').trim();
+    const noStatus = !st || st === NO_STATUS_LABEL_TODAY;
     return `
-    <div class="today-work__group">
-      <div class="today-work__head">
-        <span class="today-work__name">${escapeHtml(st)}</span>
-        <span class="today-work__count">${Number(count).toLocaleString()} เคส</span>
+    <div class="today-work__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
+         ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
+      <div class="today-work__info">
+        <div class="today-work__when">${escapeHtml(dateText)} · ${escapeHtml(c.time)} น.</div>
+        <div class="today-work__where">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
       </div>
-      ${list.map(c => `
-        <div class="today-work__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
-             ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
-          <div class="today-work__when">${escapeHtml(dateText)} · ${escapeHtml(c.time)} น.</div>
-          <div class="today-work__where">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
-        </div>`).join('')}
+      <span class="today-work__status${noStatus ? ' today-work__status--none' : ''}">${noStatus ? 'ยังไม่ใส่สถานะ' : escapeHtml(st)}</span>
     </div>`;
   }).join('') + (result.newCasesTruncated ? `<p class="sidebar-dashboard__empty">แสดงล่าสุด ${cases.length} เคส</p>` : '');
   bindCaseDetailClicks_(box);
