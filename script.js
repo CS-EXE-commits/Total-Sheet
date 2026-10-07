@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1005';
+const APP_VERSION = '20261007-1225';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2657,9 +2657,9 @@ function resetPanels() {
   managePanel.hidden = true;
   trashPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูล';
+  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
   manageToggle.setAttribute('aria-pressed', 'false');
-  manageToggle.textContent = 'จัดการคอลัมน์';
+  manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
 }
@@ -2673,11 +2673,11 @@ addToggle.addEventListener('click', () => {
   managePanel.hidden = true;
   trashPanel.hidden = true;
   manageToggle.setAttribute('aria-pressed', 'false');
-  manageToggle.textContent = 'จัดการคอลัมน์';
+  manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
-  addToggle.textContent = '+ เพิ่มข้อมูล'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
+  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
   if (!isOpen) loadAddFields();
 });
 
@@ -3123,11 +3123,11 @@ manageToggle.addEventListener('click', () => {
   addPanel.hidden = true;
   trashPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูล';
+  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
-  manageToggle.textContent = 'จัดการคอลัมน์';
+  manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   if (!isOpen) loadManageColumns();
 });
 
@@ -3195,9 +3195,9 @@ trashToggle.addEventListener('click', () => {
   addPanel.hidden = true;
   managePanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูล';
+  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
   manageToggle.setAttribute('aria-pressed', 'false');
-  manageToggle.textContent = 'จัดการคอลัมน์';
+  manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
   trashToggle.textContent = '🗑 ถังขยะ';
   if (!isOpen) loadTrash();
