@@ -2905,3 +2905,9 @@ th.data-table__ticket-col {
   text-overflow: ellipsis;
   color: var(--color-accent);
 }
+/* ข้อความสำเร็จเด่นขึ้น ให้เห็นชัดว่าบันทึกเสร็จแล้ว (ฟอร์มปิดไปแล้ว ไม่มีอย่างอื่นบอก) */
+.toast--success {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}

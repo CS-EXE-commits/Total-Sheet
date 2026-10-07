@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-0910';
+const APP_VERSION = '20261007-0920';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -603,7 +603,7 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
 
     invalidateFullRow_(row);
-    showToast_('บันทึกสถานะแล้ว ✓', 'success');
+    showToast_('✓ เปลี่ยนสถานะสำเร็จเรียบร้อยแล้ว', 'success');
     if (!applied && selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     // บันทึกไม่สำเร็จ ต้องคืนค่าเดิมบนหน้าจอ ไม่งั้นผู้ใช้จะเข้าใจว่าเปลี่ยนแล้ว
@@ -2603,7 +2603,7 @@ editSubmit.addEventListener('click', async () => {
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
     invalidateFullRow_(row);
 
-    let statusMessage = 'บันทึกการแก้ไขแล้ว ✓';
+    let statusMessage = '✓ แก้ไขข้อมูลสำเร็จเรียบร้อยแล้ว';
     if (colorChanged) {
       const colored = await applyRowColor_(row.sheet, row.row, bg, font);
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
@@ -3034,26 +3034,35 @@ addSubmitButton.addEventListener('click', async () => {
   // ไม่ต้องจ้องรอ Apps Script เขียนชีท ถ้าบันทึกไม่สำเร็จจะเติมค่าที่กรอกไว้กลับเข้าฟอร์มให้
   addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
   if (wantColor) resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
-  setAddStatus('กำลังบันทึก... (กรอกเคสถัดไปได้เลย)', null);
-  showToast_('กำลังบันทึกข้อมูลใหม่...', 'pending');
+  // ปิดฟอร์มทันที ผู้ใช้จะรู้ว่ากดบันทึกแล้ว ผลลัพธ์แจ้งผ่านข้อความมุมจอ
+  // ถ้าบันทึกไม่สำเร็จ จะเปิดฟอร์มกลับมาพร้อมค่าที่กรอกไว้ให้ลองใหม่
+  setAddStatus('', null);
+  addPanel.hidden = true;
+  addToggle.setAttribute('aria-pressed', 'false');
+  showToast_('กำลังบันทึกข้อมูล...', 'pending');
 
   try {
     const result = await jsonpRequest(apiUrl({ action: 'add', book: book, sheet: sheetName, data: JSON.stringify(data) }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
-    let statusMessage = `บันทึกข้อมูลแล้ว ✓ (แถวที่ ${result.row})`;
+    let statusMessage = `✓ บันทึกข้อมูลสำเร็จเรียบร้อยแล้ว (แถวที่ ${result.row})`;
+    let colorFailed = false;
     if (wantColor && result.row) {
       const colored = await applyRowColor_(sheetName, result.row, bg, font);
+      colorFailed = !colored;
       statusMessage += colored ? ' ปรับสีแถวแล้ว' : ' แต่ปรับสีแถวไม่สำเร็จ';
     }
-    setAddStatus(statusMessage, 'success');
-    showToast_(statusMessage, 'success');
+    showToast_(statusMessage, colorFailed ? 'error' : 'success');
     if (book === currentBook && sheetName === selectedSheet) {
       await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
   } catch (err) {
     // เติมค่าที่กรอกไว้กลับเข้าฟอร์ม ถ้าผู้ใช้ยังไม่ได้เริ่มกรอกเคสใหม่ทับ
     const formEmpty = Array.from(addFields.querySelectorAll('input, select')).every(el => !el.value);
+    if (sheetName === selectedSheet) {
+      addPanel.hidden = false;
+      addToggle.setAttribute('aria-pressed', 'true');
+    }
     if (formEmpty && sheetName === selectedSheet) {
       addFields.querySelectorAll('input, select').forEach(el => {
         const v = data[el.dataset.header];
