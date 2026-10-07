@@ -660,6 +660,24 @@ async function supaSelfTest() {
   }
 }
 
+/**
+ * ข้อมูลทุกคอลัมน์ของเคสเดียว ในรูปแบบ fields ของ action 'caseDetail' ([{name, value}])
+ * ใช้เปิดหน้าต่างรายละเอียดเคสได้ทันที ส่วนประวัติ (timeline) ยังต้องขอจาก Apps Script เพราะอยู่ใน Log
+ */
+async function supaCaseFields(book, sheet, rowNum) {
+  const full = await supaRowFull(book, sheet, rowNum);
+  const fields = [];
+  const seen = {};
+  full.headers.forEach((name, i) => {
+    const n = (name || '').toString().trim();
+    if (!n || seen[n]) return;      // เฉพาะคอลัมน์ที่มีชื่อ เหมือน getHeaderMap_ ฝั่ง Apps Script
+    seen[n] = true;
+    const link = full.links && full.links[i];
+    fields.push({ name: n, value: link || full.cells[i] || '' });
+  });
+  return fields;
+}
+
 /* ===== หน้ารายละเอียดตามสถานะ (status.html) =====
  *
  * เดิม Apps Script ต้องเปิดไล่อ่านทุกไฟล์ทุกแท็บเพื่อนับสถานะ แล้วเปิดอ่านทั้งแท็บอีกรอบเพื่อหาเคส

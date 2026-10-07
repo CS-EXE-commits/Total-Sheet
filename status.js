@@ -494,11 +494,29 @@ async function openCaseModal(target) {
   caseModalTimeline.innerHTML = '';
   caseModalStatus.textContent = 'กำลังโหลดรายละเอียด...';
   caseModal.hidden = false;
+  const token = {};
+  openCaseModal._current = token;
+
+  // ข้อมูลเคสจาก Supabase แสดงทันที แล้วค่อยรอประวัติจาก Apps Script
+  let shownFast = false;
+  if (typeof supaCaseFields === 'function' && await ensureSupaOnStatusPage_()) {
+    try {
+      const fields = await supaCaseFields(target.book, target.sheet, target.row);
+      if (openCaseModal._current !== token) return;
+      caseModalFields.innerHTML = fields.length ? buildCaseFieldsTable(fields)
+        : '<p class="case-modal__empty">ไม่พบข้อมูลของแถวนี้ (อาจถูกลบไปแล้ว)</p>';
+      caseModalTimeline.innerHTML = '<p class="case-modal__empty">กำลังโหลดประวัติ...</p>';
+      caseModalBody.hidden = false;
+      caseModalStatus.textContent = '';
+      shownFast = true;
+    } catch (e) { /* หาไม่เจอใน Supabase ก็รอข้อมูลจากชีทตามเดิม */ }
+  }
 
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'caseDetail', book: target.book, sheet: target.sheet, row: target.row
     }));
+    if (openCaseModal._current !== token) return;
     if (!result.ok) throw new Error(result.error || 'โหลดรายละเอียดไม่สำเร็จ');
 
     const fields = result.fields || [];
@@ -527,7 +545,9 @@ async function openCaseModal(target) {
     caseModalBody.hidden = false;
     caseModalStatus.textContent = '';
   } catch (err) {
-    caseModalStatus.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+    if (openCaseModal._current !== token) return;
+    if (shownFast) caseModalTimeline.innerHTML = '<p class="case-modal__empty">โหลดประวัติไม่สำเร็จ: ' + escapeHtml(err.message) + '</p>';
+    else caseModalStatus.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
   }
 }
 

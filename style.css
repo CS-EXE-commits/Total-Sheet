@@ -2920,3 +2920,43 @@ th.data-table__ticket-col {
   color: var(--color-danger);
 }
 .field-warn[hidden] { display: none; }
+
+/* ===== ภาพรวมวันนี้: เคสที่เข้าวันนี้แยกตามสถานะ ===== */
+.today-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.today-status:empty { display: none; }
+.today-status > .sidebar-dashboard__empty { grid-column: 1 / -1; }
+.today-status__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 9px;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.today-status__item:hover { border-color: var(--color-accent); }
+.today-status__count {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-accent);
+}
+.today-status__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+}

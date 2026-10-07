@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1340';
+const APP_VERSION = '20261007-1400';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3316,6 +3316,7 @@ async function loadGlobalDashboard() {
     if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
     dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
+    renderDashboardTodayStatus_(result);
     renderDashboardNewCasesList(result);
     renderDashboardStatusList(result);
     globalDashboardLoadedOnce = true;
@@ -3326,6 +3327,46 @@ async function loadGlobalDashboard() {
   } finally {
     globalDashboardLoading = false;
   }
+}
+
+/**
+ * เคสที่เข้าวันนี้ แยกตามสถานะปัจจุบัน — รอตรวจสอบกี่เคส แก้ไขแล้วกี่เคส และสถานะอื่นทั้งหมด
+ *
+ * เซิร์ฟเวอร์นับจาก "ทุกเคสของวันนี้" (todayStatusBreakdown) ถ้ายังไม่มีฟิลด์นี้
+ * (Apps Script ยังไม่ได้ Deploy ตัวใหม่ หรือได้ผลจากแคชเก่า) ค่อยนับจากรายการที่ส่งมา ซึ่งมีไม่เกิน 30 เคส
+ * คลิกสถานะ = เปิดหน้ารายละเอียดของสถานะนั้นในแท็บใหม่ เหมือนรายการตรวจสอบสถานะ
+ */
+function renderDashboardTodayStatus_(result) {
+  const box = document.getElementById('dashboardTodayStatus');
+  const head = document.getElementById('dashboardCasesHead');
+  if (!box) return;
+  let breakdown = result.todayStatusBreakdown;
+  let partial = false;
+  if (!Array.isArray(breakdown)) {
+    const tally = {};
+    (result.newCasesToday || []).forEach(c => {
+      const st = (c.status || '').trim() || 'ตรวจสอบสถานะ';
+      tally[st] = (tally[st] || 0) + 1;
+    });
+    breakdown = Object.keys(tally).map(status => ({ status, count: tally[status] }))
+      .sort((a, b) => b.count - a.count);
+    partial = !!result.newCasesTruncated;
+  }
+  if (head) head.hidden = !(result.newCasesToday || []).length;
+  if (!breakdown.length) { box.innerHTML = ''; return; }
+
+  box.innerHTML = breakdown.map(s => `
+    <button type="button" class="today-status__item" data-status="${escapeAttr_(s.status)}"
+            title="คลิกเพื่อดูเคสสถานะนี้ทั้งหมด (เปิดแท็บใหม่)">
+      <span class="today-status__count">${Number(s.count).toLocaleString()}</span>
+      <span class="today-status__name">${escapeHtml(s.status)}</span>
+    </button>`).join('') +
+    (partial ? '<p class="sidebar-dashboard__empty">นับจาก 30 เคสล่าสุด</p>' : '');
+  box.querySelectorAll('.today-status__item').forEach(el => {
+    el.addEventListener('click', () => {
+      window.open(`status.html?status=${encodeURIComponent(el.dataset.status)}`, '_blank');
+    });
+  });
 }
 
 function renderDashboardNewCasesList(result) {
@@ -3720,16 +3761,39 @@ async function openCaseModal(target) {
   setCaseModalStatus('กำลังโหลดรายละเอียด...', null);
   caseModal.hidden = false;
 
+  // 1) ข้อมูลเคสจาก Supabase แสดงทันที (เสี้ยววินาที)
+  // ไฟล์ที่เพิ่งแก้แล้วส่งเข้า Supabase ไม่สำเร็จ ข้ามขั้นนี้ไปใช้ข้อมูลจากชีทอย่างเดียว กันเห็นค่าเก่า
+  let shownFast = false;
+  if (typeof supaCaseFields === 'function' && typeof supaReady === 'function' && supaReady() &&
+      !bookRecentlyEdited_(target.book)) {
+    try {
+      const fields = await supaCaseFields(target.book, target.sheet, target.row);
+      if (caseModalTarget !== target) return; // ผู้ใช้ปิดหรือเปิดเคสอื่นไปแล้ว
+      renderCaseModal({ rowExists: true, fields, timeline: null });
+      setCaseModalStatus('', null);
+      shownFast = true;
+    } catch (e) {
+      // หาไม่เจอใน Supabase (เคสเพิ่งเพิ่ม) ก็รอข้อมูลจากชีทตามเดิม
+    }
+  }
+
+  // 2) ประวัติการทำงานอยู่ใน Log จึงยังต้องถาม Apps Script — โหลดตามหลังโดยไม่บังข้อมูลที่เห็นอยู่
+  //    ข้อมูลเคสจากชีทเป็นของจริงล่าสุดเสมอ ได้มาแล้วจึงวาดทับอีกรอบ
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'caseDetail', book: target.book, sheet: target.sheet, row: target.row
     }));
+    if (caseModalTarget !== target) return;
     if (!result.ok) throw new Error(result.error || 'โหลดรายละเอียดไม่สำเร็จ');
-
     renderCaseModal(result);
     setCaseModalStatus('', null);
   } catch (err) {
-    setCaseModalStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    if (caseModalTarget !== target) return;
+    if (shownFast) {
+      caseModalTimeline.innerHTML = '<p class="case-modal__empty">โหลดประวัติไม่สำเร็จ: ' + escapeHtml(err.message) + '</p>';
+    } else {
+      setCaseModalStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    }
   }
 }
 
@@ -3744,7 +3808,12 @@ function renderCaseModal(result) {
     wireCopyButtons_(caseModalFields);
   }
 
-  // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน)
+  // ประวัติการทำงาน (ใหม่สุดขึ้นก่อน) — null = ยังโหลดไม่เสร็จ (ข้อมูลเคสขึ้นก่อนจาก Supabase)
+  if (result.timeline === null) {
+    caseModalTimeline.innerHTML = '<p class="case-modal__empty">กำลังโหลดประวัติ...</p>';
+    caseModalBody.hidden = false;
+    return;
+  }
   const timeline = (result.timeline || []).slice().reverse();
   // (ฟังก์ชันแยกบรรทัดอยู่ที่ formatEventDetail_ ด้านล่าง)
   if (timeline.length === 0) {
