@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1620';
+const APP_VERSION = '20261007-1640';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3489,6 +3489,34 @@ function renderDashboardTodayStatus_(result) {
     </div>`;
   }).join('') + (result.newCasesTruncated ? `<p class="sidebar-dashboard__empty">แสดงล่าสุด ${cases.length} เคส</p>` : '');
   bindCaseDetailClicks_(box);
+  refineTodayStatuses_(box);
+}
+
+/**
+ * อัปเดตป้ายสถานะของเคสวันนี้จาก Supabase (ข้อมูลล่าสุด รวมการแก้ในชีทตรงๆ)
+ * Apps Script ตอบสถานะจากแคช 90 วินาที และแถวที่ถูกลบไปแล้วจะขึ้นเป็น "ยังไม่ใส่สถานะ" ซึ่งชวนเข้าใจผิด
+ * แถวที่ไม่พบแล้ว = แสดง "ไม่พบแถว" แทน
+ */
+async function refineTodayStatuses_(box) {
+  if (typeof supaReady !== 'function' || !supaReady() || typeof supaRowFull !== 'function') return;
+  const items = Array.from(box.querySelectorAll('.today-work__case[data-case-row]')).slice(0, 60);
+  await Promise.all(items.map(async el => {
+    const badge = el.querySelector('.today-work__status');
+    if (!badge) return;
+    try {
+      const full = await supaRowFull(el.dataset.caseBook, el.dataset.caseSheet, el.dataset.caseRow);
+      const idx = full.headers.findIndex(h => /^(สถานะ|status)$/i.test((h || '').toString().trim()));
+      if (idx === -1) return;
+      const st = (full.cells[idx] || '').toString().trim();
+      badge.textContent = st || 'ยังไม่ใส่สถานะ';
+      badge.classList.toggle('today-work__status--none', !st);
+    } catch (e) {
+      if (/ไม่พบแถว/.test(e.message || '')) {
+        badge.textContent = 'ไม่พบแถว (อาจถูกลบ)';
+        badge.classList.add('today-work__status--none');
+      }
+    }
+  }));
 }
 
 // รายการเคสแยกถูกรวมเข้าไปในการ์ดจำนวนงานวันนี้แล้ว
@@ -3872,6 +3900,11 @@ async function openCaseModal(target) {
   // ข้อมูลจากชีท (ของจริงล่าสุด) จะมาวาดทับในขั้นที่ 2 อยู่แล้ว ถ้าค่าเพิ่งเปลี่ยนก็เห็นค่าใหม่ในไม่กี่วินาที
   // (เดิมข้ามขั้นนี้ถ้าไฟล์เพิ่งถูกแก้ ทำให้ต้องรอ Apps Script อ่านทั้ง Log ก่อนเห็นอะไรเลย)
   let shownFast = false;
+  // ตั๋ว Supabase ยังไม่พร้อม (เช่นเพิ่งเปิดหน้า / ตั๋วกำลังต่ออายุ) รอได้ไม่เกิน 1.5 วินาที ไม่ถอยไปรอ Apps Script ทันที
+  if (typeof supaReady === 'function' && !supaReady() && typeof supaRestoreSession === 'function') {
+    await Promise.race([supaRestoreSession().catch(() => null), new Promise(r => setTimeout(r, 1500))]);
+    if (caseModalTarget !== target) return;
+  }
   if (typeof supaCaseFields === 'function' && typeof supaReady === 'function' && supaReady()) {
     try {
       const fields = await supaCaseFields(target.book, target.sheet, target.row);
@@ -3880,7 +3913,14 @@ async function openCaseModal(target) {
       setCaseModalStatus('', null);
       shownFast = true;
     } catch (e) {
-      // หาไม่เจอใน Supabase (เคสเพิ่งเพิ่ม) ก็รอข้อมูลจากชีทตามเดิม
+      if (caseModalTarget !== target) return;
+      console.warn('[รายละเอียดเคส] อ่านจาก Supabase ไม่ได้:', e.message);
+      // ไม่พบแถวนี้ (ถูกลบ/เลขแถวเลื่อนไปแล้ว) — บอกทันที ไม่ปล่อยค้าง "กำลังโหลด" ระหว่างรอชีทยืนยัน
+      if (/ไม่พบแถว/.test(e.message || '')) {
+        renderCaseModal({ rowExists: false, fields: [], timeline: null });
+        setCaseModalStatus('', null);
+        shownFast = true;
+      }
     }
   }
 
