@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1400';
+const APP_VERSION = '20261007-1500';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3313,7 +3313,7 @@ async function loadGlobalDashboard() {
   setDashboardStatus(globalDashboardLoadedOnce ? 'กำลังอัปเดต...' : 'กำลังโหลด... (ครั้งแรกอาจใช้เวลาสักครู่)', null);
   try {
     const result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), GLOBAL_DASHBOARD_TIMEOUT_MS);
-    if (!result.ok) throw new Error(result.error || 'โหลดภาพรวมไม่สำเร็จ');
+    if (!result.ok) throw new Error(result.error || 'โหลดจำนวนงานวันนี้ไม่สำเร็จ');
     dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
     renderDashboardTodayStatus_(result);
@@ -3330,52 +3330,82 @@ async function loadGlobalDashboard() {
 }
 
 /**
- * เคสที่เข้าวันนี้ แยกตามสถานะปัจจุบัน — รอตรวจสอบกี่เคส แก้ไขแล้วกี่เคส และสถานะอื่นทั้งหมด
- *
- * เซิร์ฟเวอร์นับจาก "ทุกเคสของวันนี้" (todayStatusBreakdown) ถ้ายังไม่มีฟิลด์นี้
- * (Apps Script ยังไม่ได้ Deploy ตัวใหม่ หรือได้ผลจากแคชเก่า) ค่อยนับจากรายการที่ส่งมา ซึ่งมีไม่เกิน 30 เคส
- * คลิกสถานะ = เปิดหน้ารายละเอียดของสถานะนั้นในแท็บใหม่ เหมือนรายการตรวจสอบสถานะ
+ * จำนวนงานวันนี้ — เคสเข้ากี่เคส แยกตามสถานะ (แสดงทุกสถานะที่มีในระบบ รวมสถานะที่เป็น 0)
+ * รอตรวจสอบ / แก้ไขแล้ว ขึ้นก่อนเสมอ คลิกสถานะ = กรองรายการเคสด้านล่าง คลิกซ้ำ = แสดงทั้งหมด
  */
+const NO_STATUS_LABEL_TODAY = 'ตรวจสอบสถานะ';
+let todayWorkFilter_ = null;   // สถานะที่กำลังกรองอยู่ (null = ทั้งหมด)
+let todayWorkResult_ = null;
+
+function todayStatusRank_(name) {
+  if (/รอตรวจสอบ/.test(name)) return 0;
+  if (/แก้ไขแล้ว/.test(name)) return 1;
+  if (name === NO_STATUS_LABEL_TODAY) return 3;
+  return 2;
+}
+
+function buildTodayWorkBreakdown_(result) {
+  const tally = {};
+  let partial = false;
+  if (Array.isArray(result.todayStatusBreakdown)) {
+    result.todayStatusBreakdown.forEach(s => { tally[s.status] = s.count; });
+  } else {
+    (result.newCasesToday || []).forEach(c => {
+      const st = (c.status || '').trim() || NO_STATUS_LABEL_TODAY;
+      tally[st] = (tally[st] || 0) + 1;
+    });
+    partial = !!result.newCasesTruncated;
+  }
+  // ใส่ทุกสถานะที่มีในระบบด้วย (เป็น 0 ถ้าวันนี้ไม่มี) จะได้เห็นครบว่าสถานะไหนยังไม่มีงาน
+  (result.statusBreakdown || []).forEach(s => {
+    if (!(s.status in tally)) tally[s.status] = 0;
+  });
+  const list = Object.keys(tally).map(status => ({ status, count: tally[status] }))
+    .sort((a, b) => todayStatusRank_(a.status) - todayStatusRank_(b.status) || b.count - a.count
+      || a.status.localeCompare(b.status, 'th'));
+  return { list, partial };
+}
+
 function renderDashboardTodayStatus_(result) {
+  todayWorkResult_ = result;
   const box = document.getElementById('dashboardTodayStatus');
   const head = document.getElementById('dashboardCasesHead');
   if (!box) return;
-  let breakdown = result.todayStatusBreakdown;
-  let partial = false;
-  if (!Array.isArray(breakdown)) {
-    const tally = {};
-    (result.newCasesToday || []).forEach(c => {
-      const st = (c.status || '').trim() || 'ตรวจสอบสถานะ';
-      tally[st] = (tally[st] || 0) + 1;
-    });
-    breakdown = Object.keys(tally).map(status => ({ status, count: tally[status] }))
-      .sort((a, b) => b.count - a.count);
-    partial = !!result.newCasesTruncated;
+  const { list, partial } = buildTodayWorkBreakdown_(result);
+  if (todayWorkFilter_ && !list.some(s => s.status === todayWorkFilter_ && s.count > 0)) todayWorkFilter_ = null;
+  if (head) {
+    head.hidden = !(result.newCasesToday || []).length;
+    head.textContent = todayWorkFilter_ ? `รายการเคสวันนี้ · ${todayWorkFilter_}` : 'รายการเคสวันนี้';
   }
-  if (head) head.hidden = !(result.newCasesToday || []).length;
-  if (!breakdown.length) { box.innerHTML = ''; return; }
+  if (!list.length) { box.innerHTML = '<p class="sidebar-dashboard__empty">ยังไม่มีข้อมูลสถานะ</p>'; return; }
 
-  box.innerHTML = breakdown.map(s => `
-    <button type="button" class="today-status__item" data-status="${escapeAttr_(s.status)}"
-            title="คลิกเพื่อดูเคสสถานะนี้ทั้งหมด (เปิดแท็บใหม่)">
-      <span class="today-status__count">${Number(s.count).toLocaleString()}</span>
-      <span class="today-status__name">${escapeHtml(s.status)}</span>
+  box.innerHTML = list.map(s => `
+    <button type="button" class="today-work__row${s.count ? '' : ' today-work__row--zero'}${todayWorkFilter_ === s.status ? ' today-work__row--active' : ''}"
+            data-status="${escapeAttr_(s.status)}" ${s.count ? '' : 'disabled'}
+            title="${s.count ? 'คลิกเพื่อดูเฉพาะเคสสถานะนี้' : 'วันนี้ยังไม่มีเคสสถานะนี้'}">
+      <span class="today-work__name">${escapeHtml(s.status)}</span>
+      <span class="today-work__count">${Number(s.count).toLocaleString()}</span>
     </button>`).join('') +
     (partial ? '<p class="sidebar-dashboard__empty">นับจาก 30 เคสล่าสุด</p>' : '');
-  box.querySelectorAll('.today-status__item').forEach(el => {
+  box.querySelectorAll('.today-work__row:not([disabled])').forEach(el => {
     el.addEventListener('click', () => {
-      window.open(`status.html?status=${encodeURIComponent(el.dataset.status)}`, '_blank');
+      todayWorkFilter_ = todayWorkFilter_ === el.dataset.status ? null : el.dataset.status;
+      renderDashboardTodayStatus_(todayWorkResult_);
+      renderDashboardNewCasesList(todayWorkResult_);
     });
   });
 }
 
 function renderDashboardNewCasesList(result) {
-  const cases = result.newCasesToday || [];
-  if (cases.length === 0) {
+  const all = result.newCasesToday || [];
+  if (all.length === 0) {
     dashboardNewCasesList.innerHTML = '<p class="sidebar-dashboard__empty">วันนี้ยังไม่มีเคสเข้าใหม่</p>';
     return;
   }
-  dashboardNewCasesList.innerHTML = cases.map(c => `
+  const cases = todayWorkFilter_
+    ? all.filter(c => ((c.status || '').trim() || NO_STATUS_LABEL_TODAY) === todayWorkFilter_)
+    : all;
+  dashboardNewCasesList.innerHTML = (cases.length ? cases.map(c => `
     <div class="sidebar-dashboard__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
          ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
       <div class="sidebar-dashboard__case-top">
@@ -3383,7 +3413,8 @@ function renderDashboardNewCasesList(result) {
         <span class="sidebar-dashboard__case-status">${escapeHtml(c.status)}</span>
       </div>
       <div class="sidebar-dashboard__case-meta">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
-    </div>`).join('') + (result.newCasesTruncated ? '<p class="sidebar-dashboard__empty">แสดงล่าสุด 30 รายการ อาจมีมากกว่านี้</p>' : '');
+    </div>`).join('') : '<p class="sidebar-dashboard__empty">ไม่มีเคสสถานะนี้ในรายการที่แสดง</p>')
+    + (result.newCasesTruncated ? `<p class="sidebar-dashboard__empty">แสดงล่าสุด ${all.length} รายการ อาจมีมากกว่านี้</p>` : '');
   bindCaseDetailClicks_(dashboardNewCasesList);
 }
 
