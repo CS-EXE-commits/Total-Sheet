@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1610';
+const APP_VERSION = '20261007-1620';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2677,15 +2677,21 @@ editSubmit.addEventListener('click', async () => {
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
-      data: JSON.stringify(data), fp: rowFp_(row)
+      data: JSON.stringify(data), fp: rowFp_(row),
+      // ส่งสีไปพร้อมกันเลย Apps Script ปรับสีในคำขอเดียวกัน ไม่ต้องรออีกรอบ
+      bg: bg || '', font: font || ''
     }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
     let statusMessage = '✓ แก้ไขข้อมูลสำเร็จเรียบร้อยแล้ว';
     let colorFailed = false;
     if (colorChanged) {
-      setEditStatus('กำลังปรับสีแถว...', null);
-      const colored = await applyRowColor_(row.sheet, row.row, bg, font);
+      // Apps Script เวอร์ชันใหม่ตอบ colored มาแล้ว / เวอร์ชันเก่ายังไม่รองรับ ค่อยยิงแยกเหมือนเดิม
+      let colored = result.colored;
+      if (typeof colored !== 'boolean') {
+        setEditStatus('กำลังปรับสีแถว...', null);
+        colored = await applyRowColor_(row.sheet, row.row, bg, font);
+      }
       colorFailed = !colored;
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
     }
@@ -3164,14 +3170,20 @@ addSubmitButton.addEventListener('click', async () => {
   setAddStatus('กำลังบันทึก...', null);
 
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'add', book: book, sheet: sheetName, data: JSON.stringify(data) }));
+    const result = await jsonpRequest(apiUrl({
+      action: 'add', book: book, sheet: sheetName, data: JSON.stringify(data),
+      bg: bg || '', font: font || ''   // ปรับสีในคำขอเดียวกัน
+    }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
     let statusMessage = `✓ บันทึกข้อมูลสำเร็จเรียบร้อยแล้ว (แถวที่ ${result.row})`;
     let colorFailed = false;
     if (wantColor && result.row) {
-      setAddStatus('กำลังปรับสีแถว...', null);
-      const colored = await applyRowColor_(sheetName, result.row, bg, font);
+      let colored = result.colored;
+      if (typeof colored !== 'boolean') {
+        setAddStatus('กำลังปรับสีแถว...', null);
+        colored = await applyRowColor_(sheetName, result.row, bg, font);
+      }
       colorFailed = !colored;
       statusMessage += colored ? ' ปรับสีแถวแล้ว' : ' แต่ปรับสีแถวไม่สำเร็จ';
     }
