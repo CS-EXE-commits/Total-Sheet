@@ -526,6 +526,75 @@ function supaParseContentRange_(header, fallbackCount, offset) {
   return offset + fallbackCount;
 }
 
+/* ===== ข้อมูลประกอบการเพิ่ม/แก้ไข (แทน action headers / tableHeaders / rowFull) =====
+ *
+ * เดิมการเปิดหน้าต่างแก้ไขต้องรอ Apps Script 3 คำขอ (คอลัมน์ ตัวเลือก dropdown ข้อมูลทั้งแถว)
+ * ซึ่งต้องเปิดไฟล์ Google Sheets ทุกครั้ง ใช้เวลาหลายวินาที
+ * ตอนนี้โครงสร้างแท็บโหลดไว้ในหน่วยความจำแล้ว (supaLoadAllMeta) จึงตอบได้ทันทีโดยไม่ต้องยิงคำขอ
+ */
+
+/** แทน action 'headers' — เฉพาะคอลัมน์ที่มีชื่อ พร้อมตัวเลือก dropdown */
+async function supaHeaders(book, sheet) {
+  const meta = await supaSheetMeta_(book, sheet);
+  const dd = meta.dropdown_options || {};
+  const seen = {};
+  const headers = [];
+  meta.headers.forEach(name => {
+    const n = (name || '').toString().trim();
+    if (!n || seen[n]) return;
+    seen[n] = true;
+    headers.push({ name: n, options: dd[n] || [] });
+  });
+  return { ok: true, headers: headers, source: 'supabase' };
+}
+
+/** แทน action 'tableHeaders' — หัวตารางเรียงตามตำแหน่งจริง (รวมคอลัมน์ที่ไม่มีชื่อ) */
+async function supaTableHeaders(book, sheet) {
+  const meta = await supaSheetMeta_(book, sheet);
+  return {
+    ok: true,
+    headers: meta.headers.slice(),
+    statusIndex: meta.statusIndex,
+    headerRowIndex: meta.header_row_index,
+    source: 'supabase'
+  };
+}
+
+/**
+ * แทน action 'rowFull' — ข้อมูลทุกคอลัมน์ของแถวเดียว
+ *
+ * ส่งลายนิ้วมือแถว (fingerprint) ที่ตัวซิงก์คำนวณจากชีทจริงกลับไปด้วย
+ * หน้าเว็บต้องใช้ค่านี้ตอนสั่งแก้/ลบ ห้ามคำนวณจาก cells เอง
+ * เพราะ cells ที่สร้างจาก Supabase ไม่มีค่าของคอลัมน์ที่ไม่มีชื่อหัวตาราง ลายนิ้วมือจะไม่ตรงกับชีท
+ * แล้วการบันทึกจะถูกปฏิเสธว่า "ข้อมูลแถวนี้เปลี่ยนไปแล้ว" ทั้งที่ไม่มีใครแก้
+ */
+async function supaRowFull(book, sheet, rowNum) {
+  const meta = await supaSheetMeta_(book, sheet);
+  const res = await supaSelect_(
+    '/sheet_rows?select=row_index,data,links,row_color,fingerprint' +
+    '&book=eq.' + encodeURIComponent(meta.book) +
+    '&sheet=eq.' + encodeURIComponent(meta.sheet) +
+    '&row_index=eq.' + encodeURIComponent(parseInt(rowNum, 10)) +
+    '&limit=1'
+  );
+  const rows = await res.json();
+  if (!rows.length || !rows[0].fingerprint) {
+    throw new Error('ไม่พบแถวที่ ' + rowNum + ' ใน Supabase');
+  }
+  const item = supaRowToItem_(rows[0], meta, null);
+  return {
+    ok: true,
+    book: meta.book,
+    sheet: meta.sheet,
+    row: item.row,
+    headers: meta.headers.slice(),
+    cells: item.cells,
+    links: item.links || {},
+    fingerprint: rows[0].fingerprint,
+    source: 'supabase'
+  };
+}
+
 /* ===== สรุปยอดตามสถานะ ===== */
 
 /**

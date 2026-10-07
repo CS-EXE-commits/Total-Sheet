@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261006-1750';
+const APP_VERSION = '20261007-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -541,8 +541,37 @@ async function ensureFullRow_(row) {
   row.cells = result.cells;
   row.links = result.links || {};
   row.__fullHeaders = result.headers;
+  // ลายนิ้วมือที่คำนวณจากชีทจริง (มาจาก Supabase) ถ้ามาจาก Apps Script จะไม่มี ให้คำนวณจาก cells แทน
+  row.__fp = result.fingerprint || null;
   row.__fullLoaded = true;
   return row;
+}
+
+/** ลายนิ้วมือแถวที่จะส่งไปให้เซิร์ฟเวอร์ตรวจก่อนแก้/ลบ */
+function rowFp_(row) {
+  return row.__fp || rowFingerprint_(row.cells);
+}
+
+/** ข้อมูลแถวเปลี่ยนแล้ว (เพิ่งแก้เอง) ต้องดึงทั้งแถวใหม่ก่อนแก้ครั้งถัดไป */
+function invalidateFullRow_(row) {
+  if (!row) return;
+  row.__fullLoaded = false;
+  row.__fp = null;
+}
+
+/**
+ * เซิร์ฟเวอร์ปฏิเสธเพราะข้อมูลแถวในชีทไม่ตรงกับที่หน้าเว็บเห็น
+ * (มีคนแก้ในชีทตรงๆ ซึ่ง Supabase ยังไม่ทันรู้ หรือแถวเลื่อนเพราะมีการลบ)
+ * ให้เลิกเชื่อสำเนาใน Supabase ของไฟล์นี้ชั่วคราว แล้วดึงของจริงจากชีทแทน
+ */
+function isRowChangedError_(err) {
+  return /ข้อมูลแถวนี้ในชีทเปลี่ยนไปแล้ว/.test((err && err.message) || String(err || ''));
+}
+
+function handleRowChangedError_(row) {
+  invalidateFullRow_(row);
+  markBookRecentlyEdited_(currentBook);
+  clearTabPageCache_();
 }
 
 async function updateStatusQuick(row, headerName, newValue, selectEl) {
@@ -550,25 +579,71 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
   if (!confirmed) { selectEl.value = ''; return; }
 
   selectEl.disabled = true;
+  const colIndex = currentTableHeaders.indexOf(headerName);
+  let oldValue = '';
+  let applied = false;
   try {
     await ensureFullRow_(row); // ต้องมีข้อมูลครบทุกคอลัมน์ก่อน ไม่งั้นลายนิ้วมือแถวจะไม่ตรง
+    // ต้องเก็บลายนิ้วมือ "ก่อน" แก้ค่าบนหน้าจอ ไม่งั้นจะได้ลายนิ้วมือของค่าใหม่ ซึ่งไม่ตรงกับชีท
+    const fp = rowFp_(row);
+    oldValue = colIndex !== -1 ? (row.cells[colIndex] || '') : '';
     const data = {};
     data[headerName] = newValue;
+
+    // แสดงค่าใหม่ทันที แล้วค่อยบันทึกเบื้องหลัง — ผู้ใช้ไม่ต้องจ้องรอ Apps Script
+    applied = applyRowEditLocally_(row, data, currentTableHeaders);
+    showToast_('กำลังบันทึกสถานะ...', 'pending');
+
     const result = await jsonpRequest(apiUrl({
       action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
-      data: JSON.stringify(data), fp: rowFingerprint_(row.cells)
+      data: JSON.stringify(data), fp: fp
     }));
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
 
-    // อัปเดตเฉพาะแถวนี้ในหน้าจอทันที ไม่ต้องรอโหลดทั้งแท็บใหม่
-    const applied = applyRowEditLocally_(row, data, currentTableHeaders);
-    if (!applied) {
-      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
-    }
+    invalidateFullRow_(row);
+    showToast_('บันทึกสถานะแล้ว ✓', 'success');
+    if (!applied && selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
-    alert('เกิดข้อผิดพลาด: ' + err.message);
+    // บันทึกไม่สำเร็จ ต้องคืนค่าเดิมบนหน้าจอ ไม่งั้นผู้ใช้จะเข้าใจว่าเปลี่ยนแล้ว
+    if (applied && colIndex !== -1) {
+      const back = {};
+      back[headerName] = oldValue;
+      applyRowEditLocally_(row, back, currentTableHeaders);
+    }
+    if (isRowChangedError_(err)) {
+      handleRowChangedError_(row);
+      showToast_('ยังไม่ได้เปลี่ยนสถานะ — แถวนี้ในชีทเพิ่งถูกแก้ไข ระบบโหลดข้อมูลล่าสุดให้แล้ว กรุณาตรวจแล้วลองอีกครั้ง', 'error');
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    } else {
+      showToast_('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message, 'error');
+    }
     selectEl.disabled = false;
     selectEl.value = '';
+  }
+}
+
+/* ===== ข้อความแจ้งเตือนมุมจอ (ใช้กับการบันทึกเบื้องหลัง) ===== */
+
+let toastEl_ = null;
+let toastTimer_ = null;
+
+/**
+ * type: 'pending' (กำลังบันทึก ค้างไว้จนกว่าจะเรียกใหม่) | 'success' | 'error'
+ * ข้อความ error ค้างไว้นานกว่า เพราะผู้ใช้ต้องอ่านว่าการแก้ไขไม่ได้บันทึก
+ */
+function showToast_(message, type) {
+  if (!toastEl_) {
+    toastEl_ = document.createElement('div');
+    toastEl_.className = 'toast';
+    toastEl_.setAttribute('role', 'status');
+    toastEl_.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toastEl_);
+  }
+  clearTimeout(toastTimer_);
+  toastEl_.textContent = message;
+  toastEl_.className = 'toast toast--' + (type || 'success') + ' toast--show';
+  if (type !== 'pending') {
+    toastTimer_ = setTimeout(() => toastEl_.classList.remove('toast--show'), type === 'error' ? 8000 : 2200);
   }
 }
 
@@ -961,7 +1036,11 @@ const CACHE_BUSTING_ACTIONS = [
 // คำสั่งอ่านข้อมูลที่ย้ายไปดึงจาก Supabase แล้ว (เร็วกว่า Apps Script หลายเท่า)
 // ถ้า Supabase ใช้ไม่ได้ด้วยเหตุใดก็ตาม จะถอยไปยิง Apps Script เส้นเดิมให้อัตโนมัติ
 // ผู้ใช้จึงไม่มีทางเจอหน้าจอว่าง แค่ช้าลงเท่าเดิมกับก่อนย้าย
-const SUPABASE_ACTIONS = ['tabView', 'sheetStatusTally', 'sheets'];
+const SUPABASE_ACTIONS = ['tabView', 'sheetStatusTally', 'sheets', 'headers', 'tableHeaders', 'rowFull'];
+
+// คำสั่งเขียนที่แตะแค่ "ข้อมูลแถว" ไม่ได้เปลี่ยนโครงสร้างแท็บ (คอลัมน์ ชื่อแท็บ รายชื่อไฟล์)
+// ไม่ต้องล้างโครงสร้างที่โหลดไว้ ไม่งั้นทุกครั้งที่บันทึก การกดครั้งถัดไปต้องรอโหลดโครงสร้างใหม่ทั้งหมด
+const ROW_ONLY_WRITE_ACTIONS = ['add', 'updateRow', 'deleteRow', 'setRowColor'];
 
 /**
  * ไฟล์ที่เพิ่งถูกแก้ไข จะยังอ่านจาก Google Sheets ต่อไปอีกพักหนึ่ง
@@ -990,24 +1069,35 @@ function bookRecentlyEdited_(book) {
 function jsonpRequest(url, timeoutMs) {
   const actionMatch = /[?&]action=([^&]*)/.exec(url);
   const action = actionMatch ? decodeURIComponent(actionMatch[1]) : '';
+  let book = '';
+  try { book = new URL(url).searchParams.get('book') || ''; } catch (e) { /* ไม่เป็นไร */ }
+
   if (action && CACHE_BUSTING_ACTIONS.indexOf(action) !== -1) {
     clearTabPageCache_();
-    // โครงสร้างแท็บอาจเปลี่ยนไปด้วย (เพิ่ม/ลบคอลัมน์ สร้างแท็บใหม่) ต้องให้ถามใหม่
-    if (typeof supaClearMetaCache === 'function') supaClearMetaCache();
-    let editedBook = '';
-    try { editedBook = new URL(url).searchParams.get('book') || ''; } catch (e) { /* ไม่เป็นไร */ }
+    // โครงสร้างแท็บอาจเปลี่ยน (เพิ่ม/ลบคอลัมน์ สร้างแท็บ เพิ่ม/ลบไฟล์) ต้องให้ถามใหม่
+    // แต่คำสั่งที่แตะแค่ข้อมูลแถวไม่ต้องล้าง
+    if (ROW_ONLY_WRITE_ACTIONS.indexOf(action) === -1 && typeof supaClearMetaCache === 'function') {
+      supaClearMetaCache();
+    }
     // บางคำสั่ง (เพิ่ม/ลบ/เปลี่ยนชื่อไฟล์) ไม่ได้ส่งชื่อไฟล์มาในพารามิเตอร์ book
     // กรณีนั้นกันไฟล์ที่กำลังเปิดอยู่แทน ซึ่งเป็นไฟล์ที่ผู้ใช้จะเห็นผลทันที
-    markBookRecentlyEdited_(editedBook || currentBook);
+    const editedBook = book || currentBook;
+    return jsonpRequestRaw_(url, timeoutMs).then(result => {
+      // Apps Script ส่งแถวที่เพิ่งบันทึกเข้า Supabase ให้ทันทีแล้ว (supabaseSynced)
+      // อ่านจาก Supabase ต่อได้เลย ไม่ต้องถอยไปอ่านชีทที่ช้ากว่ามาก
+      // ถ้าส่งไม่ได้ หรือเป็นคำสั่งที่ยังไม่รองรับ ค่อยกันไฟล์นั้นไว้ 20 นาทีเหมือนเดิม
+      if (!(result && result.supabaseSynced)) markBookRecentlyEdited_(editedBook);
+      return result;
+    }, err => {
+      // ไม่รู้ว่าบันทึกสำเร็จหรือไม่ (เช่นหมดเวลารอ) กันไว้ก่อนเพื่อไม่ให้เห็นค่าเก่า
+      markBookRecentlyEdited_(editedBook);
+      throw err;
+    });
   }
 
   if (action && SUPABASE_ACTIONS.indexOf(action) !== -1 &&
-      typeof supaReady === 'function' && supaReady()) {
-    let book = '';
-    try { book = new URL(url).searchParams.get('book') || ''; } catch (e) { /* ไม่เป็นไร */ }
-    if (!bookRecentlyEdited_(book)) {
-      return serveFromSupabase_(action, url, timeoutMs);
-    }
+      typeof supaReady === 'function' && supaReady() && !bookRecentlyEdited_(book)) {
+    return serveFromSupabase_(action, url, timeoutMs);
   }
 
   return jsonpRequestRaw_(url, timeoutMs);
@@ -1039,6 +1129,15 @@ async function serveFromSupabase_(action, url, timeoutMs) {
     }
     if (action === 'sheets') {
       return await supaSheetList(params.get('book'));
+    }
+    if (action === 'headers') {
+      return await supaHeaders(params.get('book'), params.get('sheet'));
+    }
+    if (action === 'tableHeaders') {
+      return await supaTableHeaders(params.get('book'), params.get('sheet'));
+    }
+    if (action === 'rowFull') {
+      return await supaRowFull(params.get('book'), params.get('sheet'), params.get('row'));
     }
     throw new Error('ไม่รู้จักคำสั่ง ' + action);
   } catch (err) {
@@ -2217,7 +2316,7 @@ async function deleteRow(row, rowEl, buttonEl) {
   try {
     await ensureFullRow_(row); // ต้องมีข้อมูลครบทุกคอลัมน์ก่อน ไม่งั้นลายนิ้วมือแถวจะไม่ตรง
     const result = await jsonpRequest(apiUrl({
-      action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row, fp: rowFingerprint_(row.cells)
+      action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row, fp: rowFp_(row)
     }));
     if (!result.ok) throw new Error(result.error || 'ลบไม่สำเร็จ');
 
@@ -2225,8 +2324,15 @@ async function deleteRow(row, rowEl, buttonEl) {
     // เพราะการลบแถวในชีททำให้แถวที่อยู่ข้างล่างเลื่อนขึ้นมาทั้งหมด เลขแถวที่ค้างอยู่บนหน้าจอจะผิดทันที
     // (ถ้าไม่โหลดใหม่ การกดลบ/แก้ไขครั้งถัดไปจะไปโดนข้อมูลของเคสอื่น)
     if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    showToast_('ลบข้อมูลแล้ว ✓ (กู้คืนได้ที่ถังขยะ)', 'success');
   } catch (err) {
-    alert('เกิดข้อผิดพลาด: ' + err.message);
+    if (isRowChangedError_(err)) {
+      handleRowChangedError_(row);
+      alert('ยังไม่ได้ลบ — แถวนี้ในชีทเพิ่งถูกแก้ไขหรือเลื่อนตำแหน่ง ระบบโหลดข้อมูลล่าสุดให้แล้ว กรุณาตรวจแล้วลองอีกครั้ง');
+      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    } else {
+      alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
     buttonEl.disabled = false;
   }
 }
@@ -2248,7 +2354,7 @@ let editingRowHeaders = []; // ชื่อคอลัมน์ของแท�
  * และโหลดหัวตารางเต็ม (action=tableHeaders) เพื่อจับคู่ค่าปัจจุบันของแต่ละคอลัมน์ให้ตรงตำแหน่งใน row.cells
  * ใช้ row.sheet เสมอ (ไม่ใช่ selectedSheet) เพื่อให้ปลอดภัยแม้ข้อมูลมาจากแท็บอื่น
  */
-async function openEditModal(row) {
+async function openEditModal(row, prefill) {
   editingRow = row;
   editModalMeta.textContent = `แก้ไขแถวที่ ${row.row} ในแท็บ "${row.sheet}"`;
   editFields.innerHTML = '';
@@ -2270,6 +2376,14 @@ async function openEditModal(row) {
     const fullHeaders = tableHeadersResult.headers;
     editingRowHeaders = fullHeaders; // เก็บไว้ใช้อัปเดตแถวในหน้าจอทันทีหลังบันทึก
     renderEditFields(headersResult.headers, fullHeaders, row);
+    if (prefill) {
+      // เติมค่าที่ผู้ใช้กรอกไว้รอบก่อนกลับเข้าไป (กรณีบันทึกไม่สำเร็จ) จะได้ไม่ต้องพิมพ์ใหม่
+      editFields.querySelectorAll('input, select').forEach(el => {
+        const v = prefill[el.dataset.header];
+        if (v === undefined) return;
+        el.value = el.type === 'date' ? toDateInputValue_(v) : v;
+      });
+    }
     editSubmit.disabled = false;
     setEditStatus('', null);
   } catch (err) {
@@ -2371,40 +2485,55 @@ function closeEditModal() {
 editSubmit.addEventListener('click', async () => {
   if (!editingRow) return;
   const row = editingRow;
+  const headersAtOpen = editingRowHeaders;
   const data = {};
   editFields.querySelectorAll('input, select').forEach(el => {
     data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
   });
+  const colorChanged = !!(editColorToggle && editColorToggle.checked);
+  const bg = colorChanged ? chosenColor_(editColorBg) : '';
+  const font = colorChanged ? chosenColor_(editColorFont) : '';
 
-  editSubmit.disabled = true;
-  setEditStatus('กำลังบันทึก...', null);
+  // ต้องเก็บลายนิ้วมือ "ก่อน" แก้ค่าบนหน้าจอ ไม่งั้นจะได้ลายนิ้วมือของค่าใหม่ ซึ่งไม่ตรงกับชีท
+  const fp = rowFp_(row);
+  const oldCells = row.cells.slice();
+
+  // แสดงค่าใหม่ในตารางและปิดหน้าต่างทันที แล้วค่อยบันทึกเบื้องหลัง
+  // ผู้ใช้ทำงานต่อได้เลย ไม่ต้องจ้องรอ Apps Script เขียนชีท (ซึ่งใช้เวลาหลายวินาที)
+  // ถ้าบันทึกไม่สำเร็จ จะคืนค่าเดิมบนหน้าจอ แล้วเปิดหน้าต่างพร้อมค่าที่กรอกไว้ให้ลองใหม่
+  applyRowEditLocally_(row, data, headersAtOpen);
+  closeEditModal();
+  showToast_('กำลังบันทึกการแก้ไข...', 'pending');
+
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
-      data: JSON.stringify(data), fp: rowFingerprint_(row.cells)
+      data: JSON.stringify(data), fp: fp
     }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+    invalidateFullRow_(row);
 
-    let statusMessage = 'บันทึกการแก้ไขสำเร็จ';
-    const colorChanged = !!(editColorToggle && editColorToggle.checked);
-    if (editColorToggle && editColorToggle.checked) {
-      const colored = await applyRowColor_(row.sheet, row.row, chosenColor_(editColorBg), chosenColor_(editColorFont));
+    let statusMessage = 'บันทึกการแก้ไขแล้ว ✓';
+    if (colorChanged) {
+      const colored = await applyRowColor_(row.sheet, row.row, bg, font);
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
-    }
-
-    setEditStatus(statusMessage, 'success');
-
-    // อัปเดตแถวในหน้าจอทันที ไม่ต้องรอโหลดข้อมูลทั้งแท็บใหม่
-    // (ถ้ามีการเปลี่ยนสีแถวด้วย ต้องโหลดใหม่ เพราะสีมาจากข้อมูลฝั่งชีท)
-    const appliedLocally = !colorChanged && applyRowEditLocally_(row, data, editingRowHeaders);
-    closeEditModal();
-    if (!appliedLocally) {
+      // สีมาจากข้อมูลฝั่งชีท ต้องโหลดใหม่ถึงจะเห็น
       if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
+    showToast_(statusMessage, colorChanged && statusMessage.includes('ไม่สำเร็จ') ? 'error' : 'success');
   } catch (err) {
-    setEditStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
-  } finally {
-    editSubmit.disabled = false;
+    row.cells = oldCells;
+    renderCurrentPage();
+    const changed = isRowChangedError_(err);
+    if (changed) handleRowChangedError_(row);
+    showToast_(changed
+      ? 'ยังไม่ได้บันทึก — แถวนี้ในชีทเพิ่งถูกแก้ไข ระบบโหลดค่าล่าสุดให้แล้ว กรุณาตรวจแล้วกดบันทึกอีกครั้ง'
+      : 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    // เปิดหน้าต่างแก้ไขกลับมาพร้อมค่าที่ผู้ใช้กรอกไว้ ไม่ต้องพิมพ์ใหม่
+    await openEditModal(row, changed ? null : data);
+    setEditStatus(changed
+      ? 'แถวนี้ในชีทเพิ่งถูกแก้ไข ค่าที่แสดงคือค่าล่าสุดในชีท กรุณาตรวจแล้วแก้ไขอีกครั้ง'
+      : 'บันทึกไม่สำเร็จ: ' + err.message + ' — ค่าที่กรอกไว้ยังอยู่ กดบันทึกเพื่อลองใหม่', 'error');
   }
 });
 
@@ -2801,31 +2930,49 @@ function chosenColor_(inputEl) {
 
 addSubmitButton.addEventListener('click', async () => {
   if (!selectedSheet) return;
+  const sheetName = selectedSheet;
+  const book = currentBook;
   const data = {};
   addFields.querySelectorAll('input, select').forEach(el => {
     data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
   });
+  const wantColor = !!(addColorToggle && addColorToggle.checked);
+  const bg = wantColor ? chosenColor_(addColorBg) : '';
+  const font = wantColor ? chosenColor_(addColorFont) : '';
 
-  addSubmitButton.disabled = true;
-  setAddStatus('กำลังบันทึก...', null);
+  // ล้างฟอร์มทันทีให้กรอกเคสถัดไปได้เลย แล้วบันทึกเบื้องหลัง
+  // ไม่ต้องจ้องรอ Apps Script เขียนชีท ถ้าบันทึกไม่สำเร็จจะเติมค่าที่กรอกไว้กลับเข้าฟอร์มให้
+  addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
+  if (wantColor) resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
+  setAddStatus('กำลังบันทึก... (กรอกเคสถัดไปได้เลย)', null);
+  showToast_('กำลังบันทึกข้อมูลใหม่...', 'pending');
+
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'add', book: currentBook, sheet: selectedSheet, data: JSON.stringify(data) }));
+    const result = await jsonpRequest(apiUrl({ action: 'add', book: book, sheet: sheetName, data: JSON.stringify(data) }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
 
-    let statusMessage = 'บันทึกข้อมูลสำเร็จ';
-    if (addColorToggle && addColorToggle.checked && result.row) {
-      const colored = await applyRowColor_(selectedSheet, result.row, chosenColor_(addColorBg), chosenColor_(addColorFont));
-      statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
-      resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
+    let statusMessage = `บันทึกข้อมูลแล้ว ✓ (แถวที่ ${result.row})`;
+    if (wantColor && result.row) {
+      const colored = await applyRowColor_(sheetName, result.row, bg, font);
+      statusMessage += colored ? ' ปรับสีแถวแล้ว' : ' แต่ปรับสีแถวไม่สำเร็จ';
     }
-
     setAddStatus(statusMessage, 'success');
-    addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
-    await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    showToast_(statusMessage, 'success');
+    if (book === currentBook && sheetName === selectedSheet) {
+      await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    }
   } catch (err) {
-    setAddStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
-  } finally {
-    addSubmitButton.disabled = false;
+    // เติมค่าที่กรอกไว้กลับเข้าฟอร์ม ถ้าผู้ใช้ยังไม่ได้เริ่มกรอกเคสใหม่ทับ
+    const formEmpty = Array.from(addFields.querySelectorAll('input, select')).every(el => !el.value);
+    if (formEmpty && sheetName === selectedSheet) {
+      addFields.querySelectorAll('input, select').forEach(el => {
+        const v = data[el.dataset.header];
+        if (v !== undefined) el.value = el.type === 'date' ? toDateInputValue_(v) : v;
+      });
+    }
+    const msg = 'บันทึกไม่สำเร็จ: ' + err.message + (formEmpty ? ' — เติมค่าที่กรอกไว้กลับให้แล้ว กดบันทึกเพื่อลองใหม่' : '');
+    setAddStatus(msg, 'error');
+    showToast_(msg, 'error');
   }
 });
 

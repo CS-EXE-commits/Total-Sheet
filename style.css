@@ -2858,3 +2858,30 @@ th.data-table__ticket-col {
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .report-log-row__action--logout { color: #ff6b6b; }
 }
+
+/* ===== ข้อความแจ้งเตือนมุมจอ (การบันทึกเบื้องหลัง) ===== */
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast--show { opacity: 1; transform: none; pointer-events: auto; }
+.toast--pending { border-left-color: var(--color-text-muted); }
+.toast--success { border-left-color: var(--color-accent); }
+.toast--error   { border-left-color: var(--color-danger); color: var(--color-danger); }
