@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-0935';
+const APP_VERSION = '20261007-0945';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2584,46 +2584,45 @@ editSubmit.addEventListener('click', async () => {
   const bg = colorChanged ? chosenColor_(editColorBg) : '';
   const font = colorChanged ? chosenColor_(editColorFont) : '';
 
-  // ต้องเก็บลายนิ้วมือ "ก่อน" แก้ค่าบนหน้าจอ ไม่งั้นจะได้ลายนิ้วมือของค่าใหม่ ซึ่งไม่ตรงกับชีท
-  const fp = rowFp_(row);
-  const oldCells = row.cells.slice();
-
-  // แสดงค่าใหม่ในตารางและปิดหน้าต่างทันที แล้วค่อยบันทึกเบื้องหลัง
-  // ผู้ใช้ทำงานต่อได้เลย ไม่ต้องจ้องรอ Apps Script เขียนชีท (ซึ่งใช้เวลาหลายวินาที)
-  // ถ้าบันทึกไม่สำเร็จ จะคืนค่าเดิมบนหน้าจอ แล้วเปิดหน้าต่างพร้อมค่าที่กรอกไว้ให้ลองใหม่
-  applyRowEditLocally_(row, data, headersAtOpen);
-  closeEditModal();
-  showToast_('กำลังบันทึกการแก้ไข...', 'pending');
+  // หน้าต่างยังเปิดอยู่ระหว่างบันทึก แล้วค่อยปิดเมื่อบันทึกเสร็จจริง ผู้ใช้จะรู้ชัดว่าเสร็จแล้ว
+  editSubmit.disabled = true;
+  setEditStatus('กำลังบันทึก...', null);
 
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
-      data: JSON.stringify(data), fp: fp
+      data: JSON.stringify(data), fp: rowFp_(row)
     }));
     if (!result.ok) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
-    invalidateFullRow_(row);
 
     let statusMessage = '✓ แก้ไขข้อมูลสำเร็จเรียบร้อยแล้ว';
+    let colorFailed = false;
     if (colorChanged) {
+      setEditStatus('กำลังปรับสีแถว...', null);
       const colored = await applyRowColor_(row.sheet, row.row, bg, font);
+      colorFailed = !colored;
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
-      // สีมาจากข้อมูลฝั่งชีท ต้องโหลดใหม่ถึงจะเห็น
-      if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
-    showToast_(statusMessage, colorChanged && statusMessage.includes('ไม่สำเร็จ') ? 'error' : 'success');
+
+    // บันทึกเสร็จแล้ว: อัปเดตแถวบนหน้าจอ ปิดหน้าต่าง แล้วแจ้งผล
+    const appliedLocally = !colorChanged && applyRowEditLocally_(row, data, headersAtOpen);
+    invalidateFullRow_(row);
+    closeEditModal();
+    showToast_(statusMessage, colorFailed ? 'error' : 'success');
+    // สีมาจากข้อมูลฝั่งชีท ต้องโหลดใหม่ถึงจะเห็น
+    if (!appliedLocally && selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
-    row.cells = oldCells;
-    renderCurrentPage();
-    const changed = isRowChangedError_(err);
-    if (changed) handleRowChangedError_(row);
-    showToast_(changed
-      ? 'ยังไม่ได้บันทึก — แถวนี้ในชีทเพิ่งถูกแก้ไข ระบบโหลดค่าล่าสุดให้แล้ว กรุณาตรวจแล้วกดบันทึกอีกครั้ง'
-      : 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
-    // เปิดหน้าต่างแก้ไขกลับมาพร้อมค่าที่ผู้ใช้กรอกไว้ ไม่ต้องพิมพ์ใหม่
-    await openEditModal(row, changed ? null : data);
-    setEditStatus(changed
-      ? 'แถวนี้ในชีทเพิ่งถูกแก้ไข ค่าที่แสดงคือค่าล่าสุดในชีท กรุณาตรวจแล้วแก้ไขอีกครั้ง'
-      : 'บันทึกไม่สำเร็จ: ' + err.message + ' — ค่าที่กรอกไว้ยังอยู่ กดบันทึกเพื่อลองใหม่', 'error');
+    if (isRowChangedError_(err)) {
+      // ข้อมูลในชีทเพิ่งเปลี่ยน: โหลดค่าล่าสุดมาแสดงในหน้าต่างเดิมให้ตรวจก่อน
+      handleRowChangedError_(row);
+      await openEditModal(row, null);
+      setEditStatus('ยังไม่ได้บันทึก — แถวนี้ในชีทเพิ่งถูกแก้ไข ค่าที่แสดงคือค่าล่าสุดในชีท กรุณาตรวจแล้วแก้ไขอีกครั้ง', 'error');
+    } else {
+      // ไม่สำเร็จ: หน้าต่างยังเปิดอยู่พร้อมค่าที่กรอกไว้ กดบันทึกซ้ำได้เลย
+      setEditStatus('บันทึกไม่สำเร็จ: ' + err.message + ' — ค่าที่กรอกไว้ยังอยู่ กดบันทึกเพื่อลองใหม่', 'error');
+    }
+  } finally {
+    editSubmit.disabled = false;
   }
 });
 
@@ -3030,16 +3029,10 @@ addSubmitButton.addEventListener('click', async () => {
   const bg = wantColor ? chosenColor_(addColorBg) : '';
   const font = wantColor ? chosenColor_(addColorFont) : '';
 
-  // ล้างฟอร์มทันทีให้กรอกเคสถัดไปได้เลย แล้วบันทึกเบื้องหลัง
-  // ไม่ต้องจ้องรอ Apps Script เขียนชีท ถ้าบันทึกไม่สำเร็จจะเติมค่าที่กรอกไว้กลับเข้าฟอร์มให้
-  addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
-  if (wantColor) resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
-  // ปิดฟอร์มทันที ผู้ใช้จะรู้ว่ากดบันทึกแล้ว ผลลัพธ์แจ้งผ่านข้อความมุมจอ
-  // ถ้าบันทึกไม่สำเร็จ จะเปิดฟอร์มกลับมาพร้อมค่าที่กรอกไว้ให้ลองใหม่
-  setAddStatus('', null);
-  addPanel.hidden = true;
-  addToggle.setAttribute('aria-pressed', 'false');
-  showToast_('กำลังบันทึกข้อมูล...', 'pending');
+  // ฟอร์มยังเปิดอยู่ระหว่างบันทึก แล้วค่อยปิดเมื่อบันทึกเสร็จจริง ผู้ใช้จะรู้ชัดว่าเสร็จแล้ว
+  // (ปิดทันทีตั้งแต่กดทำให้ไม่แน่ใจว่าบันทึกไปหรือยัง)
+  addSubmitButton.disabled = true;
+  setAddStatus('กำลังบันทึก...', null);
 
   try {
     const result = await jsonpRequest(apiUrl({ action: 'add', book: book, sheet: sheetName, data: JSON.stringify(data) }));
@@ -3048,30 +3041,28 @@ addSubmitButton.addEventListener('click', async () => {
     let statusMessage = `✓ บันทึกข้อมูลสำเร็จเรียบร้อยแล้ว (แถวที่ ${result.row})`;
     let colorFailed = false;
     if (wantColor && result.row) {
+      setAddStatus('กำลังปรับสีแถว...', null);
       const colored = await applyRowColor_(sheetName, result.row, bg, font);
       colorFailed = !colored;
       statusMessage += colored ? ' ปรับสีแถวแล้ว' : ' แต่ปรับสีแถวไม่สำเร็จ';
     }
+
+    // บันทึกเสร็จแล้ว: ล้างฟอร์ม ปิดหน้าต่าง แล้วแจ้งผล
+    addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
+    if (wantColor) resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
+    setAddStatus('', null);
+    addPanel.hidden = true;
+    addToggle.setAttribute('aria-pressed', 'false');
     showToast_(statusMessage, colorFailed ? 'error' : 'success');
+
     if (book === currentBook && sheetName === selectedSheet) {
       await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     }
   } catch (err) {
-    // เติมค่าที่กรอกไว้กลับเข้าฟอร์ม ถ้าผู้ใช้ยังไม่ได้เริ่มกรอกเคสใหม่ทับ
-    const formEmpty = Array.from(addFields.querySelectorAll('input, select')).every(el => !el.value);
-    if (sheetName === selectedSheet) {
-      addPanel.hidden = false;
-      addToggle.setAttribute('aria-pressed', 'true');
-    }
-    if (formEmpty && sheetName === selectedSheet) {
-      addFields.querySelectorAll('input, select').forEach(el => {
-        const v = data[el.dataset.header];
-        if (v !== undefined) el.value = el.type === 'date' ? toDateInputValue_(v) : v;
-      });
-    }
-    const msg = 'บันทึกไม่สำเร็จ: ' + err.message + (formEmpty ? ' — เติมค่าที่กรอกไว้กลับให้แล้ว กดบันทึกเพื่อลองใหม่' : '');
-    setAddStatus(msg, 'error');
-    showToast_(msg, 'error');
+    // ไม่สำเร็จ: ฟอร์มยังเปิดอยู่พร้อมค่าที่กรอกไว้ กดบันทึกซ้ำได้เลย
+    setAddStatus('บันทึกไม่สำเร็จ: ' + err.message + ' — ค่าที่กรอกไว้ยังอยู่ กดบันทึกเพื่อลองใหม่', 'error');
+  } finally {
+    addSubmitButton.disabled = false;
   }
 });
 
