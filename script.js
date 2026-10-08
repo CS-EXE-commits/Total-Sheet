@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261007-1700';
+const APP_VERSION = '20261008-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -16,9 +16,41 @@ const topbarEmail = document.getElementById('topbarEmail');
 const topbarAvatar = document.getElementById('topbarAvatar');
 
 /** แสดงตัวอักษรแรกของอีเมลเป็นวงกลมอวาตาร์เล็กๆ ข้างชื่อผู้ใช้บนแถบหัวเว็บ */
+/**
+ * รูปโปรไฟล์ Google ของผู้ที่ล็อกอิน — อ่านจากช่อง picture ใน ID token ตอนกด Sign in with Google
+ * จำ URL ไว้ในเบราว์เซอร์ (ผูกกับอีเมล) ตอนรีเฟรชจะได้ไม่ต้องล็อกอิน Google ใหม่ ล้างทิ้งตอนออกจากระบบ
+ * โหลดรูปไม่ได้ (บัญชีไม่มีรูป/เน็ตบล็อก) ถอยไปแสดงตัวอักษรแรกของอีเมลเหมือนเดิม
+ */
+const AVATAR_KEY = 'sheetSearchAvatar';
+
+function rememberGoogleAvatar_(idToken, email) {
+  try {
+    const part = (idToken || '').split('.')[1] || '';
+    const json = decodeURIComponent(atob(part.replace(/-/g, '+').replace(/_/g, '/'))
+      .split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    const claims = JSON.parse(json);
+    if (claims.picture && /^https:\/\//.test(claims.picture)) {
+      localStorage.setItem(AVATAR_KEY, JSON.stringify({ email: (email || claims.email || '').toLowerCase(), url: claims.picture }));
+    } else {
+      localStorage.removeItem(AVATAR_KEY);
+    }
+  } catch (e) { /* อ่านรูปไม่ได้ก็ใช้ตัวอักษรแทน */ }
+}
+
 function setTopbarAccountEmail(email) {
   topbarEmail.textContent = email;
-  topbarAvatar.textContent = (email || '?').trim().charAt(0).toUpperCase();
+  const letter = (email || '?').trim().charAt(0).toUpperCase();
+  topbarAvatar.textContent = letter;
+  topbarAvatar.classList.remove('topbar__avatar--photo');
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(AVATAR_KEY) || 'null'); } catch (e) { saved = null; }
+  if (!saved || !saved.url || (saved.email && saved.email !== (email || '').toLowerCase())) return;
+  const img = document.createElement('img');
+  img.alt = '';
+  img.referrerPolicy = 'no-referrer'; // รูปของ Google มักปฏิเสธถ้าส่ง referrer ไป
+  img.onload = () => { topbarAvatar.textContent = ''; topbarAvatar.appendChild(img); topbarAvatar.classList.add('topbar__avatar--photo'); };
+  img.onerror = () => { topbarAvatar.textContent = letter; };
+  img.src = saved.url;
 }
 const logoutButton = document.getElementById('logoutButton');
 const adminLink = document.getElementById('adminLink');
@@ -923,6 +955,7 @@ async function tryLoginGoogle(idToken) {
     currentSessionToken = result.token;
     currentUserEmail = result.email;
     localStorage.setItem('sheetSearchToken', currentSessionToken);
+    rememberGoogleAvatar_(idToken, result.email);
     loginModal.hidden = true;
     topbarAccount.hidden = false;
     setTopbarAccountEmail(currentUserEmail);
@@ -961,6 +994,7 @@ logoutButton.addEventListener('click', () => {
   }
   localStorage.removeItem('sheetSearchToken');
   localStorage.removeItem(FOLDERS_CACHE_KEY);
+  localStorage.removeItem(AVATAR_KEY);
   // ล้างรายการถังขยะที่โหลดค้างไว้ (มีตัวอย่างข้อมูลที่ถูกลบ) ไม่ให้คนถัดไปเห็น
   if (dataTrashList) dataTrashList.innerHTML = '';
   if (bookTrashList) bookTrashList.innerHTML = '';
