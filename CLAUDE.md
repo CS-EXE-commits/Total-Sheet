@@ -26,6 +26,7 @@ Apps Script อ่านสีของแต่ละตัวเลือก�
 **`getDropdownOptions_()` ต้องไล่ทั้งคอลัมน์ถึง `getMaxRows()` และใช้กฎของแถวล่างสุดก่อน**
 เดิมดูแค่ 20 แถวแรก แท็บ "บัค - ไอเทมหาย - ถามทั่วไป" (Z4 CS-GP 2026) จึงขึ้นช่องพิมพ์แทนช่องเลือกสถานะ
 แก้ Dropdown ในชีทแล้วอยากให้หน้าเว็บเห็นทันที → Run `refreshAllDropdownOptions()` ใน SupabaseSync.gs
+อ่านกฎทั้งแท็บครั้งเดียว (`getSheetDropdowns_`) ห้ามไล่ทีละเซลล์ (เคยเกิน 6 นาที) และห้ามเช็ก `typeof range.getValues` ในกฎแบบ VALUE_IN_RANGE (เคยทำให้อ่านไม่ได้ทั้งหมด)
 
 **`rowFingerprint_()` ต้องเหมือนกันเป๊ะทั้ง 2 ฝั่ง**
 มีอยู่ใน `backend/Code.gs` และ `frontend/script.js` ถ้าแก้ต้องแก้ทั้งคู่พร้อมกัน
