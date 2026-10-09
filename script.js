@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261008-0900';
+const APP_VERSION = '20261009-1015';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2576,7 +2576,7 @@ async function openEditModal(row, prefill) {
   try {
     // ดึงข้อมูลทั้งแถวมาด้วย เพราะตารางรายการมีแค่ไม่กี่คอลัมน์
     const [headersResult, tableHeadersResult] = await Promise.all([
-      jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: row.sheet })),
+      loadHeadersWithStatusOptions_(currentBook, row.sheet),
       jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: row.sheet })),
       ensureFullRow_(row)
     ]);
@@ -2615,6 +2615,12 @@ function renderEditFields(headers, fullHeaders, row) {
     const colIndex = fullHeaders.indexOf(header.name);
     if (colIndex !== -1) {
       const rawValue = (row.cells[colIndex] || '').toString();
+      // ค่าปัจจุบันที่ไม่อยู่ในรายการตัวเลือก ต้องเพิ่มเข้าไปก่อน ไม่งั้นช่องเลือกจะว่าง แล้วกดบันทึกค่าเดิมจะหายไป
+      if (inputEl.tagName === 'SELECT' && rawValue && !Array.from(inputEl.options).some(o => o.value === rawValue)) {
+        const opt = document.createElement('option');
+        opt.value = rawValue; opt.textContent = rawValue;
+        inputEl.appendChild(opt);
+      }
       inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue) : rawValue;
     }
     inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
@@ -2807,13 +2813,43 @@ addToggle.addEventListener('click', () => {
   if (!isOpen) loadAddFields();
 });
 
+/**
+ * โหลดรายชื่อคอลัมน์ของฟอร์มเพิ่ม/แก้ไข แล้วเติมตัวเลือกให้คอลัมน์ "สถานะ" ที่ไม่มี Dropdown ให้อ่าน
+ *
+ * บางแท็บตั้ง Dropdown สถานะแบบ "เลือกจากช่วงเซลล์" ที่ Apps Script อ่านตัวเลือกไม่ออก
+ * (เช่น Z4 CS-GP 2026 / บัค - ไอเทมหาย - ถามทั่วไป) ฟอร์มจึงขึ้นเป็นช่องพิมพ์
+ * กรณีนี้หน้าเว็บสร้างตัวเลือกเอง จากสถานะที่แท็บนั้นใช้อยู่จริง (นับจาก Supabase เรียงจากใช้บ่อยสุด)
+ * ถ้าแท็บยังไม่มีสถานะเลย ใช้ รอตรวจสอบ / แก้ไขแล้ว
+ * คอลัมน์ที่มี Dropdown อ่านได้อยู่แล้ว ไม่แตะเลย — ใช้ตัวเลือกจากชีทตามเดิม
+ */
+const DEFAULT_STATUS_OPTIONS = ['รอตรวจสอบ', 'แก้ไขแล้ว'];
+async function loadHeadersWithStatusOptions_(book, sheet) {
+  const result = await jsonpRequest(apiUrl({ action: 'headers', book, sheet }));
+  if (!result || !result.ok || !Array.isArray(result.headers)) return result;
+  const missing = result.headers.filter(h =>
+    /^(สถานะ|status)$/i.test((h.name || '').toString().trim()) && !(h.options && h.options.length));
+  if (!missing.length) return result;
+  let values = [];
+  try {
+    if (typeof supaReady === 'function' && supaReady() && typeof supaStatusTally === 'function') {
+      const t = await supaStatusTally(book, sheet);
+      values = Object.keys(t.tally || {})
+        .filter(v => v && v !== NO_STATUS_LABEL_CLIENT)
+        .sort((a, b) => (t.tally[b] || 0) - (t.tally[a] || 0));
+    }
+  } catch (e) { values = []; }
+  if (!values.length) values = DEFAULT_STATUS_OPTIONS.slice();
+  missing.forEach(h => { h.options = values.slice(); h.optionsFromData = true; });
+  return result;
+}
+
 async function loadAddFields() {
   addPanelSheetName.textContent = selectedSheet;
   addFields.innerHTML = '';
   addSubmitButton.disabled = true;
   setAddStatus('กำลังโหลดคอลัมน์...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: selectedSheet }));
+    const result = await loadHeadersWithStatusOptions_(currentBook, selectedSheet);
     if (!result.ok) throw new Error(result.error || 'โหลดคอลัมน์ไม่สำเร็จ');
     renderAddFields(result.headers);
     addSubmitButton.disabled = false;
@@ -3267,7 +3303,7 @@ async function loadManageColumns() {
   manageChips.innerHTML = '';
   setManageStatus('กำลังโหลด...', null);
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'headers', book: currentBook, sheet: selectedSheet }));
+    const result = await loadHeadersWithStatusOptions_(currentBook, selectedSheet);
     if (!result.ok) throw new Error(result.error || 'โหลดคอลัมน์ไม่สำเร็จ');
     renderManageChips(result.headers);
     setManageStatus('', null);
