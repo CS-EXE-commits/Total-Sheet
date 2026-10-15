@@ -503,7 +503,7 @@ function buildStatusCell(row, currentValue) {
   const knownValues = new Set(currentRows.map(r => (r.cells[statusColIndex] || '').toString().trim()).filter(Boolean));
   const options = headerMeta && headerMeta.options && headerMeta.options.length > 0
     ? headerMeta.options
-    : Array.from(knownValues);
+    : DEFAULT_STATUS_OPTIONS.concat(Array.from(knownValues).filter(v => DEFAULT_STATUS_OPTIONS.indexOf(v) === -1));
 
   if (options.length === 0) return wrap;
 
@@ -2456,7 +2456,11 @@ function setupStatusFilter() {
   // ที่อาจไม่ได้อยู่ใน Dropdown ก็ตาม (เผื่อกรอกมาแบบพิมพ์เองก่อนหน้านี้) — ไม่ซ้ำกัน
   const headerName = currentTableHeaders[statusColIndex];
   const headerMeta = currentHeadersMeta.find(h => h.name === headerName);
-  const validationOptions = (headerMeta && headerMeta.options) || [];
+  let validationOptions = (headerMeta && headerMeta.options) || [];
+  // แท็บที่อ่าน Dropdown จากชีทไม่ได้ → ใส่ รอตรวจสอบ / แก้ไขแล้ว ไว้ก่อนเสมอ (กันกรณีทั้งแท็บมีแค่สถานะเดียว)
+  if (!validationOptions.length || (headerMeta && headerMeta.optionsFromData)) {
+    validationOptions = DEFAULT_STATUS_OPTIONS.concat(validationOptions);
+  }
 
   const ordered = [];
   const seen = new Set();
@@ -2844,7 +2848,8 @@ async function loadHeadersWithStatusOptions_(book, sheet) {
         .sort((a, b) => (t.tally[b] || 0) - (t.tally[a] || 0));
     }
   } catch (e) { values = []; }
-  if (!values.length) values = DEFAULT_STATUS_OPTIONS.slice();
+  // รวม รอตรวจสอบ / แก้ไขแล้ว เสมอ แม้ข้อมูลในแท็บจะมีแค่สถานะเดียว แล้วต่อด้วยสถานะอื่นที่พบในข้อมูล
+  values = DEFAULT_STATUS_OPTIONS.concat(values.filter(v => DEFAULT_STATUS_OPTIONS.indexOf(v) === -1));
   missing.forEach(h => { h.options = values.slice(); h.optionsFromData = true; });
   return result;
 }
