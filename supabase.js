@@ -834,14 +834,14 @@ async function supaStatusRows(status, book, sheet) {
 const NO_STATUS_LABEL_CLIENT = 'ตรวจสอบสถานะ';
 
 /**
- * เคสที่ยังรอตรวจสอบ / คงค้าง ทุกไฟล์ทุกแท็บ (สถานะที่ขึ้นต้นด้วย "รอ" หรือมีคำว่า "ค้าง" — ไม่นับ "ไม่รองรับ" เช่น รอตรวจสอบ, รอแก้ไข, คงค้าง)
+ * เคสที่สถานะ "รอตรวจสอบ" ทุกไฟล์ทุกแท็บ (สถานะอื่นทั้งหมด เช่น แก้ไขแล้ว ไม่แสดง)
  * คืน [{ book, sheet, count, cases: [{ row, status, date, exeId }] }] เรียงแท็บที่ค้างเยอะสุดก่อน
  */
 const SUPA_PENDING_LIMIT = 500;
 async function supaPendingCases() {
   const withStatus = await supaStatusSheets_();
   const query = '/sheet_rows?select=book,sheet,row_index,status,data' +
-    '&or=' + encodeURIComponent('(status.like.รอ*,status.like.*ค้าง*)') +
+    '&status=eq.' + encodeURIComponent('รอตรวจสอบ') +
     '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
   const res = await supaSelect_(query);
   const data = await res.json();
