@@ -3533,8 +3533,8 @@ async function loadGlobalDashboard() {
 
   // ยอดสถานะทั้งระบบ (การ์ดตรวจสอบสถานะ) อ่านจาก Supabase ได้ทันที ไม่ต้องรอ Apps Script ไล่นับทุกชีท
   let statusFromSupabase = false;
-  const supaPart = (typeof supaReady === 'function' && supaReady() && typeof supaStatusBreakdown === 'function')
-    ? supaStatusBreakdown().then(r => { renderDashboardStatusList(r); statusFromSupabase = true; })
+  const supaPart = (typeof supaReady === 'function' && supaReady() && typeof supaPendingCases === 'function')
+    ? supaPendingCases().then(r => { renderPendingCases_(r); statusFromSupabase = true; })
         .catch(err => console.warn('[Supabase] นับสถานะไม่สำเร็จ ใช้ Apps Script แทน:', err.message))
     : Promise.resolve();
 
@@ -3551,8 +3551,7 @@ async function loadGlobalDashboard() {
     await supaPart;
     if (!statusFromSupabase) {
       // Supabase ใช้ไม่ได้ และรอบนี้ขอแบบ lite ไป ต้องขอยอดเต็มจาก Apps Script อีกรอบ
-      if (useLite) result = await jsonpRequest(apiUrl({ action: 'globalDashboard' }), GLOBAL_DASHBOARD_TIMEOUT_MS);
-      if (result.ok) renderDashboardStatusList(result);
+      dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ยังโหลดเคสรอตรวจสอบไม่ได้ ลองรีเฟรชหน้าอีกครั้ง</p>';
     }
     globalDashboardLoadedOnce = true;
     setDashboardStatus('', null);
@@ -3654,6 +3653,51 @@ function renderDashboardStatusList(result) {
       window.open(`status.html?status=${encodeURIComponent(el.dataset.status)}`, '_blank');
     });
   });
+}
+
+/** การ์ด "เคสรอตรวจสอบ" — แยกตามไฟล์/แท็บ คลิกหัวข้อเพื่อกาง/หุบ คลิกเคสเพื่อดูรายละเอียด */
+const pendingOpenGroups_ = new Set();
+function renderPendingCases_(result) {
+  const groups = (result && result.groups) || [];
+  if (!groups.length) {
+    dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ไม่มีเคสรอตรวจสอบ 🎉</p>';
+    return;
+  }
+  const total = groups.reduce((n, g) => n + g.count, 0);
+  dashboardStatusList.innerHTML = groups.map((g, i) => {
+    const key = g.book + '\u0000' + g.sheet;
+    const open = pendingOpenGroups_.has(key) || (pendingOpenGroups_.size === 0 && i === 0);
+    return `
+    <div class="pending-group" data-key="${escapeHtml(key)}">
+      <button type="button" class="sidebar-dashboard__row sidebar-dashboard__row--clickable pending-group__head" aria-expanded="${open}">
+        <span class="sidebar-dashboard__row-name">${escapeHtml(g.book)} · ${escapeHtml(g.sheet)}</span>
+        <span class="sidebar-dashboard__row-count">${g.count}</span>
+      </button>
+      <div class="pending-group__cases"${open ? '' : ' hidden'}>
+        ${g.cases.map(c => `
+        <div class="today-work__case sidebar-dashboard__case--clickable"
+             data-case-book="${escapeHtml(g.book)}" data-case-sheet="${escapeHtml(g.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้">
+          <div class="today-work__info">
+            <div class="today-work__when">${escapeHtml(c.exeId || '(ไม่มี EXE ID)')}</div>
+            <div class="today-work__where">แถวที่ ${c.row}${c.date ? ' · ' + escapeHtml(c.date) : ''}</div>
+          </div>
+          <span class="today-work__status">${escapeHtml(c.status)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('') + `<p class="sidebar-dashboard__total">รวม ${total} เคส ใน ${groups.length} แท็บ${result.truncated ? ' (แสดงล่าสุด ' + total + ' เคส)' : ''}</p>`;
+
+  dashboardStatusList.querySelectorAll('.pending-group__head').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.closest('.pending-group');
+      const cases = group.querySelector('.pending-group__cases');
+      const nowOpen = cases.hidden;
+      cases.hidden = !nowOpen;
+      btn.setAttribute('aria-expanded', String(nowOpen));
+      if (nowOpen) pendingOpenGroups_.add(group.dataset.key); else pendingOpenGroups_.delete(group.dataset.key);
+    });
+  });
+  bindCaseDetailClicks_(dashboardStatusList);
 }
 
 function setDashboardStatus(message, type) {

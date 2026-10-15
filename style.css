@@ -2993,3 +2993,9 @@ th.data-table__ticket-col {
 /* รูปโปรไฟล์ Google ในแถบบน */
 .topbar__avatar--photo { background: none; overflow: hidden; padding: 0; }
 .topbar__avatar--photo img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+
+/* เคสรอตรวจสอบ */
+.pending-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.pending-group__head { width: 100%; font: inherit; text-align: left; }
+.pending-group__cases { display: flex; flex-direction: column; gap: 6px; padding-left: 8px; }
+.pending-group__cases[hidden] { display: none; }

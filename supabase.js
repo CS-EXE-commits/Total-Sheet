@@ -831,3 +831,37 @@ async function supaStatusRows(status, book, sheet) {
 // ต้องตรงกับค่า NO_STATUS_LABEL ใน Code.gs เป๊ะ
 // เป็นทั้งป้ายที่แสดงและคีย์ที่ใช้ค้นต่อ ถ้าไม่ตรงกัน กดจากหน้าสรุปแล้วจะค้นไม่เจอ
 const NO_STATUS_LABEL_CLIENT = 'ตรวจสอบสถานะ';
+
+/**
+ * เคสที่ยังรอตรวจสอบ / คงค้าง ทุกไฟล์ทุกแท็บ (สถานะที่ขึ้นต้นด้วย "รอ" หรือมีคำว่า "ค้าง" — ไม่นับ "ไม่รองรับ" เช่น รอตรวจสอบ, รอแก้ไข, คงค้าง)
+ * คืน [{ book, sheet, count, cases: [{ row, status, date, exeId }] }] เรียงแท็บที่ค้างเยอะสุดก่อน
+ */
+const SUPA_PENDING_LIMIT = 500;
+async function supaPendingCases() {
+  const withStatus = await supaStatusSheets_();
+  const query = '/sheet_rows?select=book,sheet,row_index,status,data' +
+    '&or=' + encodeURIComponent('(status.like.รอ*,status.like.*ค้าง*)') +
+    '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
+  const res = await supaSelect_(query);
+  const data = await res.json();
+  const groups = {};
+  data.forEach(r => {
+    const key = r.book + '\u0000' + r.sheet;
+    if (!withStatus[key]) return;
+    const d = r.data || {};
+    let exeId = '', date = '';
+    Object.keys(d).forEach(k => {
+      const v = d[k] === null || d[k] === undefined ? '' : String(d[k]).trim();
+      if (!v) return;
+      if (!exeId && /exe\s*[_-]?\s*id/i.test(k)) exeId = v;
+      if (!date && /วันที่|^date$/i.test(k.trim())) date = v;
+    });
+    (groups[key] = groups[key] || { book: r.book, sheet: r.sheet, cases: [] }).cases.push({
+      row: r.row_index, status: (r.status || '').toString().trim(), exeId, date
+    });
+  });
+  const list = Object.keys(groups).map(k => groups[k]);
+  list.forEach(g => { g.count = g.cases.length; });
+  list.sort((a, b) => b.count - a.count);
+  return { ok: true, groups: list, total: data.length, truncated: data.length >= SUPA_PENDING_LIMIT };
+}
