@@ -862,7 +862,8 @@ async function supaPendingCases() {
     });
   });
   const list = Object.keys(groups).map(k => groups[k]);
-  list.forEach(g => { g.count = g.cases.length; });
+  // ในแต่ละแท็บ เรียงแถวจากน้อยไปมาก (บนลงล่างตามชีท)
+  list.forEach(g => { g.count = g.cases.length; g.cases.sort((a, b) => a.row - b.row); });
   list.sort((a, b) => b.count - a.count);
   return { ok: true, groups: list, total: data.length, truncated: data.length >= SUPA_PENDING_LIMIT };
 }
