@@ -374,6 +374,12 @@ function isExeIdHeader_(name) {
   return /exe\s*[_-]?\s*id/i.test((name || '').toString());
 }
 
+/** คอลัมน์ที่มีปุ่ม Copy ในหน้ารายละเอียดเคส: EXE ID, ตัวละคร, Family, UID, AID */
+function isCopyableHeader_(name) {
+  const n = (name || '').toString().trim();
+  return isExeIdHeader_(n) || /ตัวละคร|character|family|^\s*(uid|aid)\b|\b(uid|aid)\s*$/i.test(n);
+}
+
 /** escapeHtml ไม่ได้หนีเครื่องหมายคำพูด ใช้ใส่ในค่าของ attribute ตรงๆ ไม่ได้ */
 function escapeAttr_(value) {
   return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -3949,7 +3955,7 @@ function buildCaseFieldsTable_(fields) {
           ? `<a class="ticket-link" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
           : escapeHtml(value))
       : '<span class="case-fields__empty">(ว่าง)</span>';
-    const copy = (value && isExeIdHeader_(f.name))
+    const copy = (value && isCopyableHeader_(f.name))
       ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="คัดลอก" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
       : '';
     return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}${copy}</td></tr>`;
