@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261009-1015';
+const APP_VERSION = '20261015-1740';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -234,8 +234,15 @@ function renderCurrentPage() {
 
   tableHead.innerHTML = '<tr>' + '<th class="data-table__rownum-col">แถวที่</th>' + visibleColumnIndices.map(i => {
     const cls = isTicketColumn(currentTableHeaders[i]) ? ' class="data-table__ticket-col"' : '';
-    return `<th${cls}>${escapeHtml(currentTableHeaders[i])}</th>`;
+    const name = currentTableHeaders[i];
+    if (isDateSortHeader_(name)) {
+      const label = sortNewestFirst ? 'ใหม่สุดก่อน' : 'เก่าสุดก่อน';
+      return `<th${cls}><button type="button" class="date-sort-btn" title="กดเพื่อสลับลำดับวันที่ (ตอนนี้: ${label})" aria-label="เรียงวันที่ ตอนนี้${label}">${escapeHtml(name)} <span class="date-sort-btn__arrow">${sortNewestFirst ? '▼' : '▲'}</span></button></th>`;
+    }
+    return `<th${cls}>${escapeHtml(name)}</th>`;
   }).join('') + '<th class="data-table__actions-col"></th></tr>';
+  const sortBtn = tableHead.querySelector('.date-sort-btn');
+  if (sortBtn) sortBtn.addEventListener('click', toggleDateSort_);
   tableBody.innerHTML = '';
   pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
   syncTicketColumnOffset_();
@@ -1105,8 +1112,12 @@ const TAB_CHUNK_SIZE = 2500;
 const TAB_PAGE_CACHE_MAX = 60; // จำนวนหน้าที่จำไว้ (เกินกว่านี้ทิ้งอันที่เก่าสุด)
 const tabPageCache_ = new Map();
 
+// ลำดับวันที่ของตาราง: false = เก่าสุดไปใหม่สุด (ค่าเดิม), true = ใหม่สุดไปเก่าสุด — จำไว้ข้ามการรีเฟรช ใช้กับทุกไฟล์ทุกแท็บ
+let sortNewestFirst = false;
+try { sortNewestFirst = localStorage.getItem('sheetSearchSortNewest') === '1'; } catch (e) { /* ignore */ }
+
 function tabCacheKey_(book, sheetName, keyword, status, size, page) {
-  return [book, sheetName, keyword || '', status || '', size, page].join('\u0000');
+  return [book, sheetName, keyword || '', status || '', size, page, sortNewestFirst ? 'd' : 'a'].join('\u0000');
 }
 
 function tabCacheGet_(key) {
@@ -1227,6 +1238,7 @@ async function serveFromSupabase_(action, url, timeoutMs) {
         status: params.get('status'),
         offset: params.get('offset'),
         limit: params.get('limit'),
+        order: params.get('order'),
         slim: params.get('slim') !== '0'
       });
     }
@@ -2256,6 +2268,17 @@ function updateTabPillStates() {
   });
 }
 
+function isDateSortHeader_(name) {
+  return /วันที่|^\s*date\s*$/i.test((name || '').toString());
+}
+
+/** สลับลำดับวันที่ เก่า→ใหม่ / ใหม่→เก่า แล้วโหลดหน้าแรกของแท็บนี้ใหม่ */
+function toggleDateSort_() {
+  sortNewestFirst = !sortNewestFirst;
+  try { localStorage.setItem('sheetSearchSortNewest', sortNewestFirst ? '1' : '0'); } catch (e) { /* ignore */ }
+  if (selectedSheet) loadSingleTabView(selectedSheet, lastKeyword || '', 1);
+}
+
 async function selectTab(sheetName) {
   // ถ้ากรอกฟอร์มเพิ่มข้อมูลค้างไว้ ให้ถามก่อน ไม่งั้นข้อมูลหายเงียบๆ
   if (sheetName !== selectedSheet && !confirmDiscardAddForm_()) return;
@@ -2328,7 +2351,8 @@ async function loadSingleTabView(sheetName, keyword, page) {
   try {
     const viewResult = await jsonpRequest(apiUrl({
       action: 'tabView', book: currentBook, sheet: sheetName, q: keyword,
-      offset: (targetPage - 1) * pageSize, limit: pageSize, slim: 1, status: status
+      offset: (targetPage - 1) * pageSize, limit: pageSize, slim: 1, status: status,
+      order: sortNewestFirst ? 'desc' : 'asc'
     }), BIG_TAB_TIMEOUT_MS);
     if (requestId !== loadRequestSeq) return;
     if (!viewResult.ok) throw new Error(viewResult.error || 'โหลดข้อมูลไม่สำเร็จ');
@@ -2420,7 +2444,8 @@ async function prefetchTabPage_(sheetName, keyword, status, page) {
   try {
     const result = await jsonpRequest(apiUrl({
       action: 'tabView', book: book, sheet: sheetName, q: keyword,
-      offset: (page - 1) * pageSize, limit: pageSize, slim: 1, status: status
+      offset: (page - 1) * pageSize, limit: pageSize, slim: 1, status: status,
+      order: sortNewestFirst ? 'desc' : 'asc'
     }), BIG_TAB_TIMEOUT_MS);
     // ผู้ใช้สลับไฟล์ไปแล้วระหว่างรอ ของที่ได้มาใช้ไม่ได้
     if (result && result.ok && book === currentBook) tabCacheSet_(key, result);

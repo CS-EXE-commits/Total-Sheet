@@ -466,7 +466,8 @@ async function supaTabView(params) {
     }
   }
 
-  query += '&order=row_index.asc';
+  // ลำดับแถวในชีท = ลำดับที่เคสเข้า จึงใช้เรียงวันที่ได้ตรง (ช่องวันที่เก็บเป็นข้อความ dd/mm/yyyy เรียงตรงๆ ไม่ได้)
+  query += '&order=row_index.' + (params.order === 'desc' ? 'desc' : 'asc');
   if (limit > 0) query += '&offset=' + offset + '&limit=' + limit;
 
   // count=exact ทำให้ฐานข้อมูลนับยอดรวมของ "ทุกแถวที่ตรงเงื่อนไข" มาให้ในหัวข้อตอบกลับ
