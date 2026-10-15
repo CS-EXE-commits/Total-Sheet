@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261015-1820';
+const APP_VERSION = '20261015-1830';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -779,7 +779,56 @@ let currentUserEmail = ''; // อีเมลของผู้ที่เข�
 // (ของเดิมส่งแค่อีเมลเปล่าๆ ซึ่งใครก็พิมพ์สวมรอยได้)
 let currentSessionToken = '';
 
+/**
+ * ล็อกอินแบบ "เปลี่ยนหน้า" (ไม่ใช้ป๊อปอัป) — สำรองไว้สำหรับเครื่องที่เบราว์เซอร์/นโยบายบริษัทบล็อกป๊อปอัปของ Google
+ * ไปหน้า Google เต็มหน้าจอ แล้ว Google ส่งกลับมาที่หน้านี้พร้อม id_token ใน # ของ URL
+ * id_token ตัวเดียวกับปุ่มปกติ ฝั่ง Apps Script ตรวจแบบเดิมทุกอย่าง (ลายเซ็น Google + รายชื่อที่อนุญาต)
+ * ต้องเพิ่ม URL ของเว็บใน "Authorized redirect URIs" ของ OAuth Client ใน Google Cloud Console ก่อน
+ */
+const REDIRECT_LOGIN_NONCE_KEY = 'sheetSearchLoginNonce';
+function redirectLoginUri_() {
+  return location.origin + location.pathname.replace(/index\.html$/, '');
+}
+function startRedirectLogin_() {
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+  try { sessionStorage.setItem(REDIRECT_LOGIN_NONCE_KEY, nonce); } catch (e) { /* ignore */ }
+  const q = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectLoginUri_(),
+    response_type: 'id_token',
+    scope: 'openid email profile',
+    nonce: nonce,
+    prompt: 'select_account'
+  });
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + q.toString();
+}
+/** กลับมาจากหน้า Google แล้ว: เอา id_token จาก # ไปล็อกอิน คืน true ถ้าจัดการแล้ว */
+function consumeRedirectLogin_() {
+  if (!location.hash || location.hash.indexOf('id_token=') === -1 && location.hash.indexOf('error=') === -1) return false;
+  const h = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, '', location.pathname + location.search); // ล้าง token ออกจากแถบที่อยู่ทันที
+  loginModal.hidden = false;
+  if (h.get('error')) {
+    setLoginStatus('เข้าสู่ระบบไม่สำเร็จ: ' + h.get('error') + (h.get('error') === 'redirect_uri_mismatch' ? ' (ผู้ดูแลต้องเพิ่ม URL เว็บใน Authorized redirect URIs)' : ''), 'error');
+    return true;
+  }
+  const idToken = h.get('id_token');
+  let expected = '';
+  try { expected = sessionStorage.getItem(REDIRECT_LOGIN_NONCE_KEY) || ''; sessionStorage.removeItem(REDIRECT_LOGIN_NONCE_KEY); } catch (e) { /* ignore */ }
+  let nonce = '';
+  try { nonce = JSON.parse(atob(idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).nonce || ''; } catch (e) { /* ignore */ }
+  if (!expected || nonce !== expected) {
+    setLoginStatus('การเข้าสู่ระบบหมดอายุหรือไม่ถูกต้อง กรุณากดเข้าสู่ระบบอีกครั้ง', 'error');
+    return true;
+  }
+  tryLoginGoogle(idToken);
+  return true;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  const redirectBtn = document.getElementById('googleRedirectLogin');
+  if (redirectBtn) redirectBtn.addEventListener('click', startRedirectLogin_);
+  if (consumeRedirectLogin_()) return;
   // ล้างข้อมูลล็อกอินแบบเก่า (เก็บแค่อีเมล) ทิ้ง เพราะใช้ไม่ได้กับระบบตั๋วแล้ว
   localStorage.removeItem('sheetSearchEmail');
   const savedToken = localStorage.getItem('sheetSearchToken');

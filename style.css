@@ -3008,3 +3008,7 @@ th.data-table__ticket-col {
 
 /* ช่อง Ticket ที่เป็นข้อความยาว ไม่ให้ดันตารางกว้างจนล้นจอ */
 .data-table__clip { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+
+/* ปุ่มสำรองล็อกอินแบบไม่ใช้ป๊อปอัป */
+.login-redirect-btn { display: block; margin: 12px auto 0; padding: 6px 10px; font: inherit; font-size: 12.5px; color: var(--color-text-muted); background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.login-redirect-btn:hover { color: var(--color-accent); }
