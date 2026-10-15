@@ -2200,9 +2200,38 @@ async function openBook(book, initialSheet) {
  * เดิมมีปุ่ม "ทั้งหมดในไฟล์นี้" ที่ดึงข้อมูลทุกแท็บมารวมกันในครั้งเดียว ซึ่งเป็นคำสั่งที่หนักที่สุดในระบบ
  * (ไฟล์ที่มีหลายแท็บและแต่ละแท็บหลายพันแถว ต้องอ่านทั้งไฟล์) จึงเอาออกเพื่อไม่ให้เผลอกดแล้วรอนาน
  */
+// ไฟล์ที่มีแท็บเยอะมาก → แสดงเป็น Dropdown เลือกแท็บแทนปุ่ม (ตอนนี้มีแค่ New Item in Patch)
+const TAB_DROPDOWN_BOOKS = ['New Item in Patch'];
+
 function renderTabs(sheets) {
   tabsBar.innerHTML = '';
+  if (TAB_DROPDOWN_BOOKS.indexOf((currentBook || '').toString().trim()) !== -1) {
+    tabsBar.appendChild(createTabSelect_(sheets));
+    return;
+  }
   sheets.forEach(s => tabsBar.appendChild(createTabPill(s.name, s.name)));
+}
+
+function createTabSelect_(sheets) {
+  const select = document.createElement('select');
+  select.className = 'tab-select';
+  select.setAttribute('aria-label', 'เลือกแท็บ');
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = `เลือกแท็บ (${sheets.length} แท็บ)`;
+  select.appendChild(blank);
+  sheets.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    select.appendChild(opt);
+  });
+  select.value = selectedSheet && sheets.some(s => s.name === selectedSheet) ? selectedSheet : '';
+  select.addEventListener('change', () => {
+    if (!select.value) { select.value = selectedSheet || ''; return; }
+    selectTab(select.value);
+  });
+  return select;
 }
 
 function createTabPill(label, sheetName) {
@@ -2220,6 +2249,8 @@ function createTabPill(label, sheetName) {
 }
 
 function updateTabPillStates() {
+  const tabSelect = tabsBar.querySelector('select.tab-select');
+  if (tabSelect) { tabSelect.value = selectedSheet || ''; return; }
   Array.from(tabsBar.children).forEach(pill => {
     pill.setAttribute('aria-pressed', String(pill.dataset.sheet === selectedSheet));
   });
