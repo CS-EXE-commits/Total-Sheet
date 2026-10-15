@@ -3001,7 +3001,10 @@ th.data-table__ticket-col {
 .pending-group__cases[hidden] { display: none; }
 
 /* ปุ่มเรียงวันที่บนหัวตาราง */
-.date-sort-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-weight: inherit; }
+.date-sort-btn { all: unset; cursor: pointer; display: flex; width: 100%; box-sizing: border-box; align-items: center; justify-content: space-between; gap: 12px; font-weight: inherit; }
 .date-sort-btn:hover { color: var(--color-accent); }
 .date-sort-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 4px; }
-.date-sort-btn__arrow { font-size: 10px; color: var(--color-accent); }
+.date-sort-btn__arrow { font-size: 11px; color: var(--color-accent); padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 6px; }
+
+/* ช่อง Ticket ที่เป็นข้อความยาว ไม่ให้ดันตารางกว้างจนล้นจอ */
+.data-table__clip { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }

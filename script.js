@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261015-1740';
+const APP_VERSION = '20261015-1800';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -237,7 +237,7 @@ function renderCurrentPage() {
     const name = currentTableHeaders[i];
     if (isDateSortHeader_(name)) {
       const label = sortNewestFirst ? 'ใหม่สุดก่อน' : 'เก่าสุดก่อน';
-      return `<th${cls}><button type="button" class="date-sort-btn" title="กดเพื่อสลับลำดับวันที่ (ตอนนี้: ${label})" aria-label="เรียงวันที่ ตอนนี้${label}">${escapeHtml(name)} <span class="date-sort-btn__arrow">${sortNewestFirst ? '▼' : '▲'}</span></button></th>`;
+      return `<th${cls}><button type="button" class="date-sort-btn" title="กดเพื่อสลับลำดับวันที่ (ตอนนี้: ${label})" aria-label="เรียงวันที่ ตอนนี้${label}"><span>${escapeHtml(name)}</span><span class="date-sort-btn__arrow">${sortNewestFirst ? '▼' : '▲'}</span></button></th>`;
     }
     return `<th${cls}>${escapeHtml(name)}</th>`;
   }).join('') + '<th class="data-table__actions-col"></th></tr>';
@@ -245,6 +245,9 @@ function renderCurrentPage() {
   if (sortBtn) sortBtn.addEventListener('click', toggleDateSort_);
   tableBody.innerHTML = '';
   pageRows.forEach(row => tableBody.appendChild(buildSingleRow(row)));
+  // ข้อความยาวในตารางเคยดันให้ตารางเลื่อนไปขวาสุดจนหาคอลัมน์วันที่ไม่เจอ — กลับไปซ้ายสุดทุกครั้งที่วาดใหม่
+  const wrapEl = document.getElementById('tableWrap');
+  if (wrapEl) wrapEl.scrollLeft = 0;
   syncTicketColumnOffset_();
 
   tableWrap.hidden = false;
@@ -480,7 +483,9 @@ function buildSingleRow(row) {
         link.addEventListener('click', (e) => e.stopPropagation()); // กดลิงก์ = เปิด Ticket ไม่ใช่เปิดกล่องรายละเอียด
         td.appendChild(link);
       } else {
-        td.innerHTML = highlightMatch(cellValue, lastKeyword);
+        // ข้อความยาวถูกตัดด้วย … (ชี้ค้างเพื่อดูเต็มๆ) ไม่ให้ดันตารางกว้างจนล้นจอ
+        td.innerHTML = `<span class="data-table__clip">${highlightMatch(cellValue, lastKeyword)}</span>`;
+        if (cellValue) td.title = cellValue;
       }
     } else {
       td.innerHTML = highlightMatch(cellValue, lastKeyword);
