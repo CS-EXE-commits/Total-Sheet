@@ -3028,3 +3028,56 @@ th.data-table__ticket-col {
 }
 .folder-bar__logo[hidden] { display: none; }
 @media (max-width: 1100px) { .folder-bar__logo { display: none; } }
+
+/* ภาพพื้นหลังตามโฟลเดอร์ (เช่น TOSM) — วางไว้ชั้นล่างสุดและตรึงกับหน้าจอ
+   ใส่ชั้นสีเข้มทับไว้ ตัวหนังสือที่วางบนพื้นหลังตรงๆ ยังอ่านชัด ส่วนแถบหัวเว็บ/แถบโฟลเดอร์/การ์ด/ตาราง ทึบอยู่แล้ว ภาพจึงไม่ทับข้อมูล */
+body.has-folder-bg { background: var(--color-bg); }
+body.has-folder-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 72%, transparent) 0%, color-mix(in srgb, var(--color-bg) 82%, transparent) 100%),
+    var(--folder-bg-image) center 30% / cover no-repeat;
+  pointer-events: none;
+}
+body.has-folder-bg { isolation: isolate; }
+
+/* ภาพพื้นหลังเฉพาะโฟลเดอร์ TOSM — ตรึงไว้ด้านหลังสุด แถบหัวเว็บ/แถบโฟลเดอร์/การ์ด/ตาราง ทึบอยู่แล้วจึงไม่ถูกทับ
+   มีชั้นสีทับให้ตัวหนังสือที่อยู่บนพื้นโดยตรง (จำนวนรายการ, หน้า) ยังอ่านง่าย */
+body.bg-tosm::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(243, 245, 248, 0.55), rgba(243, 245, 248, 0.78)),
+    url('images/tosm-bg.jpg') center 30% / cover no-repeat;
+  pointer-events: none;
+}
+:root[data-theme="dark"] body.bg-tosm::before {
+  background:
+    linear-gradient(rgba(18, 22, 27, 0.55), rgba(18, 22, 27, 0.75)),
+    url('images/tosm-bg.jpg') center 30% / cover no-repeat;
+}
+body.bg-tosm { background-color: var(--color-bg); }
+/* ตัวหนังสือที่วางบนพื้นโดยตรง ใส่ป้ายทึบรองไว้ ให้อ่านชัดบนภาพพื้นหลัง */
+body.bg-tosm #resultsCount,
+body.bg-tosm label[for="pageSizeSelect"],
+body.bg-tosm .table-hint,
+body.bg-tosm .pager {
+  background: var(--color-surface);
+  border-radius: 999px;
+  padding: 3px 12px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+body.bg-tosm label[for="pageSizeSelect"] { margin-right: 6px; }
+/* ปุ่มที่พื้นโปร่งแสง ทำให้ทึบเมื่อมีภาพพื้นหลัง */
+body.bg-tosm .toolbar__btn,
+body.bg-tosm .tabs-row__add {
+  background-color: var(--color-surface);
+  background-image: linear-gradient(var(--color-accent-bg), var(--color-accent-bg));
+}

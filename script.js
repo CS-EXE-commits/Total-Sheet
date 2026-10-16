@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-1010';
+const APP_VERSION = '20261016-1030';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1646,10 +1646,11 @@ function markActiveFolderItem() {
 // โลโก้กลางแถบโฟลเดอร์ ตามโฟลเดอร์ของไฟล์ที่เปิดอยู่ — เพิ่มเกมอื่นได้โดยใส่ชื่อโฟลเดอร์ + ไฟล์รูปตรงนี้
 const FOLDER_LOGOS = {
   'Zone 4': { src: 'images/zone4-logo.png', alt: 'Zone 4' },
-  'TOSM': { src: 'images/tosm-logo.png?v=2', alt: 'Tree of Savior M' },
+  'TOSM': { src: 'images/tosm-logo.png?v=2', alt: 'Tree of Savior M', bg: 'images/tosm-bg.jpg' },
   '9Yin': { src: 'images/9yin-logo.png', alt: '9Yin' },
   'เติมเงิน': { src: 'images/ee-logo.png', alt: 'Electronics Extreme' }
 };
+const FOLDER_BACKGROUNDS = { 'TOSM': 'bg-tosm' };
 let logoFolderName_ = ''; // โฟลเดอร์ที่ผู้ใช้กดล่าสุด
 function updateFolderLogo_() {
   const img = document.getElementById('folderLogo');
@@ -1660,6 +1661,13 @@ function updateFolderLogo_() {
   const active = folderBar.querySelector('.folder[data-active="true"] .folder__name');
   const name = logoFolderName_ || (active ? active.textContent.trim() : '');
   const logo = FOLDER_LOGOS[name] || null;
+  // ภาพพื้นหลังเฉพาะเกม (ตอนนี้มีแค่ TOSM) — อยู่ใต้การ์ด/ตาราง ไม่ทับข้อมูล
+  Object.keys(FOLDER_BACKGROUNDS).forEach(k => document.body.classList.toggle(FOLDER_BACKGROUNDS[k], k === name));
+  // ภาพพื้นหลังของโฟลเดอร์ (ตอนนี้มีแค่ TOSM) — อยู่หลังทุกอย่าง กล่องข้อมูลทึบเหมือนเดิม จึงไม่ทับข้อมูล
+  const bg = logo && logo.bg;
+  document.body.classList.toggle('has-folder-bg', !!bg);
+  if (bg) document.body.style.setProperty('--folder-bg-image', `url("${bg}")`);
+  else document.body.style.removeProperty('--folder-bg-image');
   if (!logo) { img.hidden = true; img.removeAttribute('src'); return; }
   if (img.getAttribute('src') !== logo.src) { img.src = logo.src; img.alt = logo.alt; }
   img.hidden = false;
