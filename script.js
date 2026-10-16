@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-1115';
+const APP_VERSION = '20261016-1125';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1648,7 +1648,7 @@ const FOLDER_LOGOS = {
   'Zone 4': { src: 'images/zone4-logo.png', alt: 'Zone 4' },
   'TOSM': { src: 'images/tosm-logo.png?v=2', alt: 'Tree of Savior M', bg: 'images/tosm-bg.jpg' },
   '9Yin': { src: 'images/9yin-logo.png', alt: '9Yin' },
-  'เติมเงิน': { src: 'images/ee-logo.png', alt: 'Electronics Extreme' }
+  'เติมเงิน': { src: 'images/topup-logo.png', alt: 'Top Up' }
 };
 const FOLDER_BACKGROUNDS = { 'TOSM': 'bg-tosm', 'Zone 4': 'bg-zone4', '9Yin': 'bg-9yin', 'เติมเงิน': 'bg-topup' };
 let logoFolderName_ = ''; // โฟลเดอร์ที่ผู้ใช้กดล่าสุด
