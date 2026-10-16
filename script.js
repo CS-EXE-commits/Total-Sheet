@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261015-1830';
+const APP_VERSION = '20261016-0920';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1633,9 +1633,25 @@ function markActiveFolderItem() {
       });
     }
   });
+  updateFolderLogo_();
   // เว้นที่ใต้แถบโฟลเดอร์ให้แถบรายชื่อไฟล์ เฉพาะตอนที่มีโฟลเดอร์ถูกเปิดใช้อยู่
   folderBar.classList.toggle('folder-bar--with-files',
     !!folderBar.querySelector('.folder__files:not([hidden])'));
+}
+
+// โลโก้กลางแถบโฟลเดอร์ ตามโฟลเดอร์ของไฟล์ที่เปิดอยู่ — เพิ่มเกมอื่นได้โดยใส่ชื่อโฟลเดอร์ + ไฟล์รูปตรงนี้
+const FOLDER_LOGOS = {
+  'Zone 4': { src: 'images/zone4-logo.png', alt: 'Zone 4' },
+  'TOSM': { src: 'images/tosm-logo.png', alt: 'Tree of Savior M' }
+};
+function updateFolderLogo_() {
+  const img = document.getElementById('folderLogo');
+  if (!img) return;
+  const active = folderBar.querySelector('.folder[data-active="true"] .folder__name');
+  const logo = active ? FOLDER_LOGOS[active.textContent.trim()] : null;
+  if (!logo) { img.hidden = true; img.removeAttribute('src'); return; }
+  if (img.getAttribute('src') !== logo.src) { img.src = logo.src; img.alt = logo.alt; }
+  img.hidden = false;
 }
 
 // คลิกที่อื่นในหน้าเว็บให้ปิดเมนูโฟลเดอร์ที่เปิดค้างอยู่
