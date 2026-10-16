@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-0930';
+const APP_VERSION = '20261016-0950';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1596,6 +1596,7 @@ function renderFolderBar(folders) {
         btn.setAttribute('aria-expanded', 'true');
         wrap.setAttribute('data-open', 'true');
       }
+      updateFolderLogo_();
     });
 
     folderList.appendChild(wrap);
@@ -1610,6 +1611,7 @@ function closeAllFolders() {
   folderBar.querySelectorAll('.folder__menu').forEach(m => { m.hidden = true; });
   folderBar.querySelectorAll('.folder__btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
   folderBar.querySelectorAll('.folder').forEach(f => f.removeAttribute('data-open'));
+  updateFolderLogo_();
 }
 
 /** ไฮไลต์ไฟล์ที่กำลังเปิดอยู่ และโฟลเดอร์ที่ไฟล์นั้นอยู่ */
@@ -1633,6 +1635,8 @@ function markActiveFolderItem() {
       });
     }
   });
+  const activeName = folderBar.querySelector('.folder[data-active="true"] .folder__name');
+  if (activeName) logoFolderName_ = activeName.textContent.trim();
   updateFolderLogo_();
   // เว้นที่ใต้แถบโฟลเดอร์ให้แถบรายชื่อไฟล์ เฉพาะตอนที่มีโฟลเดอร์ถูกเปิดใช้อยู่
   folderBar.classList.toggle('folder-bar--with-files',
@@ -1642,13 +1646,19 @@ function markActiveFolderItem() {
 // โลโก้กลางแถบโฟลเดอร์ ตามโฟลเดอร์ของไฟล์ที่เปิดอยู่ — เพิ่มเกมอื่นได้โดยใส่ชื่อโฟลเดอร์ + ไฟล์รูปตรงนี้
 const FOLDER_LOGOS = {
   'Zone 4': { src: 'images/zone4-logo.png', alt: 'Zone 4' },
-  'TOSM': { src: 'images/tosm-logo.png', alt: 'Tree of Savior M' }
+  'TOSM': { src: 'images/tosm-logo.png', alt: 'Tree of Savior M' },
+  '9Yin': { src: 'images/9yin-logo.png', alt: '9Yin' }
 };
+let logoFolderName_ = ''; // โฟลเดอร์ที่ผู้ใช้กดล่าสุด
 function updateFolderLogo_() {
   const img = document.getElementById('folderLogo');
   if (!img) return;
+  // ใช้โฟลเดอร์ที่กดล่าสุด (รวมโฟลเดอร์ที่ยังไม่มีไฟล์ เช่น 9Yin) ถ้ายังไม่เคยกด ใช้โฟลเดอร์ของไฟล์ที่เปิดอยู่
+  const opened = folderBar.querySelector('.folder[data-open="true"] .folder__name');
+  if (opened) logoFolderName_ = opened.textContent.trim();
   const active = folderBar.querySelector('.folder[data-active="true"] .folder__name');
-  const logo = active ? FOLDER_LOGOS[active.textContent.trim()] : null;
+  const name = logoFolderName_ || (active ? active.textContent.trim() : '');
+  const logo = FOLDER_LOGOS[name] || null;
   if (!logo) { img.hidden = true; img.removeAttribute('src'); return; }
   if (img.getAttribute('src') !== logo.src) { img.src = logo.src; img.alt = logo.alt; }
   img.hidden = false;
