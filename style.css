@@ -3086,3 +3086,4 @@ body.bg-game .tabs-row__add {
 body.bg-tosm { --game-bg: url('images/tosm-bg.jpg'); }
 body.bg-zone4 { --game-bg: url('images/zone4-bg.jpg'); --game-bg-pos: center 28%; }
 body.bg-9yin { --game-bg: url('images/9yin-bg.jpg'); --game-bg-pos: center 55%; }
+body.bg-topup { --game-bg: url('images/topup-bg.jpg'); --game-bg-pos: center center; }
