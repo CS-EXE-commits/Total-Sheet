@@ -3085,3 +3085,4 @@ body.bg-game .tabs-row__add {
 /* รูปพื้นหลังของแต่ละเกม (ใช้กฎชุด bg-game ร่วมกัน) */
 body.bg-tosm { --game-bg: url('images/tosm-bg.jpg'); }
 body.bg-zone4 { --game-bg: url('images/zone4-bg.jpg'); --game-bg-pos: center 28%; }
+body.bg-9yin { --game-bg: url('images/9yin-bg.jpg'); --game-bg-pos: center 55%; }
