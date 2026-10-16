@@ -3017,11 +3017,11 @@ th.data-table__ticket-col {
 .folder-bar__logo {
   position: absolute;
   left: 50%;
-  top: 8px;
+  top: 4px;
   transform: translateX(-50%);
-  height: 64px;
+  height: calc(100% - 8px);   /* สูงเต็มแถบโฟลเดอร์ เว้นขอบบน/ล่างนิดเดียว */
   width: auto;
-  max-width: 260px;
+  max-width: 34vw;
   object-fit: contain;
   pointer-events: none;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
