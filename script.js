@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-0950';
+const APP_VERSION = '20261016-1000';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1646,7 +1646,7 @@ function markActiveFolderItem() {
 // โลโก้กลางแถบโฟลเดอร์ ตามโฟลเดอร์ของไฟล์ที่เปิดอยู่ — เพิ่มเกมอื่นได้โดยใส่ชื่อโฟลเดอร์ + ไฟล์รูปตรงนี้
 const FOLDER_LOGOS = {
   'Zone 4': { src: 'images/zone4-logo.png', alt: 'Zone 4' },
-  'TOSM': { src: 'images/tosm-logo.png', alt: 'Tree of Savior M' },
+  'TOSM': { src: 'images/tosm-logo.png?v=2', alt: 'Tree of Savior M' },
   '9Yin': { src: 'images/9yin-logo.png', alt: '9Yin' }
 };
 let logoFolderName_ = ''; // โฟลเดอร์ที่ผู้ใช้กดล่าสุด
