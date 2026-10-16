@@ -3046,27 +3046,27 @@ body.has-folder-bg { isolation: isolate; }
 
 /* ภาพพื้นหลังเฉพาะโฟลเดอร์ TOSM — ตรึงไว้ด้านหลังสุด แถบหัวเว็บ/แถบโฟลเดอร์/การ์ด/ตาราง ทึบอยู่แล้วจึงไม่ถูกทับ
    มีชั้นสีทับให้ตัวหนังสือที่อยู่บนพื้นโดยตรง (จำนวนรายการ, หน้า) ยังอ่านง่าย */
-body.bg-tosm::before {
+body.bg-game::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   background:
     linear-gradient(rgba(243, 245, 248, 0.55), rgba(243, 245, 248, 0.78)),
-    url('images/tosm-bg.jpg') center 30% / cover no-repeat;
+    var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat;
   pointer-events: none;
 }
-:root[data-theme="dark"] body.bg-tosm::before {
+:root[data-theme="dark"] body.bg-game::before {
   background:
     linear-gradient(rgba(18, 22, 27, 0.55), rgba(18, 22, 27, 0.75)),
-    url('images/tosm-bg.jpg') center 30% / cover no-repeat;
+    var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat;
 }
-body.bg-tosm { background-color: var(--color-bg); }
+body.bg-game { background-color: var(--color-bg); }
 /* ตัวหนังสือที่วางบนพื้นโดยตรง ใส่ป้ายทึบรองไว้ ให้อ่านชัดบนภาพพื้นหลัง */
-body.bg-tosm #resultsCount,
-body.bg-tosm label[for="pageSizeSelect"],
-body.bg-tosm .table-hint,
-body.bg-tosm .pager {
+body.bg-game #resultsCount,
+body.bg-game label[for="pageSizeSelect"],
+body.bg-game .table-hint,
+body.bg-game .pager {
   background: var(--color-surface);
   border-radius: 999px;
   padding: 3px 12px;
@@ -3074,10 +3074,14 @@ body.bg-tosm .pager {
   margin-left: auto;
   margin-right: auto;
 }
-body.bg-tosm label[for="pageSizeSelect"] { margin-right: 6px; }
+body.bg-game label[for="pageSizeSelect"] { margin-right: 6px; }
 /* ปุ่มที่พื้นโปร่งแสง ทำให้ทึบเมื่อมีภาพพื้นหลัง */
-body.bg-tosm .toolbar__btn,
-body.bg-tosm .tabs-row__add {
+body.bg-game .toolbar__btn,
+body.bg-game .tabs-row__add {
   background-color: var(--color-surface);
   background-image: linear-gradient(var(--color-accent-bg), var(--color-accent-bg));
 }
+
+/* รูปพื้นหลังของแต่ละเกม (ใช้กฎชุด bg-game ร่วมกัน) */
+body.bg-tosm { --game-bg: url('images/tosm-bg.jpg'); }
+body.bg-zone4 { --game-bg: url('images/zone4-bg.jpg'); --game-bg-pos: center 28%; }

@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-1030';
+const APP_VERSION = '20261016-1045';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1650,7 +1650,7 @@ const FOLDER_LOGOS = {
   '9Yin': { src: 'images/9yin-logo.png', alt: '9Yin' },
   'เติมเงิน': { src: 'images/ee-logo.png', alt: 'Electronics Extreme' }
 };
-const FOLDER_BACKGROUNDS = { 'TOSM': 'bg-tosm' };
+const FOLDER_BACKGROUNDS = { 'TOSM': 'bg-tosm', 'Zone 4': 'bg-zone4' };
 let logoFolderName_ = ''; // โฟลเดอร์ที่ผู้ใช้กดล่าสุด
 function updateFolderLogo_() {
   const img = document.getElementById('folderLogo');
@@ -1663,6 +1663,7 @@ function updateFolderLogo_() {
   const logo = FOLDER_LOGOS[name] || null;
   // ภาพพื้นหลังเฉพาะเกม (ตอนนี้มีแค่ TOSM) — อยู่ใต้การ์ด/ตาราง ไม่ทับข้อมูล
   Object.keys(FOLDER_BACKGROUNDS).forEach(k => document.body.classList.toggle(FOLDER_BACKGROUNDS[k], k === name));
+  document.body.classList.toggle('bg-game', !!FOLDER_BACKGROUNDS[name]);
   // ภาพพื้นหลังของโฟลเดอร์ (ตอนนี้มีแค่ TOSM) — อยู่หลังทุกอย่าง กล่องข้อมูลทึบเหมือนเดิม จึงไม่ทับข้อมูล
   const bg = logo && logo.bg;
   document.body.classList.toggle('has-folder-bg', !!bg);
