@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-0900';
+const APP_VERSION = '20261020-1145';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2744,7 +2744,7 @@ async function openEditModal(row, prefill) {
     renderEditFields(headersResult.headers, fullHeaders, row);
     if (prefill) {
       // เติมค่าที่ผู้ใช้กรอกไว้รอบก่อนกลับเข้าไป (กรณีบันทึกไม่สำเร็จ) จะได้ไม่ต้องพิมพ์ใหม่
-      editFields.querySelectorAll('input, select').forEach(el => {
+      editFields.querySelectorAll('input, select, textarea').forEach(el => {
         const v = prefill[el.dataset.header];
         if (v === undefined) return;
         el.value = el.type === 'date' ? toDateInputValue_(v) : v;
@@ -2782,6 +2782,7 @@ function renderEditFields(headers, fullHeaders, row) {
     inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
     wrap.appendChild(inputEl);
     editFields.appendChild(wrap);
+    if (inputEl.tagName === 'TEXTAREA') requestAnimationFrame(() => { inputEl.style.height = 'auto'; inputEl.style.height = inputEl.scrollHeight + 'px'; });
   });
 }
 
@@ -2839,7 +2840,7 @@ document.addEventListener('keydown', (evt) => {
 
 /** ปิดหน้าต่างแก้ไข โดยถามก่อนถ้ามีการแก้ไขค้างไว้ที่ยังไม่ได้บันทึก */
 function tryCloseEditModal_() {
-  const touched = Array.from(editFields.querySelectorAll('input, select'))
+  const touched = Array.from(editFields.querySelectorAll('input, select, textarea'))
     .some(el => el.value !== (el.dataset.originalValue || ''));
   if (touched && !confirm('คุณแก้ไขข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nถ้าปิดตอนนี้ การแก้ไขจะหายไป ต้องการปิดหรือไม่?')) return;
   closeEditModal();
@@ -2859,7 +2860,7 @@ editSubmit.addEventListener('click', async () => {
   const row = editingRow;
   const headersAtOpen = editingRowHeaders;
   const data = {};
-  editFields.querySelectorAll('input, select').forEach(el => {
+  editFields.querySelectorAll('input, select, textarea').forEach(el => {
     data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
   });
   const colorChanged = !!(editColorToggle && editColorToggle.checked);
@@ -2927,7 +2928,7 @@ function setEditStatus(message, type) {
  */
 function addFormHasUnsavedInput_() {
   if (!addPanel || addPanel.hidden) return false;
-  return Array.from(addFields.querySelectorAll('input, select'))
+  return Array.from(addFields.querySelectorAll('input, select, textarea'))
     .some(el => (el.value || '').toString().trim() !== '');
 }
 
@@ -3047,6 +3048,27 @@ function buildFieldInput(header, idPrefix) {
       select.appendChild(opt);
     });
     return select;
+  }
+
+  // ช่องข้อความทั่วไปเป็น textarea: กด Shift+Enter เพื่อขึ้นบรรทัดใหม่ (Enter เฉยๆ ไม่ขึ้นบรรทัด กันเผลอกด)
+  // ยกเว้นช่องวันที่ และ EXE ID (รหัสบรรทัดเดียว)
+  if (!isDateColumn && !isExeIdHeader_(header.name)) {
+    const ta = document.createElement('textarea');
+    ta.rows = 1;
+    ta.className = 'field-multiline';
+    ta.id = `${prefix}${header.name}`;
+    ta.dataset.header = header.name;
+    ta.placeholder = '';
+    ta.title = 'กด Shift+Enter เพื่อขึ้นบรรทัดใหม่';
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+    ta.addEventListener('input', grow);
+    ta.addEventListener('focus', grow);
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) e.preventDefault();
+    });
+    // ค่าที่ใส่ด้วยโค้ด (ตอนเปิดแก้ไข) ไม่ยิง input — ขยายความสูงให้หลังวาดเสร็จ
+    requestAnimationFrame(grow);
+    return ta;
   }
 
   const inputEl = document.createElement('input');
@@ -3384,7 +3406,7 @@ addSubmitButton.addEventListener('click', async () => {
   const sheetName = selectedSheet;
   const book = currentBook;
   const data = {};
-  addFields.querySelectorAll('input, select').forEach(el => {
+  addFields.querySelectorAll('input, select, textarea').forEach(el => {
     data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
   });
   const wantColor = !!(addColorToggle && addColorToggle.checked);
@@ -3416,7 +3438,7 @@ addSubmitButton.addEventListener('click', async () => {
     }
 
     // บันทึกเสร็จแล้ว: ล้างฟอร์ม ปิดหน้าต่าง แล้วแจ้งผล
-    addFields.querySelectorAll('input, select').forEach(el => { el.value = ''; });
+    addFields.querySelectorAll('input, select, textarea').forEach(el => { el.value = ''; });
     if (wantColor) resetColorPicker_(addColorToggle, addColorPickers, addColorBg, addColorFont);
     setAddStatus('', null);
     addPanel.hidden = true;

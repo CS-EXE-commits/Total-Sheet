@@ -752,7 +752,7 @@ body {
   margin-bottom: 6px;
 }
 
-.add-field input, .add-field select {
+.add-field input, .add-field select, .add-field textarea {
   width: 100%;
   padding: 10px 12px;
   font-size: 14px;
@@ -3104,3 +3104,7 @@ body.bg-topup { --game-bg: url('images/topup-bg.jpg?v=3'); --game-bg-pos: center
 .pending-count--red { background: #FBDADA !important; color: #A61B1B !important; }
 :root[data-theme="dark"] .pending-count--orange { background: #4A3112 !important; color: #FFB25B !important; }
 :root[data-theme="dark"] .pending-count--red { background: #4D1B1B !important; color: #FF7B7B !important; }
+
+/* ช่องข้อความหลายบรรทัด (Shift+Enter) — หน้าตาเหมือนช่องพิมพ์เดิม สูงขึ้นตามจำนวนบรรทัด */
+textarea.field-multiline { resize: none; overflow: hidden; min-height: 0; line-height: 1.5; font: inherit; width: 100%; box-sizing: border-box; }
+#caseModalFields td { white-space: pre-wrap; }
