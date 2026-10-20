@@ -3108,3 +3108,11 @@ body.bg-topup { --game-bg: url('images/topup-bg.jpg?v=3'); --game-bg-pos: center
 /* ช่องข้อความหลายบรรทัด (Shift+Enter) — หน้าตาเหมือนช่องพิมพ์เดิม สูงขึ้นตามจำนวนบรรทัด */
 textarea.field-multiline { resize: none; overflow: hidden; min-height: 0; line-height: 1.5; font: inherit; width: 100%; box-sizing: border-box; }
 #caseModalFields td { white-space: pre-wrap; }
+
+/* กล่องยืนยันบนหน้าเว็บ */
+.confirm-overlay { z-index: 1000; }
+.confirm-box { text-align: center; }
+.confirm-box__icon { font-size: 30px; margin: 0 0 6px; }
+.confirm-box__msg { white-space: pre-line; margin: 0 0 18px; line-height: 1.6; }
+.confirm-box__actions { display: flex; gap: 10px; justify-content: center; }
+.confirm-box__ok { background: var(--color-danger) !important; color: #fff !important; border-color: var(--color-danger) !important; }

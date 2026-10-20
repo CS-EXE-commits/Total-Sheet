@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1145';
+const APP_VERSION = '20261020-1200';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2826,7 +2826,7 @@ function fromDateInputValue_(isoValue) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-editCancel.addEventListener('click', () => closeEditModal());
+editCancel.addEventListener('click', () => tryCloseEditModal_()); // ถามก่อนถ้าแก้ไขค้างไว้
 
 // คลิกพื้นหลังนอกกล่องเพื่อปิด (คลิกในกล่องไม่ปิด) — ถามก่อนถ้าแก้ไขค้างไว้
 editModal.addEventListener('click', (evt) => {
@@ -2838,12 +2838,46 @@ document.addEventListener('keydown', (evt) => {
   if (evt.key === 'Escape' && !editModal.hidden) tryCloseEditModal_();
 });
 
+
+/**
+ * กล่องยืนยันบนหน้าเว็บ (แทน confirm() ของเบราว์เซอร์)
+ * confirm() ของเบราว์เซอร์ถูกปิดได้ ถ้าผู้ใช้เคยติ๊ก "ไม่ต้องแสดงกล่องโต้ตอบจากหน้านี้อีก" แล้วจะผ่านไปเงียบๆ เหมือนกดตกลง
+ * @return {Promise<boolean>} true = ผู้ใช้กดยืนยัน
+ */
+function showConfirm_(message, okLabel, cancelLabel) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay confirm-overlay';
+    overlay.innerHTML = `<div class="modal-box modal-box--narrow confirm-box" role="alertdialog" aria-modal="true">
+      <p class="confirm-box__icon">⚠️</p>
+      <p class="confirm-box__msg"></p>
+      <div class="confirm-box__actions">
+        <button type="button" class="toolbar__btn toolbar__btn--muted" data-act="no"></button>
+        <button type="button" class="toolbar__btn confirm-box__ok" data-act="yes"></button>
+      </div></div>`;
+    overlay.querySelector('.confirm-box__msg').textContent = message;
+    overlay.querySelector('[data-act="yes"]').textContent = okLabel || 'ใช่, ยกเลิก';
+    overlay.querySelector('[data-act="no"]').textContent = cancelLabel || 'กลับไปแก้ไขต่อ';
+    const done = (v) => { document.removeEventListener('keydown', onKey, true); overlay.remove(); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    overlay.addEventListener('click', e => {
+      const act = e.target.dataset && e.target.dataset.act;
+      if (act === 'yes') done(true); else if (act === 'no' || e.target === overlay) done(false);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-act="no"]').focus();
+  });
+}
+
 /** ปิดหน้าต่างแก้ไข โดยถามก่อนถ้ามีการแก้ไขค้างไว้ที่ยังไม่ได้บันทึก */
 function tryCloseEditModal_() {
   const touched = Array.from(editFields.querySelectorAll('input, select, textarea'))
     .some(el => el.value !== (el.dataset.originalValue || ''));
-  if (touched && !confirm('คุณแก้ไขข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nถ้าปิดตอนนี้ การแก้ไขจะหายไป ต้องการปิดหรือไม่?')) return;
-  closeEditModal();
+  if (!touched) { closeEditModal(); return; }
+  if (document.querySelector('.confirm-overlay')) return; // กล่องยืนยันเปิดอยู่แล้ว
+  showConfirm_('คุณแก้ไขข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nต้องการยกเลิกใช่หรือไม่? การแก้ไขจะหายไป')
+    .then(ok => { if (ok) closeEditModal(); });
 }
 
 function closeEditModal() {
@@ -2929,6 +2963,7 @@ function setEditStatus(message, type) {
 function addFormHasUnsavedInput_() {
   if (!addPanel || addPanel.hidden) return false;
   return Array.from(addFields.querySelectorAll('input, select, textarea'))
+    .filter(el => el.type !== 'checkbox' && el.type !== 'radio' && el.type !== 'color')
     .some(el => (el.value || '').toString().trim() !== '');
 }
 
@@ -2958,6 +2993,7 @@ function resetPanels() {
 addToggle.addEventListener('click', () => {
   if (!selectedSheet) { alert('กรุณาเลือกแท็บใดแท็บหนึ่งก่อน'); return; }
   const isOpen = !addPanel.hidden;
+  if (isOpen && !confirmDiscardAddForm_()) return;
   addPanel.hidden = isOpen;
   managePanel.hidden = true;
   trashPanel.hidden = true;
@@ -4356,5 +4392,19 @@ document.addEventListener('keydown', (evt) => {
 ].forEach(([id, panel]) => {
   const btn = document.getElementById(id);
   if (!btn || !panel) return;
-  btn.addEventListener('click', () => { panel.hidden = true; });
+  btn.addEventListener('click', () => {
+    // ฟอร์มเพิ่มข้อมูล: ถามก่อนถ้ากรอกค้างไว้ แล้วล้างฟอร์มเมื่อยืนยันยกเลิก
+    if (panel === addPanel) {
+      const closeAdd = () => {
+        addFields.querySelectorAll('input, select, textarea').forEach(el => { el.value = ''; });
+        addToggle.setAttribute('aria-pressed', 'false');
+        panel.hidden = true;
+      };
+      if (!addFormHasUnsavedInput_()) { closeAdd(); return; }
+      showConfirm_('คุณกรอกข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nต้องการยกเลิกใช่หรือไม่? ข้อมูลที่กรอกไว้จะหายทั้งหมด')
+        .then(ok => { if (ok) closeAdd(); });
+      return;
+    }
+    panel.hidden = true;
+  });
 });
