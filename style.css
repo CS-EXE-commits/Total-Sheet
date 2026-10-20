@@ -607,7 +607,7 @@ body {
 .tab-pill[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; box-shadow: var(--shadow-sm); }
 
 .tab-select {
-  min-width: 280px;
+  min-width: 340px;
   max-width: 100%;
   padding: 9px 14px;
   font-size: 14px;
@@ -3144,43 +3144,7 @@ input.datetime-field {
 .time-picker__date { padding: 7px 8px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 14px; color-scheme: light dark; }
 .time-picker--dt .time-picker__col { height: 170px; }
 
-/* ตรึงส่วนบนไว้ตอนเลื่อน (จอกว้าง)
-   - หัวเว็บ + แถบโฟลเดอร์ + แท็บ/ช่องค้นหา ค้างด้านบน
-   - แถบซ้ายค้างด้านข้าง (ยาวเกินจอจะเลื่อนในกรอบของตัวเอง)
-   - ตารางยาวเต็มตามจำนวนแถวที่เลือก เลื่อนทั้งหน้าเพื่อดู หัวตารางค้างอยู่ใต้ช่องค้นหา */
+/* ตรึงเฉพาะหัวเว็บ + แถบโฟลเดอร์ไว้ด้านบน ส่วนอื่นเลื่อนตามปกติ ตารางมีแถบเลื่อนของตัวเอง */
 @media (min-width: 901px) {
   .folder-bar { position: sticky; top: var(--topbar-h, 64px); z-index: 18; }
-  .workspace__sticky {
-    position: sticky;
-    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px));
-    z-index: 12;
-    background: var(--color-bg);
-    margin: -28px -12px 0;
-    padding: 28px 12px 8px;
-  }
-  /* มีภาพพื้นหลังเกม: ใช้ภาพเดียวกัน (ตรึงกับจอ) เป็นพื้นของส่วนที่ตรึงไว้ จึงกลืนกับพื้นหลังพอดี
-     และยังบังแถวตารางที่เลื่อนผ่านด้านหลังได้ */
-  body.bg-game .workspace__sticky {
-    background:
-      linear-gradient(rgba(243, 245, 248, 0.55), rgba(243, 245, 248, 0.78)) fixed,
-      var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat fixed,
-      var(--color-bg);
-  }
-  :root[data-theme="dark"] body.bg-game .workspace__sticky {
-    background:
-      linear-gradient(rgba(18, 22, 27, 0.55), rgba(18, 22, 27, 0.75)) fixed,
-      var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat fixed,
-      var(--color-bg);
-  }
-  .sidebar {
-    position: sticky;
-    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 28px);
-    align-self: flex-start;
-    flex: 0 0 372px;
-    max-height: calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - 44px);
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-  .table-wrap { max-height: none; overflow: visible; }
-  .data-table th { top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + var(--wsticky-h, 0px)); }
 }

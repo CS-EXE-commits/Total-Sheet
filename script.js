@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1515';
+const APP_VERSION = '20261020-1530';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2281,16 +2281,17 @@ async function openBook(book, initialSheet) {
     }
     // ถ้าระบุแท็บล่าสุดไว้ (เช่น ตอนรีเฟรชหน้าเว็บ) และแท็บนั้นยังมีอยู่จริง ให้เปิดแท็บนั้นต่อ
     // ไม่งั้นเปิดแท็บแรกของไฟล์ให้เลย (ไม่มีโหมดรวมทุกแท็บแล้ว)
-    const sheetToSelect = (initialSheet && result.sheets.some(s => s.name === initialSheet))
-      ? initialSheet
-      : (result.sheets[0] ? result.sheets[0].name : '');
-    if (sheetToSelect) {
+    // เปิดไฟล์จากการกดเลือก: ไม่เลือกแท็บให้เอง ให้ผู้ใช้เลือกจาก Dropdown ("กรุณาเลือกแท็บข้อมูลในชีท")
+    // ยกเว้นตอนรีเฟรชหน้าเว็บ (มีแท็บล่าสุดจำไว้) ให้กลับไปแท็บเดิม
+    const sheetToSelect = (initialSheet && result.sheets.some(s => s.name === initialSheet)) ? initialSheet : '';
+    if (!result.sheets.length) {
+      showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
+    } else if (sheetToSelect) {
       selectTab(sheetToSelect);
-      // ดักโหลดแท็บที่เหลือไว้เงียบๆ หลังแท็บแรกวาดเสร็จ
-      // หน่วงไว้ก่อนเพื่อให้แท็บที่ผู้ใช้เห็นอยู่โหลดเสร็จก่อน ไม่ไปแย่งช่องทางกัน
       setTimeout(() => prefetchAllTabsInBook_(result.sheets, sheetToSelect), 1200);
     } else {
-      showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
+      showHint('กรุณาเลือกแท็บข้อมูลในชีท', false);
+      setTimeout(() => prefetchAllTabsInBook_(result.sheets, ''), 600);
     }
   } catch (err) {
     showHint('เกิดข้อผิดพลาด: ' + err.message, true);
@@ -2303,15 +2304,12 @@ async function openBook(book, initialSheet) {
  * (ไฟล์ที่มีหลายแท็บและแต่ละแท็บหลายพันแถว ต้องอ่านทั้งไฟล์) จึงเอาออกเพื่อไม่ให้เผลอกดแล้วรอนาน
  */
 // ไฟล์ที่มีแท็บเยอะมาก → แสดงเป็น Dropdown เลือกแท็บแทนปุ่ม (ตอนนี้มีแค่ New Item in Patch)
-const TAB_DROPDOWN_BOOKS = ['New Item in Patch'];
+
 
 function renderTabs(sheets) {
   tabsBar.innerHTML = '';
-  if (TAB_DROPDOWN_BOOKS.indexOf((currentBook || '').toString().trim()) !== -1) {
-    tabsBar.appendChild(createTabSelect_(sheets));
-    return;
-  }
-  sheets.forEach(s => tabsBar.appendChild(createTabPill(s.name, s.name)));
+  // ทุกไฟล์ใช้ Dropdown เลือกแท็บ
+  tabsBar.appendChild(createTabSelect_(sheets));
 }
 
 function createTabSelect_(sheets) {
@@ -2320,7 +2318,7 @@ function createTabSelect_(sheets) {
   select.setAttribute('aria-label', 'เลือกแท็บ');
   const blank = document.createElement('option');
   blank.value = '';
-  blank.textContent = `เลือกแท็บ (${sheets.length} แท็บ)`;
+  blank.textContent = 'กรุณาเลือกแท็บข้อมูลในชีท';
   select.appendChild(blank);
   sheets.forEach(s => {
     const opt = document.createElement('option');
