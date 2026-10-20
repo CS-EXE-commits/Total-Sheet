@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261016-1145';
+const APP_VERSION = '20261020-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3675,6 +3675,7 @@ async function loadGlobalDashboard() {
     setDashboardStatus('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
   } finally {
     globalDashboardLoading = false;
+    startSyncBadge_();
   }
 }
 
@@ -3786,7 +3787,7 @@ function renderPendingCases_(result) {
     <div class="pending-group" data-key="${escapeHtml(key)}">
       <button type="button" class="sidebar-dashboard__row sidebar-dashboard__row--clickable pending-group__head" aria-expanded="${open}">
         <span class="sidebar-dashboard__row-name">${escapeHtml(g.book)} · ${escapeHtml(g.sheet)}</span>
-        <span class="sidebar-dashboard__row-count">${g.count}</span>
+        <span class="sidebar-dashboard__row-count${g.cases.some(c => c.ageDays >= 7) ? ' pending-count--red' : g.cases.some(c => c.ageDays >= 3) ? ' pending-count--orange' : ''}">${g.count}</span>
       </button>
       <div class="pending-group__cases"${open ? '' : ' hidden'}>
         ${g.cases.map(c => `
@@ -3796,7 +3797,8 @@ function renderPendingCases_(result) {
             <div class="today-work__when">${escapeHtml(c.exeId || '(ไม่มี EXE ID)')}</div>
             <div class="today-work__where">แถวที่ ${c.row}${c.date ? ' · ' + escapeHtml(c.date) : ''}</div>
           </div>
-          <span class="today-work__status">${escapeHtml(c.status)}</span>
+          <span class="pending-age${c.ageDays >= 7 ? ' pending-age--red' : c.ageDays >= 3 ? ' pending-age--orange' : ''}"
+                title="${c.ageDays == null ? 'อ่านวันที่ไม่ได้' : 'ค้างมา ' + c.ageDays + ' วัน'}">${c.ageDays == null ? escapeHtml(c.status) : (c.ageDays === 0 ? 'วันนี้' : c.ageDays + ' วัน')}</span>
         </div>`).join('')}
       </div>
     </div>`;
@@ -3813,6 +3815,33 @@ function renderPendingCases_(result) {
     });
   });
   bindCaseDetailClicks_(dashboardStatusList);
+}
+
+/* ===== ป้ายสถานะการซิงก์ (มุมขวาบน) ===== */
+const SYNC_WARN_MS = 2 * 60 * 60 * 1000; // เกิน 2 ชั่วโมงไม่มีการซิงก์ = แดง
+let syncBadgeTimer = null;
+async function refreshSyncBadge_() {
+  const el = document.getElementById('syncBadge');
+  if (!el || typeof supaReady !== 'function' || !supaReady() || typeof supaLastSyncAt !== 'function') return;
+  try {
+    const at = await supaLastSyncAt();
+    if (!at) { el.hidden = true; return; }
+    const age = Date.now() - at.getTime();
+    const hhmm = at.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const sameDay = at.toDateString() === new Date().toDateString();
+    const when = sameDay ? hhmm + ' น.' : at.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' + hhmm + ' น.';
+    const late = age > SYNC_WARN_MS;
+    el.textContent = (late ? '⚠️ ' : '🔄 ') + 'ซิงก์ล่าสุด ' + when;
+    el.classList.toggle('sync-badge--late', late);
+    el.title = late
+      ? 'ไม่มีการซิงก์มาเกิน 2 ชั่วโมง ข้อมูลบนเว็บอาจไม่ตรงกับชีท — ตรวจเมนู Executions ใน Apps Script'
+      : 'เวลาที่ข้อมูลจากชีทถูกซิงก์เข้าระบบค้นหาครั้งล่าสุด';
+    el.hidden = false;
+  } catch (e) { /* ไม่ต้องรบกวนผู้ใช้ รอบหน้าลองใหม่ */ }
+}
+function startSyncBadge_() {
+  refreshSyncBadge_();
+  if (!syncBadgeTimer) syncBadgeTimer = setInterval(refreshSyncBadge_, 60 * 1000);
 }
 
 function setDashboardStatus(message, type) {

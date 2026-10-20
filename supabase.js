@@ -840,7 +840,7 @@ const NO_STATUS_LABEL_CLIENT = 'ตรวจสอบสถานะ';
 const SUPA_PENDING_LIMIT = 500;
 async function supaPendingCases() {
   const withStatus = await supaStatusSheets_();
-  const query = '/sheet_rows?select=book,sheet,row_index,status,data' +
+  const query = '/sheet_rows?select=book,sheet,row_index,status,data,row_date' +
     '&status=eq.' + encodeURIComponent('รอตรวจสอบ') +
     '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
   const res = await supaSelect_(query);
@@ -858,7 +858,8 @@ async function supaPendingCases() {
       if (!date && /วันที่|^date$/i.test(k.trim())) date = v;
     });
     (groups[key] = groups[key] || { book: r.book, sheet: r.sheet, cases: [] }).cases.push({
-      row: r.row_index, status: (r.status || '').toString().trim(), exeId, date
+      row: r.row_index, status: (r.status || '').toString().trim(), exeId, date,
+      ageDays: supaAgeDays_(r.row_date, date)
     });
   });
   const list = Object.keys(groups).map(k => groups[k]);
@@ -866,4 +867,27 @@ async function supaPendingCases() {
   list.forEach(g => { g.count = g.cases.length; g.cases.sort((a, b) => a.row - b.row); });
   list.sort((a, b) => b.count - a.count);
   return { ok: true, groups: list, total: data.length, truncated: data.length >= SUPA_PENDING_LIMIT };
+}
+
+/** อายุเคส (วัน) จาก row_date (yyyy-mm-dd) หรือข้อความวันที่ dd/mm/yyyy — อ่านไม่ได้คืน null */
+function supaAgeDays_(rowDate, text) {
+  let d = null;
+  if (rowDate) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(rowDate);
+    if (m) d = new Date(+m[1], +m[2] - 1, +m[3]);
+  }
+  if (!d && text) {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(String(text).trim());
+    if (m) { let y = +m[3]; if (y > 2400) y -= 543; d = new Date(y, +m[2] - 1, +m[1]); }
+  }
+  if (!d || isNaN(d)) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((today - d) / 86400000));
+}
+
+/** เวลาซิงก์ล่าสุด (แท็บใดก็ได้ที่ซิงก์ล่าสุด) จาก sheet_meta.synced_at */
+async function supaLastSyncAt() {
+  const res = await supaSelect_('/sheet_meta?select=synced_at&synced_at=not.is.null&order=synced_at.desc&limit=1');
+  const rows = await res.json();
+  return rows && rows[0] && rows[0].synced_at ? new Date(rows[0].synced_at) : null;
 }

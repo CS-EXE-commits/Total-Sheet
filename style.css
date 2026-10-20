@@ -3087,3 +3087,20 @@ body.bg-tosm { --game-bg: url('images/tosm-bg.jpg'); }
 body.bg-zone4 { --game-bg: url('images/zone4-bg.jpg'); --game-bg-pos: center 28%; }
 body.bg-9yin { --game-bg: url('images/9yin-bg.jpg'); --game-bg-pos: center 55%; }
 body.bg-topup { --game-bg: url('images/topup-bg.jpg?v=3'); --game-bg-pos: center 30%; }
+
+/* ป้ายสถานะการซิงก์ */
+.sync-badge { font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--color-accent-bg); color: var(--color-accent); white-space: nowrap; }
+.sync-badge--late { background: var(--color-danger-bg); color: var(--color-danger); font-weight: 700; }
+.sync-badge[hidden] { display: none; }
+@media (max-width: 900px) { .sync-badge { display: none; } }
+
+/* อายุเคสในการ์ดเคสรอตรวจสอบ: เกิน 3 วันส้ม เกิน 7 วันแดง */
+.pending-age { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--color-accent-bg); color: var(--color-accent); white-space: nowrap; }
+.pending-age--orange { background: #FDEBD3; color: #9A4F00; font-weight: 600; }
+.pending-age--red { background: #FBDADA; color: #A61B1B; font-weight: 700; }
+:root[data-theme="dark"] .pending-age--orange { background: #4A3112; color: #FFB25B; }
+:root[data-theme="dark"] .pending-age--red { background: #4D1B1B; color: #FF7B7B; }
+.pending-count--orange { background: #FDEBD3 !important; color: #9A4F00 !important; }
+.pending-count--red { background: #FBDADA !important; color: #A61B1B !important; }
+:root[data-theme="dark"] .pending-count--orange { background: #4A3112 !important; color: #FFB25B !important; }
+:root[data-theme="dark"] .pending-count--red { background: #4D1B1B !important; color: #FF7B7B !important; }
