@@ -3158,10 +3158,19 @@ input.datetime-field {
     margin: -28px -12px 0;
     padding: 28px 12px 8px;
   }
+  /* มีภาพพื้นหลังเกม: ใช้ภาพเดียวกัน (ตรึงกับจอ) เป็นพื้นของส่วนที่ตรึงไว้ จึงกลืนกับพื้นหลังพอดี
+     และยังบังแถวตารางที่เลื่อนผ่านด้านหลังได้ */
   body.bg-game .workspace__sticky {
-    background: color-mix(in srgb, var(--color-bg) 93%, transparent);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background:
+      linear-gradient(rgba(243, 245, 248, 0.55), rgba(243, 245, 248, 0.78)) fixed,
+      var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat fixed,
+      var(--color-bg);
+  }
+  :root[data-theme="dark"] body.bg-game .workspace__sticky {
+    background:
+      linear-gradient(rgba(18, 22, 27, 0.55), rgba(18, 22, 27, 0.75)) fixed,
+      var(--game-bg) var(--game-bg-pos, center 30%) / cover no-repeat fixed,
+      var(--color-bg);
   }
   .sidebar {
     position: sticky;
