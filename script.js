@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1300';
+const APP_VERSION = '20261020-1330';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2767,7 +2767,7 @@ function renderEditFields(headers, fullHeaders, row) {
     label.setAttribute('for', `edit-field-${header.name}`);
     wrap.appendChild(label);
 
-    const inputEl = buildFieldInput(header, 'edit-field-');
+    let inputEl = buildFieldInput(header, 'edit-field-');
     const colIndex = fullHeaders.indexOf(header.name);
     if (colIndex !== -1) {
       const rawValue = (row.cells[colIndex] || '').toString();
@@ -2778,10 +2778,15 @@ function renderEditFields(headers, fullHeaders, row) {
         inputEl.appendChild(opt);
       }
       // ค่าเวลาเดิมที่อ่านเป็นเวลาไม่ได้ (เช่นพิมพ์ข้อความไว้) — ใช้ช่องข้อความแทน ไม่งั้นกดบันทึกแล้วค่าเดิมหาย
+      if (inputEl.type === 'date' && /\d{1,2}[:.]\d{2}/.test(rawValue) && parseDateTime_(rawValue)) {
+        const dt = buildDateTimeInput_(header, 'edit-field-');
+        inputEl = dt;
+      }
       if (inputEl.dataset.kind === 'time' && rawValue.trim() && !toTimeInputValue_(rawValue)) {
         inputEl.dataset.kind = 'time-raw'; // ค่าเดิมไม่ใช่เวลา: ปล่อยให้พิมพ์อิสระ ไม่แปลงทิ้ง
       }
-      inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue)
+      inputEl.value = inputEl.dataset.kind === 'datetime' ? (parseDateTime_(rawValue) ? formatDateTime_(parseDateTime_(rawValue)) : rawValue)
+        : inputEl.type === 'date' ? toDateInputValue_(rawValue)
         : inputEl.dataset.kind === 'time' ? toTimeInputValue_(rawValue) : rawValue;
     }
     inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
@@ -3096,6 +3101,7 @@ function buildFieldInput(header, idPrefix) {
   const prefix = idPrefix || 'field-';
   const isDateColumn = /วันที่|date/i.test(header.name);
   const isTimeColumn = !isDateColumn && isTimeHeader_(header.name);
+  const isDateTimeColumn = isDateColumn && isDateTimeHeader_(header.name);
 
   if (header.options && header.options.length > 0) {
     const select = document.createElement('select');
@@ -3114,6 +3120,8 @@ function buildFieldInput(header, idPrefix) {
 
   // ช่องข้อความทั่วไปเป็น textarea: กด Shift+Enter เพื่อขึ้นบรรทัดใหม่ (Enter เฉยๆ ไม่ขึ้นบรรทัด กันเผลอกด)
   // ยกเว้นช่องวันที่ และ EXE ID (รหัสบรรทัดเดียว)
+  if (isDateTimeColumn) return buildDateTimeInput_(header, prefix);
+
   if (isTimeColumn) {
     const t = document.createElement('input');
     t.type = 'text';
@@ -4532,7 +4540,7 @@ function showTimePicker_(inputEl) {
   box.style.top = (below < box.offsetHeight + 12 && r.top > box.offsetHeight + 12
     ? r.top + window.scrollY - box.offsetHeight - 4
     : r.bottom + window.scrollY + 4) + 'px';
-  box.querySelectorAll('.is-sel').forEach(x => { x.parentElement.scrollTop = x.offsetTop - x.parentElement.clientHeight / 2 + x.offsetHeight / 2; });
+  box.querySelectorAll('.is-sel').forEach(x => { const c = x.parentElement; c.scrollTop = (x.offsetTop - c.offsetTop) - c.clientHeight / 2 + x.offsetHeight / 2; });
   openTimePicker_ = box;
 }
 document.addEventListener('click', (e) => {
@@ -4542,3 +4550,93 @@ window.addEventListener('resize', closeTimePicker_);
 document.addEventListener('scroll', (e) => {
   if (openTimePicker_ && !openTimePicker_.contains(e.target)) closeTimePicker_();
 }, true);
+
+/* ===== ช่องวัน+เวลา (เช่น Purchase Date ที่เก็บ "11/03/2026 09.44 น.") ===== */
+/** คอลัมน์วันที่ที่ต้องมีเวลาด้วย (ดูจากชื่อหัวคอลัมน์) — คอลัมน์ "วันที่" ธรรมดายังเลือกแค่วัน */
+function isDateTimeHeader_(name) {
+  return /purchase\s*date|date\s*[\/&-]?\s*time|datetime|วัน\s*เวลา|วันและเวลา|วันที่และเวลา/i.test((name || '').toString());
+}
+/** "11/03/2026 09.44 น." / "11/03/2026 9:44" / "2026-03-11 09:44" / "11/03/2026" → {y,m,d,h,mi} */
+function parseDateTime_(raw) {
+  const s = (raw || '').toString().trim();
+  let y, mo, d, mt;
+  if ((mt = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) { d = +mt[1]; mo = +mt[2]; y = +mt[3]; }
+  else if ((mt = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) { y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
+  else return null;
+  if (y > 2400) y -= 543;
+  const t = s.slice(mt[0].length).match(/(\d{1,2})[:.](\d{2})/);
+  return { y, m: mo, d, h: t ? +t[1] : null, mi: t ? +t[2] : null };
+}
+/** รูปแบบเดียวกับที่ชีทใช้อยู่: 11/03/2026 09.44 น. (ไม่มีเวลา = 11/03/2026) */
+function formatDateTime_(p) {
+  const pad = n => String(n).padStart(2, '0');
+  const date = pad(p.d) + '/' + pad(p.m) + '/' + p.y;
+  return p.h == null ? date : date + ' ' + pad(p.h) + '.' + pad(p.mi) + ' น.';
+}
+function buildDateTimeInput_(header, prefix) {
+  const el = document.createElement('input');
+  el.type = 'text';
+  el.className = 'datetime-field';
+  el.dataset.kind = 'datetime';
+  el.placeholder = 'วว/ดด/ปปปป ชช.นน น.';
+  el.autocomplete = 'off';
+  el.id = `${prefix}${header.name}`;
+  el.dataset.header = header.name;
+  el.addEventListener('click', () => showDateTimePicker_(el));
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); showDateTimePicker_(el); }
+    if (e.key === 'Escape' && openTimePicker_) { e.stopPropagation(); closeTimePicker_(); }
+  });
+  el.addEventListener('blur', () => { const p = parseDateTime_(el.value); if (p) el.value = formatDateTime_(p); });
+  return el;
+}
+function showDateTimePicker_(inputEl) {
+  if (openTimePicker_ && openTimePicker_._input === inputEl) return;
+  closeTimePicker_();
+  const now = new Date();
+  const p = parseDateTime_(inputEl.value) || { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate(), h: null, mi: null };
+  const pad = n => String(n).padStart(2, '0');
+  let h = pad(p.h == null ? now.getHours() : p.h), m = pad(p.mi == null ? now.getMinutes() : p.mi);
+  const box = document.createElement('div');
+  box.className = 'time-picker time-picker--dt';
+  box._input = inputEl;
+  const col = (n, sel, kind) => '<div class="time-picker__col" data-kind="' + kind + '">' +
+    Array.from({ length: n }, (_, i) => { const v = pad(i);
+      return '<button type="button" class="time-picker__opt' + (v === sel ? ' is-sel' : '') + '" data-v="' + v + '">' + v + '</button>'; }).join('') + '</div>';
+  box.innerHTML = '<label class="time-picker__label">วันที่<input type="date" class="time-picker__date" value="' + p.y + '-' + pad(p.m) + '-' + pad(p.d) + '"></label>' +
+    '<div class="time-picker__head"><span>ชั่วโมง</span><span>นาที</span></div>' +
+    '<div class="time-picker__cols">' + col(24, h, 'h') + col(60, m, 'm') + '</div>' +
+    '<div class="time-picker__actions">' +
+    '<button type="button" class="time-picker__btn time-picker__btn--clear" data-act="clear">ล้าง</button>' +
+    '<button type="button" class="time-picker__btn" data-act="cancel">ยกเลิก</button>' +
+    '<button type="button" class="time-picker__btn time-picker__btn--ok" data-act="ok">ตกลง</button></div>';
+  box.addEventListener('mousedown', e => { if (!e.target.closest('.time-picker__date')) e.preventDefault(); });
+  box.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opt = e.target.closest('.time-picker__opt');
+    if (opt) {
+      opt.parentElement.querySelectorAll('.is-sel').forEach(x => x.classList.remove('is-sel'));
+      opt.classList.add('is-sel');
+      if (opt.parentElement.dataset.kind === 'h') h = opt.dataset.v; else m = opt.dataset.v;
+      return;
+    }
+    const act = e.target.dataset.act;
+    const fire = () => inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    if (act === 'ok') {
+      const dv = box.querySelector('.time-picker__date').value; // yyyy-mm-dd
+      if (!dv) { box.querySelector('.time-picker__date').focus(); return; }
+      const [yy, mm, dd] = dv.split('-').map(Number);
+      inputEl.value = formatDateTime_({ y: yy, m: mm, d: dd, h: +h, mi: +m });
+      fire(); closeTimePicker_();
+    } else if (act === 'cancel') closeTimePicker_();
+    else if (act === 'clear') { inputEl.value = ''; fire(); closeTimePicker_(); }
+  });
+  document.body.appendChild(box);
+  const r = inputEl.getBoundingClientRect();
+  const below = window.innerHeight - r.bottom;
+  box.style.left = Math.max(8, r.left + window.scrollX) + 'px';
+  box.style.top = (below < box.offsetHeight + 12 && r.top > box.offsetHeight + 12
+    ? r.top + window.scrollY - box.offsetHeight - 4 : r.bottom + window.scrollY + 4) + 'px';
+  box.querySelectorAll('.is-sel').forEach(x => { const c = x.parentElement; c.scrollTop = (x.offsetTop - c.offsetTop) - c.clientHeight / 2 + x.offsetHeight / 2; });
+  openTimePicker_ = box;
+}
