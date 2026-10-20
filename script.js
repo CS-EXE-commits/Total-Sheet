@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1230';
+const APP_VERSION = '20261020-1300';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2778,9 +2778,11 @@ function renderEditFields(headers, fullHeaders, row) {
         inputEl.appendChild(opt);
       }
       // ค่าเวลาเดิมที่อ่านเป็นเวลาไม่ได้ (เช่นพิมพ์ข้อความไว้) — ใช้ช่องข้อความแทน ไม่งั้นกดบันทึกแล้วค่าเดิมหาย
-      if (inputEl.type === 'time' && rawValue.trim() && !toTimeInputValue_(rawValue)) inputEl.type = 'text';
+      if (inputEl.dataset.kind === 'time' && rawValue.trim() && !toTimeInputValue_(rawValue)) {
+        inputEl.dataset.kind = 'time-raw'; // ค่าเดิมไม่ใช่เวลา: ปล่อยให้พิมพ์อิสระ ไม่แปลงทิ้ง
+      }
       inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue)
-        : inputEl.type === 'time' ? toTimeInputValue_(rawValue) : rawValue;
+        : inputEl.dataset.kind === 'time' ? toTimeInputValue_(rawValue) : rawValue;
     }
     inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
     wrap.appendChild(inputEl);
@@ -3114,10 +3116,15 @@ function buildFieldInput(header, idPrefix) {
   // ยกเว้นช่องวันที่ และ EXE ID (รหัสบรรทัดเดียว)
   if (isTimeColumn) {
     const t = document.createElement('input');
-    t.type = 'time';
-    t.step = 60;
+    t.type = 'text';
+    t.className = 'time-field';
+    t.dataset.kind = 'time';
+    t.placeholder = '--:--';
+    t.autocomplete = 'off';
+    t.inputMode = 'numeric';
     t.id = `${prefix}${header.name}`;
     t.dataset.header = header.name;
+    attachTimePicker_(t);
     return t;
   }
 
@@ -4458,3 +4465,80 @@ window.addEventListener('beforeunload', (e) => {
     return e.returnValue;
   }
 });
+
+/* ===== ตัวเลือกเวลา (ชั่วโมง/นาที + ปุ่ม ตกลง / ยกเลิก / ล้าง) ใช้แทนตัวเลือกของเบราว์เซอร์ที่เพิ่มปุ่มไม่ได้ ===== */
+let openTimePicker_ = null;
+function closeTimePicker_() {
+  if (openTimePicker_) { openTimePicker_.remove(); openTimePicker_ = null; }
+}
+function attachTimePicker_(inputEl) {
+  // พิมพ์เองได้ด้วย เช่น 930 / 9.30 / 09:30 → 09:30
+  inputEl.addEventListener('blur', () => {
+    if (inputEl.dataset.kind !== 'time') return;
+    const v = inputEl.value.trim();
+    if (!v) return;
+    const digits = v.replace(/[^0-9]/g, '');
+    let t = toTimeInputValue_(v.replace('.', ':'));
+    if (!t && /^\d{3,4}$/.test(digits)) t = toTimeInputValue_(digits.slice(0, -2) + ':' + digits.slice(-2));
+    if (t) inputEl.value = t;
+  });
+  inputEl.addEventListener('click', () => { if (inputEl.dataset.kind === 'time') showTimePicker_(inputEl); });
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && inputEl.dataset.kind === 'time') { e.preventDefault(); showTimePicker_(inputEl); }
+    if (e.key === 'Escape' && openTimePicker_) { e.stopPropagation(); closeTimePicker_(); }
+  });
+}
+function showTimePicker_(inputEl) {
+  if (openTimePicker_ && openTimePicker_._input === inputEl) return;
+  closeTimePicker_();
+  const cur = toTimeInputValue_(inputEl.value) || (() => {
+    const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  })();
+  let [h, m] = cur.split(':');
+  const box = document.createElement('div');
+  box.className = 'time-picker';
+  box._input = inputEl;
+  const col = (n, sel, kind) => '<div class="time-picker__col" data-kind="' + kind + '">' +
+    Array.from({ length: n }, (_, i) => {
+      const v = String(i).padStart(2, '0');
+      return '<button type="button" class="time-picker__opt' + (v === sel ? ' is-sel' : '') + '" data-v="' + v + '">' + v + '</button>';
+    }).join('') + '</div>';
+  box.innerHTML = '<div class="time-picker__head"><span>ชั่วโมง</span><span>นาที</span></div>' +
+    '<div class="time-picker__cols">' + col(24, h, 'h') + col(60, m, 'm') + '</div>' +
+    '<div class="time-picker__actions">' +
+    '<button type="button" class="time-picker__btn time-picker__btn--clear" data-act="clear">ล้าง</button>' +
+    '<button type="button" class="time-picker__btn" data-act="cancel">ยกเลิก</button>' +
+    '<button type="button" class="time-picker__btn time-picker__btn--ok" data-act="ok">ตกลง</button></div>';
+  box.addEventListener('mousedown', e => e.preventDefault()); // ไม่ให้ช่องพิมพ์เสียโฟกัส
+  box.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opt = e.target.closest('.time-picker__opt');
+    if (opt) {
+      const kind = opt.parentElement.dataset.kind;
+      opt.parentElement.querySelectorAll('.is-sel').forEach(x => x.classList.remove('is-sel'));
+      opt.classList.add('is-sel');
+      if (kind === 'h') h = opt.dataset.v; else m = opt.dataset.v;
+      return;
+    }
+    const act = e.target.dataset.act;
+    if (act === 'ok') { inputEl.value = h + ':' + m; inputEl.dispatchEvent(new Event('input', { bubbles: true })); closeTimePicker_(); }
+    else if (act === 'cancel') closeTimePicker_();
+    else if (act === 'clear') { inputEl.value = ''; inputEl.dispatchEvent(new Event('input', { bubbles: true })); closeTimePicker_(); }
+  });
+  document.body.appendChild(box);
+  const r = inputEl.getBoundingClientRect();
+  const below = window.innerHeight - r.bottom;
+  box.style.left = Math.max(8, r.left + window.scrollX) + 'px';
+  box.style.top = (below < box.offsetHeight + 12 && r.top > box.offsetHeight + 12
+    ? r.top + window.scrollY - box.offsetHeight - 4
+    : r.bottom + window.scrollY + 4) + 'px';
+  box.querySelectorAll('.is-sel').forEach(x => { x.parentElement.scrollTop = x.offsetTop - x.parentElement.clientHeight / 2 + x.offsetHeight / 2; });
+  openTimePicker_ = box;
+}
+document.addEventListener('click', (e) => {
+  if (openTimePicker_ && e.target !== openTimePicker_._input && !openTimePicker_.contains(e.target)) closeTimePicker_();
+});
+window.addEventListener('resize', closeTimePicker_);
+document.addEventListener('scroll', (e) => {
+  if (openTimePicker_ && !openTimePicker_.contains(e.target)) closeTimePicker_();
+}, true);
