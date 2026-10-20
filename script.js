@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1200';
+const APP_VERSION = '20261020-1215';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2777,7 +2777,10 @@ function renderEditFields(headers, fullHeaders, row) {
         opt.value = rawValue; opt.textContent = rawValue;
         inputEl.appendChild(opt);
       }
-      inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue) : rawValue;
+      // ค่าเวลาเดิมที่อ่านเป็นเวลาไม่ได้ (เช่นพิมพ์ข้อความไว้) — ใช้ช่องข้อความแทน ไม่งั้นกดบันทึกแล้วค่าเดิมหาย
+      if (inputEl.type === 'time' && rawValue.trim() && !toTimeInputValue_(rawValue)) inputEl.type = 'text';
+      inputEl.value = inputEl.type === 'date' ? toDateInputValue_(rawValue)
+        : inputEl.type === 'time' ? toTimeInputValue_(rawValue) : rawValue;
     }
     inputEl.dataset.originalValue = inputEl.value; // ใช้เทียบตอนปิดหน้าต่างว่าแก้ไขอะไรค้างไว้ไหม
     wrap.appendChild(inputEl);
@@ -2790,6 +2793,26 @@ function renderEditFields(headers, fullHeaders, row) {
  * แปลงค่าวันที่ที่อ่านมาจากชีต (ซึ่งอาจแสดงเป็น dd/MM/yyyy, d-M-yyyy หรือรูปแบบอื่นตามการตั้งค่าเซลล์)
  * ให้เป็นรูปแบบ yyyy-MM-dd ที่ input type="date" ต้องการ ไม่งั้นเบราว์เซอร์จะไม่โชว์ค่าเดิมให้ (ช่องว่างเปล่า)
  */
+/** คอลัมน์เวลา: ชื่อมีคำว่า "เวลา" หรือ time (ไม่นับ "ระยะเวลา", timestamp, times/ครั้ง) */
+function isTimeHeader_(name) {
+  const n = (name || '').toString();
+  if (/ระยะเวลา|timestamp|times\b|timeline|timeout/i.test(n)) return false;
+  return /เวลา|\btime\b/i.test(n);
+}
+
+/** ค่าเวลาจากชีท (13:45, 13:45:20, 1:45 PM, หรือข้อความวันที่+เวลา) → HH:MM สำหรับ input type="time" */
+function toTimeInputValue_(raw) {
+  const str = (raw || '').toString().trim();
+  const m = str.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM|am|pm)?/);
+  if (!m) return '';
+  let h = +m[1];
+  const ap = (m[3] || '').toUpperCase();
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  if (h > 23) return '';
+  return String(h).padStart(2, '0') + ':' + m[2];
+}
+
 function toDateInputValue_(raw) {
   const str = (raw || '').toString().trim();
   if (!str) return '';
@@ -3070,6 +3093,7 @@ function renderAddFields(headers) {
 function buildFieldInput(header, idPrefix) {
   const prefix = idPrefix || 'field-';
   const isDateColumn = /วันที่|date/i.test(header.name);
+  const isTimeColumn = !isDateColumn && isTimeHeader_(header.name);
 
   if (header.options && header.options.length > 0) {
     const select = document.createElement('select');
@@ -3088,6 +3112,15 @@ function buildFieldInput(header, idPrefix) {
 
   // ช่องข้อความทั่วไปเป็น textarea: กด Shift+Enter เพื่อขึ้นบรรทัดใหม่ (Enter เฉยๆ ไม่ขึ้นบรรทัด กันเผลอกด)
   // ยกเว้นช่องวันที่ และ EXE ID (รหัสบรรทัดเดียว)
+  if (isTimeColumn) {
+    const t = document.createElement('input');
+    t.type = 'time';
+    t.step = 60;
+    t.id = `${prefix}${header.name}`;
+    t.dataset.header = header.name;
+    return t;
+  }
+
   if (!isDateColumn && !isExeIdHeader_(header.name)) {
     const ta = document.createElement('textarea');
     ta.rows = 1;
