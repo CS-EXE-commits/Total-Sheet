@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1215';
+const APP_VERSION = '20261020-1230';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4440,4 +4440,21 @@ document.addEventListener('keydown', (evt) => {
     }
     panel.hidden = true;
   });
+});
+
+/**
+ * กด F5 / ปิดแท็บ / ไปหน้าอื่น ขณะกรอกฟอร์มเพิ่มข้อมูลหรือแก้ไขข้อมูลค้างไว้ → ให้เบราว์เซอร์ถามก่อนออก
+ * หมายเหตุ: เบราว์เซอร์ทุกตัวบังคับใช้ข้อความมาตรฐานของตัวเอง (เช่น "ออกจากเว็บไซต์ใช่ไหม") เว็บกำหนดข้อความเองไม่ได้
+ */
+function editFormHasUnsavedChange_() {
+  if (!editModal || editModal.hidden) return false;
+  return Array.from(editFields.querySelectorAll('input, select, textarea'))
+    .some(el => el.value !== (el.dataset.originalValue || ''));
+}
+window.addEventListener('beforeunload', (e) => {
+  if (addFormHasUnsavedInput_() || editFormHasUnsavedChange_()) {
+    e.preventDefault();
+    e.returnValue = 'คุณกำลังเพิ่มหรือแก้ไขข้อมูลอยู่ ต้องการออกจากหน้านี้หรือไม่?';
+    return e.returnValue;
+  }
 });
