@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1430';
+const APP_VERSION = '20261020-1500';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4663,21 +4663,6 @@ function showDateTimePicker_(inputEl) {
     root.style.setProperty('--topbar-h', (topbar ? topbar.offsetHeight : 0) + 'px');
     root.style.setProperty('--folderbar-h', (fbar && !fbar.hidden ? fbar.offsetHeight : 0) + 'px');
     root.style.setProperty('--wsticky-h', (ws ? ws.offsetHeight : 0) + 'px');
-    // ตรึงคอลัมน์กลางได้เมื่อสูงไม่เกินจอ (ตอนเปิดฟอร์มเพิ่มข้อมูล/ถังขยะ คอลัมน์ยาวขึ้น → ปล่อยให้เลื่อนตามปกติ)
-    const main = document.querySelector('.main');
-    const layout = document.getElementById('appLayout');
-    const tw = document.getElementById('tableWrap');
-    if (main && layout) {
-      const room = window.innerHeight - (topbar ? topbar.offsetHeight : 0) - (fbar && !fbar.hidden ? fbar.offsetHeight : 0) - 44;
-      // ความสูงของทุกอย่างในคอลัมน์กลางที่ไม่ใช่ตาราง (แท็บ ช่องค้นหา ตัวเลขหน้า ฯลฯ)
-      const tableH = tw && !tw.hidden ? tw.offsetHeight : 0;
-      const other = main.offsetHeight - tableH;
-      // ตารางได้พื้นที่ที่เหลือพอดีจอ — ถ้าเหลือน้อยกว่า 260px (เช่นเปิดฟอร์มเพิ่มข้อมูลอยู่) ไม่ตรึง ให้หน้าเลื่อนตามปกติ
-      const tableRoom = room - other;
-      const pin = window.innerWidth > 900 && tableRoom >= 260;
-      if (tw) tw.style.maxHeight = pin ? tableRoom + 'px' : '';
-      if (pin !== layout.classList.contains('layout--pinned')) layout.classList.toggle('layout--pinned', pin);
-    }
   };
   if (typeof ResizeObserver === 'function') {
     const ro = new ResizeObserver(update);

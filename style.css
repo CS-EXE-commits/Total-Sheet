@@ -3145,22 +3145,33 @@ input.datetime-field {
 .time-picker--dt .time-picker__col { height: 170px; }
 
 /* ตรึงส่วนบนไว้ตอนเลื่อน (จอกว้าง)
-   หัวเว็บ + แถบโฟลเดอร์ ตรึงด้านบน / คอลัมน์กลาง (แท็บ ช่องค้นหา ตาราง) ตรึงทั้งคอลัมน์ ตารางเลื่อนในกรอบของตัวเอง
-   แถบด้านซ้ายยาวกว่า จึงเลื่อนตามหน้าได้ตามปกติ */
+   - หัวเว็บ + แถบโฟลเดอร์ + แท็บ/ช่องค้นหา ค้างด้านบน
+   - แถบซ้ายค้างด้านข้าง (ยาวเกินจอจะเลื่อนในกรอบของตัวเอง)
+   - ตารางยาวเต็มตามจำนวนแถวที่เลือก เลื่อนทั้งหน้าเพื่อดู หัวตารางค้างอยู่ใต้ช่องค้นหา */
 @media (min-width: 901px) {
   .folder-bar { position: sticky; top: var(--topbar-h, 64px); z-index: 18; }
-  /* ตอนตรึง: คอลัมน์กลางและแถบซ้ายอยู่กับที่ทั้งคู่ แถบซ้ายเลื่อนในกรอบของตัวเอง หน้าเว็บจึงไม่เลื่อน */
-  .layout.layout--pinned { padding-bottom: 16px; }
-  .layout--pinned .main,
-  .layout--pinned .sidebar {
+  .workspace__sticky {
     position: sticky;
-    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 28px); /* = ระยะห่างบนของ .layout ตำแหน่งจึงไม่ขยับเลย */
-    align-self: flex-start;
+    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px));
+    z-index: 12;
+    background: var(--color-bg);
+    margin: -28px -12px 0;
+    padding: 28px 12px 8px;
   }
-  .layout--pinned .sidebar {
-    flex: 0 0 372px;   /* ตอนเลื่อนในกรอบเองจะไม่ถูกเนื้อหาดันให้กว้าง ต้องกำหนดความกว้างเท่าตอนปกติ */
+  body.bg-game .workspace__sticky {
+    background: color-mix(in srgb, var(--color-bg) 93%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .sidebar {
+    position: sticky;
+    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 28px);
+    align-self: flex-start;
+    flex: 0 0 372px;
     max-height: calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - 44px);
     overflow-y: auto;
     scrollbar-width: thin;
   }
+  .table-wrap { max-height: none; overflow: visible; }
+  .data-table th { top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + var(--wsticky-h, 0px)); }
 }
