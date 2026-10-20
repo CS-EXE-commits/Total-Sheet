@@ -3143,3 +3143,25 @@ input.datetime-field {
 .time-picker__label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px; }
 .time-picker__date { padding: 7px 8px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 14px; color-scheme: light dark; }
 .time-picker--dt .time-picker__col { height: 170px; }
+
+/* ตรึงส่วนบนไว้ตอนเลื่อน (จอกว้าง)
+   หัวเว็บ + แถบโฟลเดอร์ ตรึงด้านบน / คอลัมน์กลาง (แท็บ ช่องค้นหา ตาราง) ตรึงทั้งคอลัมน์ ตารางเลื่อนในกรอบของตัวเอง
+   แถบด้านซ้ายยาวกว่า จึงเลื่อนตามหน้าได้ตามปกติ */
+@media (min-width: 901px) {
+  .folder-bar { position: sticky; top: var(--topbar-h, 64px); z-index: 18; }
+  /* ตอนตรึง: คอลัมน์กลางและแถบซ้ายอยู่กับที่ทั้งคู่ แถบซ้ายเลื่อนในกรอบของตัวเอง หน้าเว็บจึงไม่เลื่อน */
+  .layout.layout--pinned { padding-bottom: 16px; }
+  .layout--pinned .main,
+  .layout--pinned .sidebar {
+    position: sticky;
+    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 16px);
+    align-self: flex-start;
+  }
+  .layout--pinned .sidebar {
+    flex: 0 0 372px;   /* ตอนเลื่อนในกรอบเองจะไม่ถูกเนื้อหาดันให้กว้าง ต้องกำหนดความกว้างเท่าตอนปกติ */
+    max-height: calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - 32px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .table-wrap { max-height: max(300px, calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - var(--wsticky-h, 0px) - 56px)); }
+}

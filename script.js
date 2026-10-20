@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1330';
+const APP_VERSION = '20261020-1400';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2759,7 +2759,7 @@ async function openEditModal(row, prefill) {
 
 function renderEditFields(headers, fullHeaders, row) {
   editFields.innerHTML = '';
-  headers.forEach(header => {
+  headers.filter(h => !isHiddenFormField_(h.name, row && row.book, row && row.sheet)).forEach(header => {
     const wrap = document.createElement('div');
     wrap.className = 'add-field';
     const label = document.createElement('label');
@@ -3083,9 +3083,21 @@ async function loadAddFields() {
   }
 }
 
+/**
+ * ช่องที่ไม่ต้องแสดงในฟอร์มเพิ่ม/แก้ไข แยกตาม "ไฟล์|แท็บ" (ค่าในชีทไม่ถูกแตะ เพราะไม่ส่งช่องนั้นไปบันทึก)
+ */
+const HIDDEN_FORM_FIELDS = {
+  'CS TOSM 2026|IAP': ['Purchase Time']
+};
+function isHiddenFormField_(name, book, sheet) {
+  const list = HIDDEN_FORM_FIELDS[(book || currentBook || '').trim() + '|' + (sheet || selectedSheet || '').trim()] || [];
+  const n = (name || '').toString().trim().toLowerCase();
+  return list.some(x => x.toLowerCase() === n);
+}
+
 function renderAddFields(headers) {
   addFields.innerHTML = '';
-  headers.forEach(header => {
+  headers.filter(h => !isHiddenFormField_(h.name)).forEach(header => {
     const wrap = document.createElement('div');
     wrap.className = 'add-field';
     const label = document.createElement('label');
@@ -4640,3 +4652,30 @@ function showDateTimePicker_(inputEl) {
   box.querySelectorAll('.is-sel').forEach(x => { const c = x.parentElement; c.scrollTop = (x.offsetTop - c.offsetTop) - c.clientHeight / 2 + x.offsetHeight / 2; });
   openTimePicker_ = box;
 }
+
+/* ===== ตรึงหัวเว็บ + แถบโฟลเดอร์ + แท็บ/ช่องค้นหา ไว้ด้านบนตอนเลื่อนดูตาราง ===== */
+(function setupStickyHeights_() {
+  const root = document.documentElement;
+  const topbar = document.querySelector('.topbar');
+  const fbar = document.getElementById('folderBar');
+  const ws = document.getElementById('workspaceSticky');
+  const update = () => {
+    root.style.setProperty('--topbar-h', (topbar ? topbar.offsetHeight : 0) + 'px');
+    root.style.setProperty('--folderbar-h', (fbar && !fbar.hidden ? fbar.offsetHeight : 0) + 'px');
+    root.style.setProperty('--wsticky-h', (ws ? ws.offsetHeight : 0) + 'px');
+    // ตรึงคอลัมน์กลางได้เมื่อสูงไม่เกินจอ (ตอนเปิดฟอร์มเพิ่มข้อมูล/ถังขยะ คอลัมน์ยาวขึ้น → ปล่อยให้เลื่อนตามปกติ)
+    const main = document.querySelector('.main');
+    const layout = document.getElementById('appLayout');
+    if (main && layout) {
+      const room = window.innerHeight - (topbar ? topbar.offsetHeight : 0) - (fbar && !fbar.hidden ? fbar.offsetHeight : 0) - 24;
+      const fits = main.offsetHeight <= room && window.innerWidth > 900;
+      if (fits !== layout.classList.contains('layout--pinned')) layout.classList.toggle('layout--pinned', fits);
+    }
+  };
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(update);
+    [topbar, fbar, ws, document.querySelector('.main')].forEach(el => el && ro.observe(el));
+  }
+  window.addEventListener('resize', update);
+  update();
+})();
