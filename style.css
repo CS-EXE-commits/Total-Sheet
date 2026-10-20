@@ -3154,14 +3154,13 @@ input.datetime-field {
   .layout--pinned .main,
   .layout--pinned .sidebar {
     position: sticky;
-    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 16px);
+    top: calc(var(--topbar-h, 64px) + var(--folderbar-h, 0px) + 28px); /* = ระยะห่างบนของ .layout ตำแหน่งจึงไม่ขยับเลย */
     align-self: flex-start;
   }
   .layout--pinned .sidebar {
     flex: 0 0 372px;   /* ตอนเลื่อนในกรอบเองจะไม่ถูกเนื้อหาดันให้กว้าง ต้องกำหนดความกว้างเท่าตอนปกติ */
-    max-height: calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - 32px);
+    max-height: calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - 44px);
     overflow-y: auto;
     scrollbar-width: thin;
   }
-  .table-wrap { max-height: max(300px, calc(100vh - var(--topbar-h, 64px) - var(--folderbar-h, 0px) - var(--wsticky-h, 0px) - 56px)); }
 }
