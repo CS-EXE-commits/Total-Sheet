@@ -6,7 +6,7 @@
 <title>Data Search and Recording System</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261020-1530">
+<link rel="stylesheet" href="style.css?v=20261020-1540">
 <script>
   // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
   (function () {
@@ -226,11 +226,10 @@
         </div>
 
         <div class="table-toolbar" id="tableToolbar" hidden>
-          <label for="pageSizeSelect">แสดงหน้าละ</label>
-          <select id="pageSizeSelect">
-            <option value="20">20 แถว</option>
-            <option value="50">50 แถว</option>
-            <option value="100">100 แถว</option>
+          <select id="pageSizeSelect" aria-label="จำนวนแถวต่อหน้า">
+            <option value="20">แสดง 20 แถว</option>
+            <option value="50">แสดง 50 แถว</option>
+            <option value="100">แสดง 100 แถว</option>
           </select>
         </div>
         <p class="results__count" id="resultsCount" hidden></p>
@@ -413,8 +412,8 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261020-1530"></script>
-  <script src="supabase.js?v=20261020-1530"></script>
-  <script src="script.js?v=20261020-1530"></script>
+  <script src="config.js?v=20261020-1540"></script>
+  <script src="supabase.js?v=20261020-1540"></script>
+  <script src="script.js?v=20261020-1540"></script>
 </body>
 </html>
