@@ -3166,3 +3166,9 @@ input.datetime-field {
 :root[data-theme="dark"] #sidebarDashboard .today-work__case,
 :root[data-theme="dark"] #sidebarStatusCard .today-work__case,
 :root[data-theme="dark"] #sidebarStatusCard .pending-group__head { background: rgba(10, 20, 32, 0.45); }
+
+/* หัวข้อการ์ด: "จำนวนเคสเข้าใหม่วันนี้" ตัวเขียว / "เคสรอตรวจสอบ" ตัวแดง */
+#sidebarDashboard > .sidebar-dashboard__title { color: #2E7D32; font-weight: 800; }
+#sidebarStatusCard > .sidebar-dashboard__title { color: #C62828; font-weight: 800; }
+:root[data-theme="dark"] #sidebarDashboard > .sidebar-dashboard__title { color: #5CC26B; }
+:root[data-theme="dark"] #sidebarStatusCard > .sidebar-dashboard__title { color: #FF6B6B; }
