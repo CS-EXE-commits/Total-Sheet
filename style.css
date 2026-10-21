@@ -3152,8 +3152,8 @@ input.datetime-field {
 /* การ์ด "จำนวนเคสเข้าใหม่วันนี้" และ "เคสรอตรวจสอบ" — พื้นฟ้าอ่อน */
 #sidebarDashboard,
 #sidebarStatusCard {
-  background: #E6F3FF;
-  border-color: #B9DCFB;
+  background: #BFE0FB;
+  border-color: #8CC3F0;
 }
 #sidebarDashboard .today-work__case,
 #sidebarStatusCard .today-work__case,
