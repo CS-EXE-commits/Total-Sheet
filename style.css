@@ -3148,3 +3148,21 @@ input.datetime-field {
 @media (min-width: 901px) {
   .folder-bar { position: sticky; top: var(--topbar-h, 64px); z-index: 18; }
 }
+
+/* การ์ด "จำนวนเคสเข้าใหม่วันนี้" และ "เคสรอตรวจสอบ" — พื้นฟ้าอ่อน */
+#sidebarDashboard,
+#sidebarStatusCard {
+  background: #E6F3FF;
+  border-color: #B9DCFB;
+}
+#sidebarDashboard .today-work__case,
+#sidebarStatusCard .today-work__case,
+#sidebarStatusCard .pending-group__head { background: rgba(255, 255, 255, 0.75); }
+:root[data-theme="dark"] #sidebarDashboard,
+:root[data-theme="dark"] #sidebarStatusCard {
+  background: #24486B;
+  border-color: #3E6E99;
+}
+:root[data-theme="dark"] #sidebarDashboard .today-work__case,
+:root[data-theme="dark"] #sidebarStatusCard .today-work__case,
+:root[data-theme="dark"] #sidebarStatusCard .pending-group__head { background: rgba(10, 20, 32, 0.45); }

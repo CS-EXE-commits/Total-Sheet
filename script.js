@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261020-1540';
+const APP_VERSION = '20261021-1440';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -3775,7 +3775,7 @@ async function loadGlobalDashboard() {
     const params = { action: 'globalDashboard' };
     if (useLite) params.lite = '1';
     let result = await jsonpRequest(apiUrl(params), GLOBAL_DASHBOARD_TIMEOUT_MS);
-    if (!result.ok) throw new Error(result.error || 'โหลดจำนวนงานวันนี้ไม่สำเร็จ');
+    if (!result.ok) throw new Error(result.error || 'โหลดจำนวนเคสเข้าใหม่วันนี้ไม่สำเร็จ');
     dashboardDate.textContent = formatDateDisplay(result.date);
     dashboardCasesToday.textContent = result.casesToday;
     renderDashboardTodayStatus_(result);
