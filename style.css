@@ -3172,3 +3172,8 @@ input.datetime-field {
 #sidebarStatusCard > .sidebar-dashboard__title { color: #C62828; font-weight: 800; }
 :root[data-theme="dark"] #sidebarDashboard > .sidebar-dashboard__title { color: #5CC26B; }
 :root[data-theme="dark"] #sidebarStatusCard > .sidebar-dashboard__title { color: #FF6B6B; }
+
+/* ปุ่มแก้ไข/ลบ มุมขวาบนของหน้ารายละเอียดเคส */
+.case-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.case-modal__actions { display: flex; gap: 8px; flex-shrink: 0; }
+.case-modal__actions button { width: 38px; height: 34px; font-size: 15px; }

@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261021-1510';
+const APP_VERSION = '20261022-0910';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -582,7 +582,7 @@ function applyRowEditLocally_(row, data, headerNames) {
 async function ensureFullRow_(row) {
   if (row.__fullLoaded) return row;
   const result = await jsonpRequest(apiUrl({
-    action: 'rowFull', book: currentBook, sheet: row.sheet, row: row.row
+    action: 'rowFull', book: row.book || currentBook, sheet: row.sheet, row: row.row
   }));
   if (!result.ok) throw new Error(result.error || 'โหลดข้อมูลทั้งแถวไม่สำเร็จ');
   row.cells = result.cells;
@@ -642,7 +642,7 @@ async function updateStatusQuick(row, headerName, newValue, selectEl) {
     showToast_('กำลังบันทึกสถานะ...', 'pending');
 
     const result = await jsonpRequest(apiUrl({
-      action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
+      action: 'updateRow', book: row.book || currentBook, sheet: row.sheet, row: row.row,
       data: JSON.stringify(data), fp: fp
     }));
     if (!result.ok) throw new Error(result.error || 'เปลี่ยนสถานะไม่สำเร็จ');
@@ -2673,20 +2673,24 @@ function setLoading(isLoading) {
 /* ===== ลบแถว ===== */
 
 async function deleteRow(row, rowEl, buttonEl) {
-  const confirmed = confirm(`ยืนยันลบข้อมูลแถวที่ ${row.row} ในแท็บ "${row.sheet}" ออกจากชีตจริง?\n\nการลบนี้ย้อนกลับไม่ได้ทันที (กู้คืนได้ที่ปุ่มถังขยะ)`);
+  const confirmed = await showConfirm_(`ยืนยันลบข้อมูลแถวที่ ${row.row} ในแท็บ "${row.sheet}" ออกจากชีตจริง?\n\nการลบนี้ย้อนกลับไม่ได้ทันที (กู้คืนได้ที่ปุ่มถังขยะ)`, 'ใช่, ลบ', 'ยกเลิก');
   if (!confirmed) return;
 
   buttonEl.disabled = true;
   try {
     await ensureFullRow_(row); // ต้องมีข้อมูลครบทุกคอลัมน์ก่อน ไม่งั้นลายนิ้วมือแถวจะไม่ตรง
     const result = await jsonpRequest(apiUrl({
-      action: 'deleteRow', book: currentBook, sheet: row.sheet, row: row.row, fp: rowFp_(row)
+      action: 'deleteRow', book: row.book || currentBook, sheet: row.sheet, row: row.row, fp: rowFp_(row)
     }));
     if (!result.ok) throw new Error(result.error || 'ลบไม่สำเร็จ');
 
     // ต้องโหลดข้อมูลใหม่ทั้งหมด ห้ามแค่ลบแถวนั้นออกจากตารางในหน่วยความจำ
     // เพราะการลบแถวในชีททำให้แถวที่อยู่ข้างล่างเลื่อนขึ้นมาทั้งหมด เลขแถวที่ค้างอยู่บนหน้าจอจะผิดทันที
     // (ถ้าไม่โหลดใหม่ การกดลบ/แก้ไขครั้งถัดไปจะไปโดนข้อมูลของเคสอื่น)
+    if (row.__fromModal) {
+      closeCaseModal();
+      loadGlobalDashboard();
+    }
     if (selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
     showToast_('ลบข้อมูลแล้ว ✓ (กู้คืนได้ที่ถังขยะ)', 'success');
   } catch (err) {
@@ -2730,8 +2734,8 @@ async function openEditModal(row, prefill) {
   try {
     // ดึงข้อมูลทั้งแถวมาด้วย เพราะตารางรายการมีแค่ไม่กี่คอลัมน์
     const [headersResult, tableHeadersResult] = await Promise.all([
-      loadHeadersWithStatusOptions_(currentBook, row.sheet),
-      jsonpRequest(apiUrl({ action: 'tableHeaders', book: currentBook, sheet: row.sheet })),
+      loadHeadersWithStatusOptions_(row.book || currentBook, row.sheet),
+      jsonpRequest(apiUrl({ action: 'tableHeaders', book: row.book || currentBook, sheet: row.sheet })),
       ensureFullRow_(row)
     ]);
     if (!headersResult.ok) throw new Error(headersResult.error || 'โหลดคอลัมน์ไม่สำเร็จ');
@@ -2935,7 +2939,7 @@ editSubmit.addEventListener('click', async () => {
 
   try {
     const result = await jsonpRequest(apiUrl({
-      action: 'updateRow', book: currentBook, sheet: row.sheet, row: row.row,
+      action: 'updateRow', book: row.book || currentBook, sheet: row.sheet, row: row.row,
       data: JSON.stringify(data), fp: rowFp_(row),
       // ส่งสีไปพร้อมกันเลย Apps Script ปรับสีในคำขอเดียวกัน ไม่ต้องรออีกรอบ
       bg: bg || '', font: font || ''
@@ -2949,7 +2953,7 @@ editSubmit.addEventListener('click', async () => {
       let colored = result.colored;
       if (typeof colored !== 'boolean') {
         setEditStatus('กำลังปรับสีแถว...', null);
-        colored = await applyRowColor_(row.sheet, row.row, bg, font);
+        colored = await applyRowColor_(row.sheet, row.row, bg, font, row.book);
       }
       colorFailed = !colored;
       statusMessage += colored ? ' (ปรับสีแถวแล้ว)' : ' (แต่ปรับสีแถวไม่สำเร็จ)';
@@ -2961,7 +2965,11 @@ editSubmit.addEventListener('click', async () => {
     closeEditModal();
     showToast_(statusMessage, colorFailed ? 'error' : 'success');
     // สีมาจากข้อมูลฝั่งชีท ต้องโหลดใหม่ถึงจะเห็น
-    if (!appliedLocally && selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    if (row.__fromModal) {
+      // แก้จากหน้ารายละเอียดเคส: อัปเดตการ์ดด้านซ้าย และตารางถ้ากำลังเปิดแท็บเดียวกันอยู่
+      loadGlobalDashboard();
+      if (selectedSheet && row.book === currentBook && row.sheet === selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
+    } else if (!appliedLocally && selectedSheet) await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
   } catch (err) {
     if (isRowChangedError_(err)) {
       // ข้อมูลในชีทเพิ่งเปลี่ยน: โหลดค่าล่าสุดมาแสดงในหน้าต่างเดิมให้ตรวจก่อน
@@ -3258,9 +3266,9 @@ if (editColorReset) {
 }
 
 /** ส่ง request เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวที่ระบุไปยังชีตจริง เป็น best-effort — ถ้าพลาดจะไม่ทำให้การบันทึกข้อมูลหลักถือว่าล้มเหลว */
-async function applyRowColor_(sheetName, rowNum, bg, font) {
+async function applyRowColor_(sheetName, rowNum, bg, font, book) {
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'setRowColor', book: currentBook, sheet: sheetName, row: rowNum, bg: bg || '', font: font || '' }));
+    const result = await jsonpRequest(apiUrl({ action: 'setRowColor', book: book || currentBook, sheet: sheetName, row: rowNum, bg: bg || '', font: font || '' }));
     return !!(result && result.ok);
   } catch (e) {
     return false;
@@ -4668,4 +4676,25 @@ function showDateTimePicker_(inputEl) {
   }
   window.addEventListener('resize', update);
   update();
+})();
+
+/* ===== ปุ่มแก้ไข / ลบ ในหน้ารายละเอียดเคส (เปิดจากการ์ดเคสเข้าใหม่วันนี้ / เคสรอตรวจสอบ / ตาราง) ===== */
+(function setupCaseModalActions_() {
+  const editBtn = document.getElementById('caseModalEdit');
+  const delBtn = document.getElementById('caseModalDelete');
+  if (!editBtn || !delBtn) return;
+  const targetRow = () => caseModalTarget && caseModalTarget.row
+    ? { book: caseModalTarget.book, sheet: caseModalTarget.sheet, row: caseModalTarget.row, cells: [], __fromModal: true }
+    : null;
+  editBtn.addEventListener('click', () => {
+    const row = targetRow();
+    if (!row) return;
+    closeCaseModal();
+    openEditModal(row);
+  });
+  delBtn.addEventListener('click', () => {
+    const row = targetRow();
+    if (!row) return;
+    deleteRow(row, null, delBtn);
+  });
 })();
