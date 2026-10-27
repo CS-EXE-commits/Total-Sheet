@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261022-0910';
+const APP_VERSION = '20261026-1345';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4698,3 +4698,19 @@ function showDateTimePicker_(inputEl) {
     deleteRow(row, null, delBtn);
   });
 })();
+
+/* ===== ถามก่อนออกจากระบบ (เฉพาะตอนผู้ใช้กดปุ่มเอง) =====
+ * ดักไว้ก่อนตัวจัดการเดิม (capture) — ถ้ายืนยันแล้วค่อยกดปุ่มซ้ำให้ทำงานตามปกติ
+ * การออกจากระบบอัตโนมัติ (ตั๋วหมดอายุ ระบบเรียก .click() เอง) ไม่ถาม เพราะ isTrusted = false */
+logoutButton.addEventListener('click', (e) => {
+  if (!e.isTrusted) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const unsaved = addFormHasUnsavedInput_() || editFormHasUnsavedChange_();
+  showConfirm_(
+    unsaved
+      ? 'คุณกรอกหรือแก้ไขข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nต้องการออกจากระบบใช่หรือไม่? ข้อมูลที่ยังไม่บันทึกจะหายไป'
+      : 'ต้องการออกจากระบบใช่หรือไม่?',
+    'ออกจากระบบ', 'ยกเลิก'
+  ).then(ok => { if (ok) logoutButton.click(); });
+}, true);
