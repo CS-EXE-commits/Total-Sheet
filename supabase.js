@@ -861,6 +861,11 @@ async function supaPendingCases() {
     if (seenRows.has(rowKey)) return;
     seenRows.add(rowKey);
     const d = r.data || {};
+    // กันข้อมูลค้าง: ฐานข้อมูลบอกว่าสถานะว่าง แต่ข้อมูลแถวมีสถานะแล้ว → ไม่ใช่เคสรอตรวจสอบ
+    if (!(r.status || '').toString().trim()) {
+      const realStatus = Object.keys(d).find(k => /^(สถานะ|status)$/i.test(k.trim()) && String(d[k] || '').trim());
+      if (realStatus) return;
+    }
     let exeId = '', date = '';
     Object.keys(d).forEach(k => {
       const v = d[k] === null || d[k] === undefined ? '' : String(d[k]).trim();
