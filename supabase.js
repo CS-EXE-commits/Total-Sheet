@@ -838,17 +838,28 @@ const NO_STATUS_LABEL_CLIENT = 'ตรวจสอบสถานะ';
  * คืน [{ book, sheet, count, cases: [{ row, status, date, exeId }] }] เรียงแท็บที่ค้างเยอะสุดก่อน
  */
 const SUPA_PENDING_LIMIT = 500;
+const PENDING_EMPTY_STATUS_BOOKS = ['พิจารณาปลด 2026'];
 async function supaPendingCases() {
   const withStatus = await supaStatusSheets_();
   const query = '/sheet_rows?select=book,sheet,row_index,status,data,row_date' +
     '&status=eq.' + encodeURIComponent('รอตรวจสอบ') +
     '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
-  const res = await supaSelect_(query);
-  const data = await res.json();
+  // ไฟล์ที่นับ "ยังไม่ใส่สถานะ" เป็นเคสรอตรวจสอบด้วย (เช่น พิจารณาปลด: สถานะว่าง = ยังไม่ได้ตัดสิน BANNED/UNBANNED)
+  const emptyQueries = PENDING_EMPTY_STATUS_BOOKS.map(book => supaSelect_(
+    '/sheet_rows?select=book,sheet,row_index,status,data,row_date' +
+    '&book=eq.' + encodeURIComponent(book) +
+    '&or=(status.is.null,status.eq.)' +
+    '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT).then(r => r.json()).catch(() => []));
+  const [res, ...emptyLists] = await Promise.all([supaSelect_(query), ...emptyQueries]);
+  const data = (await res.json()).concat(...emptyLists);
   const groups = {};
+  const seenRows = new Set();
   data.forEach(r => {
     const key = r.book + '\u0000' + r.sheet;
     if (!withStatus[key]) return;
+    const rowKey = key + '\u0000' + r.row_index;
+    if (seenRows.has(rowKey)) return;
+    seenRows.add(rowKey);
     const d = r.data || {};
     let exeId = '', date = '';
     Object.keys(d).forEach(k => {
@@ -858,7 +869,7 @@ async function supaPendingCases() {
       if (!date && /วันที่|^date$/i.test(k.trim())) date = v;
     });
     (groups[key] = groups[key] || { book: r.book, sheet: r.sheet, cases: [] }).cases.push({
-      row: r.row_index, status: (r.status || '').toString().trim(), exeId, date,
+      row: r.row_index, status: (r.status || '').toString().trim() || 'ยังไม่ใส่สถานะ', exeId, date,
       ageDays: supaAgeDays_(r.row_date, date)
     });
   });
