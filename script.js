@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261026-1345';
+const APP_VERSION = '20261027-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4303,8 +4303,8 @@ function buildCaseFieldsTable_(fields) {
           ? `<a class="ticket-link" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
           : escapeHtml(value))
       : '<span class="case-fields__empty">(ว่าง)</span>';
-    const copy = (value && isCopyableHeader_(f.name))
-      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="คัดลอก" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
+    const copy = (value && (isCopyableHeader_(f.name) || /https?:\/\//i.test(value))) // EXE ID/ตัวละคร/Family/UID/AID และทุกช่องที่เป็นลิงก์
+      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="${/^https?:\/\//i.test(value) ? 'คัดลอกลิงก์' : 'คัดลอก'}" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
       : '';
     return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}${copy}</td></tr>`;
   }).join('') + '</tbody></table>';

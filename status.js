@@ -560,8 +560,8 @@ function buildCaseFieldsTable(fields) {
   return '<table class="case-fields"><tbody>' + (fields || []).map(f => {
     const value = (f.value || '').toString().trim();
     // ปุ่มคัดลอก EXE ID เหมือนหน้าต่างรายละเอียดเคสของหน้าหลัก
-    const copy = (value && isCopyableHeader_(f.name))
-      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="คัดลอก" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
+    const copy = (value && (isCopyableHeader_(f.name) || /https?:\/\//i.test(value))) // EXE ID/ตัวละคร/Family/UID/AID และทุกช่องที่เป็นลิงก์
+      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="${/^https?:\/\//i.test(value) ? 'คัดลอกลิงก์' : 'คัดลอก'}" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
       : '';
     return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${buildDetailValueHtml(f.value)}${copy}</td></tr>`;
   }).join('') + '</tbody></table>';
