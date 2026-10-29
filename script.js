@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261027-1750';
+const APP_VERSION = '20261029-1745';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2653,9 +2653,79 @@ function applyStatusFilterAndRender() {
 
 searchForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  const keyword = input.value.trim();
-  if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
+  searchAcrossTabs_(input.value.trim());
 });
+
+/** ลำดับแท็บตามที่แสดงใน dropdown (ซ้าย→ขวาในชีท) */
+function tabOrderInBar_() {
+  const sel = tabsBar && tabsBar.querySelector('select.tab-select');
+  if (sel) return Array.from(sel.options).map(o => o.value).filter(Boolean);
+  return Array.from((tabsBar && tabsBar.children) || []).map(p => p.dataset && p.dataset.sheet).filter(Boolean);
+}
+
+/**
+ * ค้นหาได้จากทุกแท็บของชีทที่เปิดอยู่ ไม่ต้องเลือกแท็บก่อน
+ * - แท็บที่เปิดอยู่มีผลลัพธ์ → ค้นในแท็บนี้ตามปกติ
+ * - ไม่มี แต่เจอในแท็บอื่น → สลับไปแท็บนั้นให้ทันที แล้วแสดงผลค้นหา
+ * - ไม่มีคำค้นหา → แสดงแท็บเดิมทั้งหมดตามปกติ
+ */
+let crossTabSearchSeq_ = 0;
+async function searchAcrossTabs_(keyword) {
+  if (!keyword || !currentBook || typeof supaFindTabsWithKeyword !== 'function') {
+    if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
+    return;
+  }
+  const seq = ++crossTabSearchSeq_;
+  setLoading(true);
+  let found = [];
+  try {
+    found = await supaFindTabsWithKeyword(currentBook, keyword);
+  } catch (err) {
+    found = null; // ค้นข้ามแท็บไม่ได้ ใช้วิธีเดิม
+  } finally {
+    setLoading(false);
+  }
+  if (seq !== crossTabSearchSeq_) return;
+
+  const order = tabOrderInBar_();
+  const tabs = (found || []).filter(t => !order.length || order.indexOf(t) !== -1)
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+  if (!found || !tabs.length || (selectedSheet && tabs.indexOf(selectedSheet) !== -1)) {
+    // ไม่เจอที่ไหนเลย หรือแท็บที่เปิดอยู่มีผลลัพธ์อยู่แล้ว
+    if (selectedSheet) { loadSingleTabView(selectedSheet, keyword); }
+    else if (!found || !tabs.length) { showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหาในชีทนี้', false); }
+    return;
+  }
+
+  const target = tabs[0];
+  if (target !== selectedSheet && !confirmDiscardAddForm_()) return;
+  selectedSheet = target;
+  try { localStorage.setItem('sheetSearchLastSheet', target); } catch (e) { /* ignore */ }
+  updateTabPillStates();
+  resetPanels();
+  manageToggle.hidden = false;
+  await loadSingleTabView(target, keyword);
+  if (seq !== crossTabSearchSeq_) return;
+  const others = tabs.length - 1;
+  showToast_('พบในแท็บ "' + target + '"' + (others > 0 ? ' (และอีก ' + others + ' แท็บ: ' + tabs.slice(1, 4).join(', ') + (others > 3 ? ' …' : '') + ')' : ''));
+}
+
+/** แจ้งเตือนสั้นๆ มุมล่างของจอ หายเองใน 4 วินาที */
+function showToast_(msg) {
+  let el = document.getElementById('crossTabToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'crossTabToast';
+    el.className = 'cross-tab-toast';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('is-visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('is-visible'), 4000);
+}
 
 function showHint(message, isError) {
   hint.textContent = message;

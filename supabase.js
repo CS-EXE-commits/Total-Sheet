@@ -907,3 +907,21 @@ async function supaLastSyncAt() {
   const rows = await res.json();
   return rows && rows[0] && rows[0].synced_at ? new Date(rows[0].synced_at) : null;
 }
+
+
+/**
+ * หาว่าคำค้นหานี้อยู่ในแท็บไหนบ้างของไฟล์ (ใช้กับปุ่มค้นหา ไม่ต้องเลือกแท็บก่อน)
+ * คืนรายชื่อแท็บที่มีผลลัพธ์ (ไม่ซ้ำ)
+ */
+async function supaFindTabsWithKeyword(book, keyword) {
+  const q = '/sheet_rows?select=sheet' +
+    '&book=eq.' + encodeURIComponent(book) +
+    '&search_text=ilike.' + encodeURIComponent(supaLikePattern_(keyword)) +
+    '&limit=2000';
+  const res = await supaSelect_(q);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const rows = await res.json();
+  const seen = [];
+  (rows || []).forEach(r => { if (r.sheet && seen.indexOf(r.sheet) === -1) seen.push(r.sheet); });
+  return seen;
+}
