@@ -3188,11 +3188,13 @@ input.datetime-field {
 /* ปุ่ม × ล้างคำค้นหาในช่องค้นหา */
 .toolbar__search .search-clear {
   flex: 0 0 auto;
-  width: 26px; height: 26px; padding: 0; margin: 0 6px 0 0;
+  align-self: center;
+  width: 20px; height: 20px; padding: 0; margin: 0 4px 0 0;
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 50%;
   background: rgba(255,255,255,.14); color: inherit;
-  font-size: 18px; line-height: 1; cursor: pointer; opacity: .75;
+  cursor: pointer; opacity: .75;
 }
+.toolbar__search .search-clear svg { display: block; }
 .toolbar__search .search-clear:hover { background: rgba(255,255,255,.28); opacity: 1; }
 .toolbar__search .search-clear[hidden] { display: none; }
