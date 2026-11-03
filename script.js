@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261031-1310';
+const APP_VERSION = '20261103-1355';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2650,6 +2650,29 @@ function applyStatusFilterAndRender() {
 /* หมายเหตุ: การ render ตารางจริงทำผ่าน renderCurrentPage() + buildSingleRow() ด้านล่าง (รองรับแบ่งหน้า) */
 
 /* ===== ค้นหา ===== */
+
+/* ปุ่ม × ล้างคำค้นหา: โผล่เมื่อมีข้อความในช่อง กดแล้วล้างและวางเคอร์เซอร์กลับที่ช่อง */
+(function setupSearchClear_() {
+  const clearBtn = document.getElementById('searchClear');
+  if (!clearBtn) return;
+  const sync = () => { clearBtn.hidden = !input.value; };
+  input.addEventListener('input', sync);
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    sync();
+    input.focus();
+  });
+  // ค่าในช่องอาจถูกตั้งจากโค้ด (เช่น หลังค้นหา/สลับแท็บ) ซึ่งไม่ยิง input event
+  const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  if (desc && desc.set) {
+    Object.defineProperty(input, 'value', {
+      get() { return desc.get.call(this); },
+      set(v) { desc.set.call(this, v); sync(); },
+      configurable: true
+    });
+  }
+  sync();
+})();
 
 searchForm.addEventListener('submit', (e) => {
   e.preventDefault();
