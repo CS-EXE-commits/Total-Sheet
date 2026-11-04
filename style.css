@@ -3198,3 +3198,9 @@ input.datetime-field {
 .toolbar__search .search-clear svg { display: block; }
 .toolbar__search .search-clear:hover { background: rgba(255,255,255,.28); opacity: 1; }
 .toolbar__search .search-clear[hidden] { display: none; }
+
+
+/* ช่องค้นหาหน้าแรก (ยังไม่ได้เปิดไฟล์) */
+.main__empty p { margin: 0 0 8px; }
+.main__empty .main__empty-or { font-size: 14px; opacity: .8; }
+.main__empty .global-search { margin: 12px auto 0; width: min(420px, 92%); }

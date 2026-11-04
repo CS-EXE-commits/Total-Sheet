@@ -925,3 +925,24 @@ async function supaFindTabsWithKeyword(book, keyword) {
   (rows || []).forEach(r => { if (r.sheet && seen.indexOf(r.sheet) === -1) seen.push(r.sheet); });
   return seen;
 }
+
+
+/**
+ * ค้นคำนี้ในทุกไฟล์ทุกแท็บที่ผู้ใช้เข้าถึงได้ (สิทธิ์คุมด้วย RLS ฝั่งฐานข้อมูล)
+ * คืน [{ book, sheet, n }] n = จำนวนแถวที่พบในแท็บนั้น (นับจากแถวที่ดึงมาได้ไม่เกิน 3,000 แถว)
+ */
+async function supaFindMatches(keyword) {
+  const q = '/sheet_rows?select=book,sheet' +
+    '&search_text=ilike.' + encodeURIComponent(supaLikePattern_(keyword)) +
+    '&limit=3000';
+  const res = await supaSelect_(q);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const rows = await res.json();
+  const map = {};
+  (rows || []).forEach(r => {
+    if (!r.book || !r.sheet) return;
+    const k = r.book + '\u0000' + r.sheet;
+    (map[k] = map[k] || { book: r.book, sheet: r.sheet, n: 0 }).n++;
+  });
+  return Object.keys(map).map(k => map[k]);
+}

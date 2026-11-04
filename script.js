@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261103-1410';
+const APP_VERSION = '20261104-0925';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2248,7 +2248,7 @@ function setBookTrashStatus(message, type) {
 
 /* ===== กลาง: เปิดไฟล์ → เลือกแท็บ ===== */
 
-async function openBook(book, initialSheet) {
+async function openBook(book, initialSheet, initialKeyword) {
   if (book !== currentBook && !confirmDiscardAddForm_()) return;
   currentBook = book;
   selectedSheet = '';
@@ -2287,7 +2287,7 @@ async function openBook(book, initialSheet) {
     if (!result.sheets.length) {
       showHint('ไฟล์นี้ยังไม่มีแท็บข้อมูล', false);
     } else if (sheetToSelect) {
-      selectTab(sheetToSelect);
+      selectTab(sheetToSelect, initialKeyword);
       setTimeout(() => prefetchAllTabsInBook_(result.sheets, sheetToSelect), 1200);
     } else {
       showHint('กรุณาเลือกแท็บข้อมูลในชีท', false);
@@ -2367,7 +2367,7 @@ function toggleDateSort_() {
   if (selectedSheet) loadSingleTabView(selectedSheet, lastKeyword || '', 1);
 }
 
-async function selectTab(sheetName) {
+async function selectTab(sheetName, initialKeyword) {
   // ถ้ากรอกฟอร์มเพิ่มข้อมูลค้างไว้ ให้ถามก่อน ไม่งั้นข้อมูลหายเงียบๆ
   if (sheetName !== selectedSheet && !confirmDiscardAddForm_()) return;
   selectedSheet = sheetName;
@@ -2376,7 +2376,7 @@ async function selectTab(sheetName) {
   resetPanels();
   manageToggle.hidden = !sheetName;
 
-  if (sheetName) await loadSingleTabView(sheetName, '');
+  if (sheetName) await loadSingleTabView(sheetName, initialKeyword || '');
 }
 
 /* ===== โหมดแท็บเดียว: ตารางเต็มคอลัมน์ + ตัวกรองสถานะ ===== */
@@ -2687,52 +2687,111 @@ function tabOrderInBar_() {
 }
 
 /**
- * ค้นหาได้จากทุกแท็บของชีทที่เปิดอยู่ ไม่ต้องเลือกแท็บก่อน
- * - แท็บที่เปิดอยู่มีผลลัพธ์ → ค้นในแท็บนี้ตามปกติ
- * - ไม่มี แต่เจอในแท็บอื่น → สลับไปแท็บนั้นให้ทันที แล้วแสดงผลค้นหา
- * - ไม่มีคำค้นหา → แสดงแท็บเดิมทั้งหมดตามปกติ
+ * ค้นหาจาก "ทุกไฟล์ ทุกแท็บ ทุกโฟลเดอร์" ไม่ต้องเลือกอะไรก่อน
+ * ลำดับที่เลือกให้ (เมื่อพบหลายที่):
+ *   1) แท็บที่เปิดอยู่ถ้ามีผลลัพธ์ → ค้นในแท็บนั้นตามปกติ
+ *   2) แท็บอื่นในไฟล์ที่เปิดอยู่
+ *   3) ไฟล์อื่น เรียงตามลำดับโฟลเดอร์/ไฟล์ในแถบด้านบน
+ * ที่ไหนก็ตามที่พบ ระบบจะสลับไปโฟลเดอร์ → ไฟล์ → แท็บนั้นให้ทันที (โลโก้/พื้นหลังเปลี่ยนตามเกม)
  */
 let crossTabSearchSeq_ = 0;
 async function searchAcrossTabs_(keyword) {
-  if (!keyword || !currentBook || typeof supaFindTabsWithKeyword !== 'function') {
+  keyword = (keyword || '').trim();
+  if (!keyword) {
+    if (currentBook && selectedSheet) loadSingleTabView(selectedSheet, '');
+    return;
+  }
+  if (typeof supaFindMatches !== 'function') {
     if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
     return;
   }
   const seq = ++crossTabSearchSeq_;
   setLoading(true);
-  let found = [];
+  setGlobalSearchLoading_(true);
+  let matches = null;
   try {
-    found = await supaFindTabsWithKeyword(currentBook, keyword);
+    matches = await supaFindMatches(keyword);
   } catch (err) {
-    found = null; // ค้นข้ามแท็บไม่ได้ ใช้วิธีเดิม
+    matches = null;
   } finally {
     setLoading(false);
+    setGlobalSearchLoading_(false);
   }
   if (seq !== crossTabSearchSeq_) return;
 
-  const order = tabOrderInBar_();
-  const tabs = (found || []).filter(t => !order.length || order.indexOf(t) !== -1)
-    .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-
-  if (!found || !tabs.length || (selectedSheet && tabs.indexOf(selectedSheet) !== -1)) {
-    // ไม่เจอที่ไหนเลย หรือแท็บที่เปิดอยู่มีผลลัพธ์อยู่แล้ว
-    if (selectedSheet) { loadSingleTabView(selectedSheet, keyword); }
-    else if (!found || !tabs.length) { showHint('ไม่พบข้อมูลที่ตรงกับคำค้นหาในชีทนี้', false); }
+  if (!matches) { // ค้นข้ามไฟล์ไม่ได้ → ใช้วิธีเดิมเฉพาะแท็บที่เปิดอยู่
+    if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
+    else showToast_('ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง');
     return;
   }
 
-  const target = tabs[0];
-  if (target !== selectedSheet && !confirmDiscardAddForm_()) return;
-  selectedSheet = target;
-  try { localStorage.setItem('sheetSearchLastSheet', target); } catch (e) { /* ignore */ }
-  updateTabPillStates();
-  resetPanels();
-  manageToggle.hidden = false;
-  await loadSingleTabView(target, keyword);
+  // ลำดับไฟล์ตามแถบโฟลเดอร์ + ลำดับแท็บของไฟล์ที่เปิดอยู่
+  const bookOrder = [];
+  (knownFolders || []).forEach(f => (f.books || []).forEach(b => bookOrder.push(b)));
+  const tabOrder = tabOrderInBar_();
+  const rank = (m) => {
+    if (m.book === currentBook && m.sheet === selectedSheet) return [0, 0, 0];
+    if (m.book === currentBook) { const t = tabOrder.indexOf(m.sheet); return [1, t === -1 ? 999 : t, 0]; }
+    const bi = bookOrder.indexOf(m.book);
+    return [2, bi === -1 ? 999 : bi, -m.n];
+  };
+  const list = matches
+    .filter(m => !bookOrder.length || bookOrder.indexOf(m.book) !== -1)
+    .sort((x, y) => { const a = rank(x), b = rank(y); return (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]); });
+
+  if (!list.length) {
+    if (currentBook && selectedSheet) { loadSingleTabView(selectedSheet, keyword); } // ให้ขึ้นข้อความไม่พบตามปกติ
+    else showToast_('ไม่พบข้อมูลที่ตรงกับ "' + keyword + '" ในทุกไฟล์');
+    return;
+  }
+
+  const t = list[0];
+  if (t.book === currentBook && t.sheet === selectedSheet) {
+    loadSingleTabView(selectedSheet, keyword);
+    if (list.length > 1) showToast_(describeMatches_(list));
+    return;
+  }
+
+  closeAllFolders();
+  if (t.book !== currentBook) {
+    await openBook(t.book, t.sheet, keyword);   // เปลี่ยนไฟล์ (และโฟลเดอร์/โลโก้ตามไฟล์) แล้วเปิดแท็บที่พบพร้อมคำค้นหา
+    if (currentBook !== t.book) return;          // ผู้ใช้กดยกเลิกตอนถามว่าจะทิ้งฟอร์มที่กรอกค้างไว้ไหม
+  } else {
+    await selectTab(t.sheet, keyword);
+    if (selectedSheet !== t.sheet) return;
+  }
   if (seq !== crossTabSearchSeq_) return;
-  const others = tabs.length - 1;
-  showToast_('พบในแท็บ "' + target + '"' + (others > 0 ? ' (และอีก ' + others + ' แท็บ: ' + tabs.slice(1, 4).join(', ') + (others > 3 ? ' …' : '') + ')' : ''));
+  showToast_(describeMatches_(list));
 }
+
+function folderNameOfBook_(book) {
+  const f = (knownFolders || []).find(x => (x.books || []).indexOf(book) !== -1);
+  return f ? f.name : '';
+}
+
+function describeMatches_(list) {
+  const t = list[0];
+  const fn = folderNameOfBook_(t.book);
+  const where = [fn, t.book, t.sheet].filter(Boolean).join(' › ');
+  const others = list.length - 1;
+  return 'พบใน ' + where + (others > 0 ? ' (และอีก ' + others + ' แท็บ)' : '');
+}
+
+/* ช่องค้นหาตอนยังไม่ได้เปิดไฟล์ใด (หน้าแรก) — ค้นข้ามทุกไฟล์แบบเดียวกัน */
+function setGlobalSearchLoading_(on) {
+  const btn = document.getElementById('globalSearchButton');
+  if (btn) { btn.disabled = !!on; btn.textContent = on ? 'กำลังค้นหา...' : 'ค้นหา'; }
+}
+(function setupGlobalSearch_() {
+  const form = document.getElementById('globalSearchForm');
+  const gi = document.getElementById('globalSearchInput');
+  if (!form || !gi) return;
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const kw = gi.value.trim();
+    if (kw) searchAcrossTabs_(kw);
+  });
+})();
 
 /** แจ้งเตือนสั้นๆ มุมล่างของจอ หายเองใน 4 วินาที */
 function showToast_(msg) {
