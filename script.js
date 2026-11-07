@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261104-0925';
+const APP_VERSION = '20261107-1630';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2259,6 +2259,7 @@ async function openBook(book, initialSheet, initialKeyword) {
 
   mainEmpty.hidden = true;
   workspace.hidden = false;
+  clearCrossResults_();
 
   markActiveFolderItem();
 
@@ -2372,6 +2373,7 @@ async function selectTab(sheetName, initialKeyword) {
   if (sheetName !== selectedSheet && !confirmDiscardAddForm_()) return;
   selectedSheet = sheetName;
   try { localStorage.setItem('sheetSearchLastSheet', sheetName || ''); } catch (e) { /* ignore */ }
+  clearCrossResults_();
   updateTabPillStates();
   resetPanels();
   manageToggle.hidden = !sheetName;
@@ -2698,6 +2700,7 @@ let crossTabSearchSeq_ = 0;
 async function searchAcrossTabs_(keyword) {
   keyword = (keyword || '').trim();
   if (!keyword) {
+    clearCrossResults_();
     if (currentBook && selectedSheet) loadSingleTabView(selectedSheet, '');
     return;
   }
@@ -2740,6 +2743,7 @@ async function searchAcrossTabs_(keyword) {
     .sort((x, y) => { const a = rank(x), b = rank(y); return (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]); });
 
   if (!list.length) {
+    clearCrossResults_();
     if (currentBook && selectedSheet) { loadSingleTabView(selectedSheet, keyword); } // ให้ขึ้นข้อความไม่พบตามปกติ
     else showToast_('ไม่พบข้อมูลที่ตรงกับ "' + keyword + '" ในทุกไฟล์');
     return;
@@ -2748,6 +2752,7 @@ async function searchAcrossTabs_(keyword) {
   const t = list[0];
   if (t.book === currentBook && t.sheet === selectedSheet) {
     loadSingleTabView(selectedSheet, keyword);
+    renderCrossResults_(keyword, list.slice(1));
     if (list.length > 1) showToast_(describeMatches_(list));
     return;
   }
@@ -2761,7 +2766,128 @@ async function searchAcrossTabs_(keyword) {
     if (selectedSheet !== t.sheet) return;
   }
   if (seq !== crossTabSearchSeq_) return;
+  renderCrossResults_(keyword, list.slice(1));
   showToast_(describeMatches_(list));
+}
+
+/* ===== ผลค้นหาในแท็บ/ไฟล์อื่นที่พบคำเดียวกัน (แสดงใต้ตารางหลัก) ===== */
+
+function clearCrossResults_() {
+  const box = document.getElementById('crossResults');
+  if (box) { box.hidden = true; box.innerHTML = ''; }
+  crossRenderSeq_++;
+}
+
+let crossRenderSeq_ = 0;
+async function renderCrossResults_(keyword, others) {
+  const box = document.getElementById('crossResults');
+  if (!box) return;
+  const seq = ++crossRenderSeq_;
+  box.innerHTML = '';
+  if (!others || !others.length || typeof supaTabView !== 'function') { box.hidden = true; return; }
+  box.hidden = false;
+
+  const title = document.createElement('p');
+  title.className = 'cross-results__title';
+  title.textContent = 'พบข้อมูลนี้ในแท็บอื่นด้วย (' + others.length + ' แท็บ)';
+  box.appendChild(title);
+
+  for (const m of others.slice(0, 8)) {
+    if (seq !== crossRenderSeq_) return;
+    const sec = document.createElement('section');
+    sec.className = 'cross-results__section';
+
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'cross-results__tab';
+    const fn = folderNameOfBook_(m.book);
+    head.innerHTML = '<span class="cross-results__path"></span><span class="cross-results__count"></span><span class="cross-results__go">เปิดแท็บนี้ →</span>';
+    head.querySelector('.cross-results__path').textContent = [fn, m.book, m.sheet].filter(Boolean).join(' › ');
+    head.querySelector('.cross-results__count').textContent = m.n + ' รายการ';
+    head.title = 'เปิดแท็บ "' + m.sheet + '" แสดงทั้งหมด';
+    head.addEventListener('click', () => switchToMatch_(m, keyword, others));
+    sec.appendChild(head);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'cross-results__table table-wrap';
+    wrap.textContent = 'กำลังโหลด...';
+    sec.appendChild(wrap);
+    box.appendChild(sec);
+
+    try {
+      const res = await supaTabView({ book: m.book, sheet: m.sheet, q: keyword, offset: 0, limit: 10, slim: true, order: sortNewestFirst ? 'desc' : 'asc' });
+      if (seq !== crossRenderSeq_) return;
+      fillCrossTable_(wrap, res, m, keyword, others);
+    } catch (err) {
+      wrap.textContent = 'โหลดไม่สำเร็จ: ' + err.message;
+    }
+  }
+}
+
+function fillCrossTable_(wrap, res, m, keyword, others) {
+  const headers = res.headers || [];
+  const rows = res.results || [];
+  let cols = (res.listColumns && res.listColumns.length) ? res.listColumns.slice() : headers.map((_, i) => i);
+  cols = cols.filter(i => headers[i] && rows.some(r => (r.cells[i] || '').toString().trim() !== '')).slice(0, 8);
+  wrap.textContent = '';
+  if (!rows.length || !cols.length) { wrap.textContent = 'ไม่พบข้อมูล'; return; }
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  const th0 = document.createElement('th'); th0.className = 'data-table__rownum-col'; th0.textContent = 'แถวที่'; trh.appendChild(th0);
+  cols.forEach(i => { const th = document.createElement('th'); th.textContent = headers[i]; trh.appendChild(th); });
+  thead.appendChild(trh); table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    if (r.color) tr.style.setProperty('--row-color', r.color);
+    const c0 = document.createElement('td'); c0.className = 'data-table__rownum'; c0.textContent = r.row; tr.appendChild(c0);
+    cols.forEach(i => {
+      const td = document.createElement('td');
+      const v = (r.cells[i] || '').toString();
+      const link = r.links && r.links[i];
+      if (link && /^https?:\/\//i.test(link)) {
+        const a = document.createElement('a');
+        a.href = link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.className = 'ticket-link'; a.textContent = v || 'เปิด Ticket ↗';
+        td.appendChild(a);
+      } else {
+        td.textContent = v.length > 160 ? v.slice(0, 160) + '…' : v;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+
+  if ((res.total || 0) > rows.length) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'cross-results__more';
+    more.textContent = 'ดูทั้งหมด ' + res.total + ' รายการในแท็บนี้ →';
+    more.addEventListener('click', () => switchToMatch_(m, keyword, others));
+    wrap.appendChild(more);
+  }
+}
+
+/** กดชื่อแท็บในรายการ "พบในแท็บอื่น" → สลับไปแท็บนั้น (และไฟล์/โฟลเดอร์ถ้าต่างกัน) แล้วแสดงแท็บเดิมไว้ใต้ตารางแทน */
+async function switchToMatch_(m, keyword, others) {
+  const rest = others.filter(x => !(x.book === m.book && x.sheet === m.sheet));
+  if (currentBook && selectedSheet) rest.unshift({ book: currentBook, sheet: selectedSheet, n: serverTotal || 0 });
+  closeAllFolders();
+  if (m.book !== currentBook) {
+    await openBook(m.book, m.sheet, keyword);
+    if (currentBook !== m.book) return;
+  } else {
+    await selectTab(m.sheet, keyword);
+    if (selectedSheet !== m.sheet) return;
+  }
+  renderCrossResults_(keyword, rest);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function folderNameOfBook_(book) {

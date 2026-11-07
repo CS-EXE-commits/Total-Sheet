@@ -3204,3 +3204,25 @@ input.datetime-field {
 .main__empty p { margin: 0 0 8px; }
 .main__empty .main__empty-or { font-size: 14px; opacity: .8; }
 .main__empty .global-search { margin: 12px auto 0; width: min(420px, 92%); }
+
+
+/* ผลค้นหาในแท็บ/ไฟล์อื่นที่พบคำเดียวกัน (ใต้ตารางหลัก) */
+.cross-results { margin: 22px 0 40px; display: flex; flex-direction: column; gap: 18px; }
+.cross-results[hidden] { display: none; }
+.cross-results__title { margin: 0; text-align: center; font-size: 14px; color: var(--color-text-muted); }
+.cross-results__section { display: flex; flex-direction: column; gap: 8px; }
+.cross-results__tab {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+  align-self: center; max-width: 100%;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  background: var(--color-surface); color: var(--color-text);
+  border: 1px solid var(--color-accent); font: inherit; font-weight: 600; font-size: 14px;
+}
+.cross-results__tab:hover { background: var(--color-accent); color: #fff; }
+.cross-results__count { font-weight: 400; opacity: .8; font-size: 13px; }
+.cross-results__go { font-size: 12px; opacity: .85; }
+.cross-results__table { overflow-x: auto; }
+.cross-results__more {
+  display: block; margin: 8px auto; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--color-accent); border: 1px solid var(--color-accent); font: inherit; font-size: 13px;
+}
