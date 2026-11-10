@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261107-1630">
+<link rel="stylesheet" href="style.css?v=20261110-1015">
 <script>
   // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
   (function () {
@@ -214,6 +214,7 @@
     <main class="main">
       <div class="main__empty" id="mainEmpty">
         <p>เลือกโฟลเดอร์ด้านบน แล้วเลือกไฟล์เพื่อเริ่มต้นใช้งาน</p>
+        <button type="button" class="toolbar__btn" id="homeAddButton">+ เพิ่มข้อมูลใหม่ลงชีท</button>
         <p class="main__empty-or">หรือพิมพ์ค้นหาได้เลย ระบบจะพาไปยังเกม ไฟล์ และแท็บที่พบข้อมูลให้เอง</p>
         <form class="toolbar__search global-search" id="globalSearchForm" autocomplete="off">
           <input type="text" id="globalSearchInput" placeholder="พิมพ์ชื่อ, รหัส หรือคำที่เกี่ยวข้อง..." aria-label="ค้นหาจากทุกไฟล์">
@@ -248,7 +249,11 @@
         </div>
 
         <section class="add-panel" id="addPanel" hidden>
-          <p class="add-panel__label">กำลังเพิ่มข้อมูลลงแท็บ: <b id="addPanelSheetName"></b></p>
+          <div class="add-panel__target">
+            <label class="add-panel__pick"><span>เพิ่มลงไฟล์</span><select id="addTargetBook" aria-label="เลือกไฟล์ที่จะเพิ่มข้อมูล"></select></label>
+            <label class="add-panel__pick"><span>แท็บ</span><select id="addTargetSheet" aria-label="เลือกแท็บที่จะเพิ่มข้อมูล"></select></label>
+            <b id="addPanelSheetName" hidden></b>
+          </div>
           <div class="add-panel__fields" id="addFields"></div>
 
           <div class="row-color">
@@ -431,8 +436,8 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261107-1630"></script>
-  <script src="supabase.js?v=20261107-1630"></script>
-  <script src="script.js?v=20261107-1630"></script>
+  <script src="config.js?v=20261110-1015"></script>
+  <script src="supabase.js?v=20261110-1015"></script>
+  <script src="script.js?v=20261110-1015"></script>
 </body>
 </html>

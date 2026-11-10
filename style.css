@@ -3226,3 +3226,14 @@ input.datetime-field {
   display: block; margin: 8px auto; padding: 6px 14px; border-radius: 999px; cursor: pointer;
   background: transparent; color: var(--color-accent); border: 1px solid var(--color-accent); font: inherit; font-size: 13px;
 }
+
+
+/* เลือกไฟล์/แท็บปลายทางในฟอร์มเพิ่มข้อมูล */
+.add-panel__target { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.add-panel__pick { display: flex; flex-direction: column; gap: 4px; flex: 1 1 220px; min-width: 0; font-size: 13px; color: var(--color-text-muted); }
+.add-panel__pick select {
+  padding: 9px 10px; border-radius: var(--radius-sm); font: inherit; font-size: 14px;
+  background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
+}
+.add-panel__pick select:focus { outline: none; border-color: var(--color-accent); }
+.main__empty #homeAddButton { margin: 6px auto 14px; }
