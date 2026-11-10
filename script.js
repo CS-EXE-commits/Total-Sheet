@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261107-1630';
+const APP_VERSION = '20261110-1015';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2724,7 +2724,7 @@ async function searchAcrossTabs_(keyword) {
 
   if (!matches) { // ค้นข้ามไฟล์ไม่ได้ → ใช้วิธีเดิมเฉพาะแท็บที่เปิดอยู่
     if (selectedSheet) loadSingleTabView(selectedSheet, keyword);
-    else showToast_('ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง');
+    else showInfoToast_('ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง');
     return;
   }
 
@@ -2745,7 +2745,7 @@ async function searchAcrossTabs_(keyword) {
   if (!list.length) {
     clearCrossResults_();
     if (currentBook && selectedSheet) { loadSingleTabView(selectedSheet, keyword); } // ให้ขึ้นข้อความไม่พบตามปกติ
-    else showToast_('ไม่พบข้อมูลที่ตรงกับ "' + keyword + '" ในทุกไฟล์');
+    else showInfoToast_('ไม่พบข้อมูลที่ตรงกับ "' + keyword + '" ในทุกไฟล์');
     return;
   }
 
@@ -2753,7 +2753,7 @@ async function searchAcrossTabs_(keyword) {
   if (t.book === currentBook && t.sheet === selectedSheet) {
     loadSingleTabView(selectedSheet, keyword);
     renderCrossResults_(keyword, list.slice(1));
-    if (list.length > 1) showToast_(describeMatches_(list));
+    if (list.length > 1) showInfoToast_(describeMatches_(list));
     return;
   }
 
@@ -2767,7 +2767,7 @@ async function searchAcrossTabs_(keyword) {
   }
   if (seq !== crossTabSearchSeq_) return;
   renderCrossResults_(keyword, list.slice(1));
-  showToast_(describeMatches_(list));
+  showInfoToast_(describeMatches_(list));
 }
 
 /* ===== ผลค้นหาในแท็บ/ไฟล์อื่นที่พบคำเดียวกัน (แสดงใต้ตารางหลัก) ===== */
@@ -2919,8 +2919,8 @@ function setGlobalSearchLoading_(on) {
   });
 })();
 
-/** แจ้งเตือนสั้นๆ มุมล่างของจอ หายเองใน 4 วินาที */
-function showToast_(msg) {
+/** แจ้งเตือนสั้นๆ มุมล่างของจอ หายเองใน 4 วินาที (ใช้กับผลค้นหาข้ามไฟล์ — แยกจาก showToast_ ของการบันทึก) */
+function showInfoToast_(msg) {
   let el = document.getElementById('crossTabToast');
   if (!el) {
     el = document.createElement('div');
@@ -3305,7 +3305,6 @@ function resetPanels() {
 /* ===== แถบเพิ่มข้อมูล ===== */
 
 addToggle.addEventListener('click', () => {
-  if (!selectedSheet) { alert('กรุณาเลือกแท็บใดแท็บหนึ่งก่อน'); return; }
   const isOpen = !addPanel.hidden;
   if (isOpen && !confirmDiscardAddForm_()) return;
   addPanel.hidden = isOpen;
@@ -3317,7 +3316,7 @@ addToggle.addEventListener('click', () => {
   trashToggle.textContent = '🗑 ถังขยะ';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
   addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
-  if (!isOpen) loadAddFields();
+  if (!isOpen) openAddTargetPicker_();
 });
 
 /**
@@ -3351,15 +3350,106 @@ async function loadHeadersWithStatusOptions_(book, sheet) {
   return result;
 }
 
+/* ===== เลือกไฟล์/แท็บปลายทางในฟอร์มเพิ่มข้อมูล (ไม่ต้องเปิดไฟล์/แท็บก่อน) ===== */
+let addTarget = { book: '', sheet: '' };
+const addTargetBookSel = document.getElementById('addTargetBook');
+const addTargetSheetSel = document.getElementById('addTargetSheet');
+const addSheetsCache_ = {};
+
+function fillAddBookSelect_() {
+  addTargetBookSel.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = ''; ph.textContent = '-- เลือกไฟล์ --';
+  addTargetBookSel.appendChild(ph);
+  const used = {};
+  (knownFolders || []).forEach(f => {
+    if (!f.books || !f.books.length) return;
+    const g = document.createElement('optgroup');
+    g.label = f.name;
+    f.books.forEach(b => { used[b] = true; const o = document.createElement('option'); o.value = b; o.textContent = b; g.appendChild(o); });
+    addTargetBookSel.appendChild(g);
+  });
+  if (currentBook && !used[currentBook]) {
+    const o = document.createElement('option'); o.value = currentBook; o.textContent = currentBook; addTargetBookSel.appendChild(o);
+  }
+}
+
+async function fillAddSheetSelect_(book, preselect) {
+  addTargetSheetSel.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = ''; ph.textContent = book ? '-- เลือกแท็บ --' : '-- เลือกไฟล์ก่อน --';
+  addTargetSheetSel.appendChild(ph);
+  addTargetSheetSel.disabled = !book;
+  if (!book) return;
+  let sheets = addSheetsCache_[book];
+  if (!sheets) {
+    ph.textContent = 'กำลังโหลดแท็บ...';
+    try {
+      const r = await jsonpRequest(apiUrl({ action: 'sheets', book }));
+      if (!r.ok) throw new Error(r.error || 'โหลดแท็บไม่สำเร็จ');
+      sheets = (r.sheets || []).map(s => s.name);
+      addSheetsCache_[book] = sheets;
+    } catch (err) {
+      ph.textContent = '-- โหลดแท็บไม่สำเร็จ --';
+      setAddStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+      return;
+    }
+    if (addTargetBookSel.value !== book) return; // ผู้ใช้เปลี่ยนไฟล์ไปแล้วระหว่างรอ
+    ph.textContent = '-- เลือกแท็บ --';
+  }
+  sheets.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; addTargetSheetSel.appendChild(o); });
+  if (preselect && sheets.indexOf(preselect) !== -1) addTargetSheetSel.value = preselect;
+}
+
+/** เปิดฟอร์มเพิ่มข้อมูล: ตั้งค่าเริ่มต้นเป็นไฟล์/แท็บที่เปิดอยู่ (ถ้ามี) แต่เปลี่ยนได้ทันที */
+async function openAddTargetPicker_() {
+  addTarget = { book: currentBook || '', sheet: selectedSheet || '' };
+  fillAddBookSelect_();
+  addTargetBookSel.value = addTarget.book;
+  await fillAddSheetSelect_(addTarget.book, addTarget.sheet);
+  loadAddFields();
+}
+
+async function onAddTargetChange_(level) {
+  const newBook = addTargetBookSel.value;
+  const newSheet = level === 'book' ? '' : addTargetSheetSel.value;
+  const changed = newBook !== addTarget.book || newSheet !== addTarget.sheet;
+  if (!changed) return;
+  if (addFormHasUnsavedInput_()) {
+    const ok = await showConfirm_('คุณกรอกข้อมูลไว้แล้ว ถ้าเปลี่ยนไฟล์/แท็บ ข้อมูลที่กรอกจะหายทั้งหมด\n\nต้องการเปลี่ยนใช่หรือไม่?', 'เปลี่ยน', 'ไม่เปลี่ยน');
+    if (!ok) {
+      addTargetBookSel.value = addTarget.book;
+      if (level === 'book') await fillAddSheetSelect_(addTarget.book, addTarget.sheet);
+      else addTargetSheetSel.value = addTarget.sheet;
+      return;
+    }
+  }
+  if (level === 'book') {
+    addTarget = { book: newBook, sheet: '' };
+    await fillAddSheetSelect_(newBook, '');
+  } else {
+    addTarget = { book: newBook, sheet: newSheet };
+  }
+  loadAddFields();
+}
+if (addTargetBookSel) addTargetBookSel.addEventListener('change', () => onAddTargetChange_('book'));
+if (addTargetSheetSel) addTargetSheetSel.addEventListener('change', () => onAddTargetChange_('sheet'));
+
 async function loadAddFields() {
-  addPanelSheetName.textContent = selectedSheet;
+  const book = addTarget.book, sheet = addTarget.sheet;
+  addPanelSheetName.textContent = sheet;
   addFields.innerHTML = '';
   addSubmitButton.disabled = true;
+  if (!book || !sheet) {
+    setAddStatus(!book ? 'เลือกไฟล์และแท็บที่ต้องการเพิ่มข้อมูล' : 'เลือกแท็บที่ต้องการเพิ่มข้อมูล', null);
+    return;
+  }
   setAddStatus('กำลังโหลดคอลัมน์...', null);
   try {
-    const result = await loadHeadersWithStatusOptions_(currentBook, selectedSheet);
+    const result = await loadHeadersWithStatusOptions_(book, sheet);
+    if (addTarget.book !== book || addTarget.sheet !== sheet) return; // เลือกที่อื่นไปแล้ว
     if (!result.ok) throw new Error(result.error || 'โหลดคอลัมน์ไม่สำเร็จ');
-    renderAddFields(result.headers);
+    renderAddFields(result.headers, book, sheet);
     addSubmitButton.disabled = false;
     setAddStatus('', null);
   } catch (err) {
@@ -3379,9 +3469,9 @@ function isHiddenFormField_(name, book, sheet) {
   return list.some(x => x.toLowerCase() === n);
 }
 
-function renderAddFields(headers) {
+function renderAddFields(headers, book, sheet) {
   addFields.innerHTML = '';
-  headers.filter(h => !isHiddenFormField_(h.name)).forEach(header => {
+  headers.filter(h => !isHiddenFormField_(h.name, book, sheet)).forEach(header => {
     const wrap = document.createElement('div');
     wrap.className = 'add-field';
     const label = document.createElement('label');
@@ -3782,9 +3872,9 @@ function chosenColor_(inputEl) {
 })();
 
 addSubmitButton.addEventListener('click', async () => {
-  if (!selectedSheet) return;
-  const sheetName = selectedSheet;
-  const book = currentBook;
+  if (!addTarget.book || !addTarget.sheet) return;
+  const sheetName = addTarget.sheet;
+  const book = addTarget.book;
   const data = {};
   addFields.querySelectorAll('input, select, textarea').forEach(el => {
     data[el.dataset.header] = el.type === 'date' ? fromDateInputValue_(el.value) : el.value;
@@ -3811,7 +3901,7 @@ addSubmitButton.addEventListener('click', async () => {
       let colored = result.colored;
       if (typeof colored !== 'boolean') {
         setAddStatus('กำลังปรับสีแถว...', null);
-        colored = await applyRowColor_(sheetName, result.row, bg, font);
+        colored = await applyRowColor_(sheetName, result.row, bg, font, book);
       }
       colorFailed = !colored;
       statusMessage += colored ? ' ปรับสีแถวแล้ว' : ' แต่ปรับสีแถวไม่สำเร็จ';
@@ -3823,7 +3913,8 @@ addSubmitButton.addEventListener('click', async () => {
     setAddStatus('', null);
     addPanel.hidden = true;
     addToggle.setAttribute('aria-pressed', 'false');
-    showToast_(statusMessage, colorFailed ? 'error' : 'success');
+    showToast_(statusMessage + (book !== currentBook || sheetName !== selectedSheet ? ` (ไฟล์ ${book} › ${sheetName})` : ''), colorFailed ? 'error' : 'success');
+    if (!currentBook) { workspace.hidden = true; mainEmpty.hidden = false; }
 
     if (book === currentBook && sheetName === selectedSheet) {
       await loadSingleTabView(selectedSheet, lastKeyword, currentPage);
@@ -4743,6 +4834,7 @@ document.addEventListener('keydown', (evt) => {
         addFields.querySelectorAll('input, select, textarea').forEach(el => { el.value = ''; });
         addToggle.setAttribute('aria-pressed', 'false');
         panel.hidden = true;
+        if (!currentBook) { workspace.hidden = true; mainEmpty.hidden = false; }
       };
       if (!addFormHasUnsavedInput_()) { closeAdd(); return; }
       showConfirm_('คุณกรอกข้อมูลค้างไว้แต่ยังไม่ได้บันทึก\n\nต้องการยกเลิกใช่หรือไม่? ข้อมูลที่กรอกไว้จะหายทั้งหมด')
@@ -4992,3 +5084,16 @@ logoutButton.addEventListener('click', (e) => {
     'ออกจากระบบ', 'ยกเลิก'
   ).then(ok => { if (ok) logoutButton.click(); });
 }, true);
+
+
+/* ปุ่ม "เพิ่มข้อมูลใหม่ลงชีท" หน้าแรก (ยังไม่ได้เปิดไฟล์) — เปิดฟอร์มให้เลือกไฟล์/แท็บเอง */
+(function setupHomeAdd_() {
+  const b = document.getElementById('homeAddButton');
+  if (!b) return;
+  b.addEventListener('click', () => {
+    mainEmpty.hidden = true;
+    workspace.hidden = false;
+    hint.hidden = true;
+    if (addPanel.hidden) addToggle.click();
+  });
+})();
