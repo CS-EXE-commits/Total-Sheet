@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261110-1015';
+const APP_VERSION = '20261112-0855';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2752,7 +2752,7 @@ async function searchAcrossTabs_(keyword) {
   const t = list[0];
   if (t.book === currentBook && t.sheet === selectedSheet) {
     loadSingleTabView(selectedSheet, keyword);
-    renderCrossResults_(keyword, list.slice(1));
+    renderCrossResults_(keyword, list.slice(1), list[0]);
     if (list.length > 1) showInfoToast_(describeMatches_(list));
     return;
   }
@@ -2766,24 +2766,51 @@ async function searchAcrossTabs_(keyword) {
     if (selectedSheet !== t.sheet) return;
   }
   if (seq !== crossTabSearchSeq_) return;
-  renderCrossResults_(keyword, list.slice(1));
+  renderCrossResults_(keyword, list.slice(1), list[0]);
   showInfoToast_(describeMatches_(list));
 }
 
 /* ===== ผลค้นหาในแท็บ/ไฟล์อื่นที่พบคำเดียวกัน (แสดงใต้ตารางหลัก) ===== */
 
 function clearCrossResults_() {
+  const ml = document.getElementById('mainTableLabel');
+  if (ml) { ml.hidden = true; ml.innerHTML = ''; }
   const box = document.getElementById('crossResults');
   if (box) { box.hidden = true; box.innerHTML = ''; }
   crossRenderSeq_++;
 }
 
+/** ป้ายบอกตำแหน่งเหนือตารางหลัก (โผล่เมื่อคำค้นหานี้พบมากกว่า 1 แท็บ): โฟลเดอร์ › ไฟล์ › แท็บ */
+function renderMainTableLabel_(others, main) {
+  const ml = document.getElementById('mainTableLabel');
+  if (!ml) return;
+  ml.innerHTML = '';
+  if (!others || !others.length || !currentBook || !selectedSheet) { ml.hidden = true; return; }
+  const fn = folderNameOfBook_(currentBook);
+  const path = document.createElement('span');
+  path.className = 'cross-results__path';
+  path.textContent = [fn, currentBook, selectedSheet].filter(Boolean).join(' › ');
+  ml.appendChild(path);
+  if (main && main.n) {
+    const c = document.createElement('span');
+    c.className = 'cross-results__count';
+    c.textContent = main.n + ' รายการ';
+    ml.appendChild(c);
+  }
+  const now = document.createElement('span');
+  now.className = 'cross-results__go';
+  now.textContent = 'กำลังดูแท็บนี้';
+  ml.appendChild(now);
+  ml.hidden = false;
+}
+
 let crossRenderSeq_ = 0;
-async function renderCrossResults_(keyword, others) {
+async function renderCrossResults_(keyword, others, main) {
   const box = document.getElementById('crossResults');
   if (!box) return;
   const seq = ++crossRenderSeq_;
   box.innerHTML = '';
+  renderMainTableLabel_(others, main);
   if (!others || !others.length || typeof supaTabView !== 'function') { box.hidden = true; return; }
   box.hidden = false;
 
@@ -2886,7 +2913,7 @@ async function switchToMatch_(m, keyword, others) {
     await selectTab(m.sheet, keyword);
     if (selectedSheet !== m.sheet) return;
   }
-  renderCrossResults_(keyword, rest);
+  renderCrossResults_(keyword, rest, m);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
