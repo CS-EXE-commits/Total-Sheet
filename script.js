@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261112-0855';
+const APP_VERSION = '20261112-0935';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2824,6 +2824,11 @@ async function renderCrossResults_(keyword, others, main) {
     const sec = document.createElement('section');
     sec.className = 'cross-results__section';
 
+    const found = document.createElement('p');
+    found.className = 'cross-results__found';
+    found.textContent = 'พบ ' + m.n + ' รายการ';
+    sec.appendChild(found);
+
     const head = document.createElement('button');
     head.type = 'button';
     head.className = 'cross-results__tab';
@@ -2838,6 +2843,7 @@ async function renderCrossResults_(keyword, others, main) {
     const wrap = document.createElement('div');
     wrap.className = 'cross-results__table table-wrap';
     wrap.textContent = 'กำลังโหลด...';
+    wrap._found = found;
     sec.appendChild(wrap);
     box.appendChild(sec);
 
@@ -2854,8 +2860,12 @@ async function renderCrossResults_(keyword, others, main) {
 function fillCrossTable_(wrap, res, m, keyword, others) {
   const headers = res.headers || [];
   const rows = res.results || [];
+  if (wrap._found && typeof res.total === 'number') wrap._found.textContent = 'พบ ' + res.total + ' รายการ';
+  const hasValue = (i) => rows.some(r => (r.cells[i] || '').toString().trim() !== '' || (r.links && r.links[i]));
   let cols = (res.listColumns && res.listColumns.length) ? res.listColumns.slice() : headers.map((_, i) => i);
-  cols = cols.filter(i => headers[i] && rows.some(r => (r.cells[i] || '').toString().trim() !== '')).slice(0, 8);
+  // คอลัมน์ Ticket ต้องมีเสมอถ้ามีลิงก์ (ลิงก์เก็บแยกจากข้อความในเซลล์ — ข้อความอาจว่างแต่ลิงก์มี)
+  headers.forEach((name, i) => { if (isTicketColumn(name) && cols.indexOf(i) === -1) cols.push(i); });
+  cols = cols.filter(i => headers[i] && hasValue(i)).sort((x, y) => x - y).slice(0, 9);
   wrap.textContent = '';
   if (!rows.length || !cols.length) { wrap.textContent = 'ไม่พบข้อมูล'; return; }
 
@@ -2864,7 +2874,11 @@ function fillCrossTable_(wrap, res, m, keyword, others) {
   const thead = document.createElement('thead');
   const trh = document.createElement('tr');
   const th0 = document.createElement('th'); th0.className = 'data-table__rownum-col'; th0.textContent = 'แถวที่'; trh.appendChild(th0);
-  cols.forEach(i => { const th = document.createElement('th'); th.textContent = headers[i]; trh.appendChild(th); });
+  cols.forEach(i => {
+    const th = document.createElement('th');
+    if (isTicketColumn(headers[i])) th.className = 'data-table__ticket-col';
+    th.textContent = headers[i]; trh.appendChild(th);
+  });
   thead.appendChild(trh); table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
@@ -2875,17 +2889,25 @@ function fillCrossTable_(wrap, res, m, keyword, others) {
     cols.forEach(i => {
       const td = document.createElement('td');
       const v = (r.cells[i] || '').toString();
-      const link = r.links && r.links[i];
-      if (link && /^https?:\/\//i.test(link)) {
+      // ลิงก์จริงของเซลล์ (ถ้ามี) หรือถ้าข้อความในเซลล์เป็น URL ตรงๆ ก็ใช้ข้อความนั้นเป็นลิงก์ (เหมือนตารางหลัก แสดงเป็นปุ่มสั้นๆ)
+      const link = (r.links && r.links[i]) || (isTicketColumn(headers[i]) && isLikelyUrl(v) ? v.trim() : '');
+      if (link && isLikelyUrl(link)) {
+        td.className = 'data-table__ticket-col';
         const a = document.createElement('a');
         a.href = link; a.target = '_blank'; a.rel = 'noopener noreferrer';
-        a.className = 'ticket-link'; a.textContent = v || 'เปิด Ticket ↗';
+        a.className = 'ticket-link';
+        a.textContent = v && !isLikelyUrl(v) ? shortenTicketLabel(v) : 'เปิด Ticket ↗';
+        a.title = link;
+        a.addEventListener('click', (e) => e.stopPropagation()); // กดลิงก์ = เปิด Ticket ไม่ใช่เปิดรายละเอียด
         td.appendChild(a);
       } else {
         td.textContent = v.length > 160 ? v.slice(0, 160) + '…' : v;
+        if (v) td.title = v;
       }
       tr.appendChild(td);
     });
+    // กดแถว = เปิดรายละเอียดข้อมูลทั้งแถว เหมือนตารางหลัก (ระบุไฟล์/แท็บของตารางนี้เอง)
+    makeRowClickable_(tr, { book: m.book, sheet: m.sheet, row: r.row });
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
