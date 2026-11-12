@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261112-0935';
+const APP_VERSION = '20261112-1400';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1072,6 +1072,7 @@ logoutButton.addEventListener('click', () => {
   currentSessionToken = '';
   localStorage.removeItem('sheetSearchLastBook');
   localStorage.removeItem('sheetSearchLastSheet');
+  localStorage.removeItem('sheetSearchLastKeyword');
   currentUserEmail = '';
   currentBook = '';
   selectedSheet = '';
@@ -1119,7 +1120,9 @@ function restoreLastView(books) {
     const savedBook = localStorage.getItem('sheetSearchLastBook');
     if (savedBook && Array.isArray(books) && books.includes(savedBook)) {
       const savedSheet = localStorage.getItem('sheetSearchLastSheet') || '';
-      openBook(savedBook, savedSheet);
+      // คืนคำค้นเดิมด้วย — รีเฟรชแล้วต้องอยู่ที่ไฟล์/แท็บ/คำค้นเดิม
+      const savedKeyword = savedSheet ? (localStorage.getItem('sheetSearchLastKeyword') || '') : '';
+      openBook(savedBook, savedSheet, savedKeyword);
     }
   } catch (e) {
     // ถ้าอ่าน localStorage ไม่ได้ด้วยเหตุผลใดก็ตาม ก็แค่ไม่ย้อนกลับ ไม่ต้องทำให้หน้าเว็บพัง
@@ -2411,6 +2414,7 @@ function fillRowSource_(rows, sheetName) {
 async function loadSingleTabView(sheetName, keyword, page) {
   lastKeyword = keyword;
   input.value = keyword;
+  try { localStorage.setItem('sheetSearchLastKeyword', keyword || ''); } catch (e) { /* ignore */ }
   const targetPage = Math.max(1, parseInt(page, 10) || 1);
 
   // กันปัญหาข้อมูล/ลิงก์ Ticket ขึ้นๆ หายๆ ที่เกิดจาก "คำขอเก่าที่ช้ากว่า" กลับมาถึงทีหลัง
