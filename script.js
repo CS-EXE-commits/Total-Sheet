@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261116-0710';
+const APP_VERSION = '20261116-0800';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5246,4 +5246,92 @@ function updatePendingBadge_(n) {
       if (pendingFailed_) loadGlobalDashboard();
     } else if (n > 90) { clearInterval(t); if (currentSessionToken) startSyncBadge_(); }
   }, 1000);
+})();
+
+
+/* ===== ตัวอย่างข้อมูลของไฟล์เมื่อชี้เมาส์ที่ชื่อไฟล์ในแถบซ้าย (ยังไม่ต้องคลิกเลือก) ===== */
+(function setupFilePreview_() {
+  const sideNav = document.getElementById('sideNav');
+  const box = document.getElementById('filePreview');
+  if (!sideNav || !box) return;
+  const cache = new Map();      // book -> { at, html }
+  const CACHE_MS = 60 * 1000;
+  let showTimer = null, hideTimer = null, seq = 0, current = '';
+
+  function hide() {
+    clearTimeout(showTimer); clearTimeout(hideTimer);
+    seq++; current = ''; box.hidden = true;
+  }
+  function pickColumns(headers, listColumns) {
+    let idx = (listColumns && listColumns.length) ? listColumns.slice() : headers.map((h, i) => i);
+    idx = idx.filter(i => String(headers[i] || '').trim() !== '');
+    return idx.slice(0, 6);
+  }
+  async function build(book, mySeq) {
+    const sheetsRes = await jsonpRequest(apiUrl({ action: 'sheets', book }));
+    if (!sheetsRes.ok) throw new Error(sheetsRes.error || 'โหลดแท็บไม่สำเร็จ');
+    const sheets = sheetsRes.sheets || [];
+    let html = `<h3 class="file-preview__title">📄 ${escapeHtml(book)}</h3>`
+      + `<p class="file-preview__sub">${sheets.length} แท็บ · คลิกชื่อไฟล์เพื่อเปิดใช้งาน</p>`;
+    if (sheets.length) {
+      html += '<div class="file-preview__tabs">' + sheets.map((s, i) =>
+        `<span class="file-preview__tab${i === 0 ? ' file-preview__tab--first' : ''}">${escapeHtml(s.name)}`
+        + (s.rowCount ? `<b>${Number(s.rowCount).toLocaleString('en-US')}</b>` : '') + '</span>').join('') + '</div>';
+      const first = sheets[0].name;
+      const view = await jsonpRequest(apiUrl({
+        action: 'tabView', book, sheet: first, q: '', offset: 0, limit: 8, slim: 1, status: '', order: 'desc'
+      }), 20000);
+      if (mySeq !== seq) return null;
+      const headers = view.headers || [];
+      const cols = pickColumns(headers, view.listColumns);
+      const rows = view.results || [];
+      html += `<p class="file-preview__label">แท็บ “${escapeHtml(first)}” · เคสล่าสุด ${rows.length} รายการ`
+        + (view.total ? ` จากทั้งหมด ${Number(view.total).toLocaleString('en-US')}` : '') + '</p>';
+      if (rows.length && cols.length) {
+        html += '<table class="file-preview__table"><thead><tr>'
+          + cols.map(i => `<th>${escapeHtml(headers[i])}</th>`).join('') + '</tr></thead><tbody>'
+          + rows.map(r => '<tr>' + cols.map(i => `<td>${escapeHtml(r.cells[i] == null ? '' : r.cells[i])}</td>`).join('') + '</tr>').join('')
+          + '</tbody></table>';
+      } else {
+        html += '<p class="file-preview__msg">แท็บนี้ยังไม่มีข้อมูล</p>';
+      }
+    } else {
+      html += '<p class="file-preview__msg">ไฟล์นี้ยังไม่มีแท็บข้อมูล</p>';
+    }
+    return html;
+  }
+  async function show(book) {
+    current = book;
+    const mySeq = ++seq;
+    const hit = cache.get(book);
+    if (hit && Date.now() - hit.at < CACHE_MS) { box.innerHTML = hit.html; box.hidden = false; return; }
+    box.innerHTML = `<h3 class="file-preview__title">📄 ${escapeHtml(book)}</h3><p class="file-preview__msg">กำลังโหลดตัวอย่างข้อมูล...</p>`;
+    box.hidden = false;
+    try {
+      const html = await build(book, mySeq);
+      if (html === null || mySeq !== seq) return;
+      cache.set(book, { at: Date.now(), html });
+      box.innerHTML = html;
+    } catch (err) {
+      if (mySeq !== seq) return;
+      box.innerHTML = `<h3 class="file-preview__title">📄 ${escapeHtml(book)}</h3><p class="file-preview__msg">ยังโหลดตัวอย่างไม่ได้ (${escapeHtml(err.message || err)})</p>`;
+    }
+  }
+  sideNav.addEventListener('mouseover', (e) => {
+    const chip = e.target.closest('.folder__file');
+    if (!chip || !chip.dataset.book) return;
+    clearTimeout(hideTimer);
+    const book = chip.dataset.book;
+    if (book === current && !box.hidden) return;
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => show(book), 220);   // รอให้เมาส์หยุดก่อน ไม่ยิงคำขอตอนเมาส์แค่ผ่าน
+  });
+  sideNav.addEventListener('mouseout', (e) => {
+    const chip = e.target.closest('.folder__file');
+    if (!chip) return;
+    clearTimeout(showTimer);
+    hideTimer = setTimeout(hide, 120);
+  });
+  sideNav.addEventListener('click', hide, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
 })();
