@@ -3447,3 +3447,45 @@ input.datetime-field {
 .view--today .view__grid, .view--pending .view__grid { grid-template-columns: minmax(0, 1fr); }
 .view--reports .sidebar-dashboard { max-width: none; width: 100%; }
 .view--add .add-panel { max-width: none; width: 100%; margin: 0 auto; }
+
+
+/* =====================================================================
+   ตารางข้อมูลแบบแถว (20261116): ไม่ตีเส้นตาราง แยกเป็นแถวโล่งๆ อ่านง่าย
+   ชี้เมาส์ที่แถว → ตัวหนังสือขยายเป็นคลื่น (แถวข้างเคียงขยายตามลดหลั่น)
+   โครงสร้างเดิมไม่เปลี่ยน ปุ่มแก้ไข/ลบ คลิกดูรายละเอียด สี และการตรึงคอลัมน์ใช้ได้เหมือนเดิม
+   ===================================================================== */
+.data-table { border-collapse: separate; border-spacing: 0 4px; font-size: 14px; }
+.table-wrap { padding: 4px 8px 10px; }
+.data-table th, .data-table td { border: 0; padding: 13px 16px; }
+.data-table th {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11.5px; letter-spacing: .05em;
+}
+.data-table tbody tr:nth-child(even) { background: transparent; }
+.data-table td {
+  font-size: 14px;
+  transition: font-size .22s cubic-bezier(.3, 1.6, .5, 1), background .18s, padding .22s;
+}
+.data-table td:first-child { border-radius: 12px 0 0 12px; }
+.data-table td:last-child  { border-radius: 0 12px 12px 0; }
+
+/* คอลัมน์ที่ตรึงด้านขวา: ตัดเงา/เส้นหนาออกให้เข้ากับแบบโล่ง แต่ยังทึบพอบังข้อมูลที่เลื่อนผ่านใต้ */
+.data-table__actions-col { box-shadow: none; }
+.data-table__ticket-col { border-right: 0; box-shadow: none; }
+.data-table tbody tr:nth-child(even) .data-table__actions-col,
+.data-table tbody tr:nth-child(even) .data-table__ticket-col { background: var(--color-surface); }
+
+@media (hover: hover) {
+  .data-table tbody tr:hover > td,
+  .data-table tbody tr:hover .data-table__actions-col,
+  .data-table tbody tr:hover .data-table__ticket-col { background: var(--color-accent-bg); }
+  .data-table tbody tr:hover > td { font-size: 15.6px; color: var(--color-text); }
+  .data-table tbody tr:hover > td:first-child { padding-left: 24px; }
+  .data-table tbody tr:hover + tr > td,
+  .data-table tbody tr:has(+ tr:hover) > td { font-size: 14.8px; }
+  .data-table tbody tr:hover + tr + tr > td,
+  .data-table tbody tr:has(+ tr + tr:hover) > td { font-size: 14.3px; }
+}
+@media (prefers-reduced-motion: reduce) { .data-table td { transition: none; } }
+@media (hover: hover) { .data-table tbody tr:hover .ticket-link:not(:hover) { background: var(--color-surface); } }
