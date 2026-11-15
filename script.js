@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261112-1400';
+const APP_VERSION = '20261114-2000';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1504,7 +1504,7 @@ function renderFolderBar(folders) {
     if (folder.books.length > 0) {
       const files = document.createElement('div');
       files.className = 'folder__files';
-      files.hidden = true;
+      files.hidden = false; // เปิดค้างไว้ ให้ CSS กางเมื่อชี้เมาส์
       folder.books.forEach(book => {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -1632,7 +1632,7 @@ function markActiveFolderItem() {
     if (!has) folder.removeAttribute('data-active');
     const files = folder.querySelector('.folder__files');
     if (files) {
-      files.hidden = !has;
+      files.hidden = false; // กางด้วยการชี้เมาส์ (CSS) ไม่ซ่อนด้วย hidden แล้ว
       files.querySelectorAll('.folder__file').forEach(chip => {
         chip.setAttribute('data-active', String(chip.dataset.book === currentBook));
       });
@@ -3348,7 +3348,7 @@ function resetPanels() {
   managePanel.hidden = true;
   trashPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
+  addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   trashToggle.setAttribute('aria-pressed', 'false');
@@ -3368,7 +3368,7 @@ addToggle.addEventListener('click', () => {
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   addToggle.setAttribute('aria-pressed', String(!isOpen));
-  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
+  addToggle.textContent = '+ เพิ่มข้อมูล'; // ข้อความปุ่มคงที่เสมอ ปิดฟอร์มด้วยปุ่มในฟอร์มแทน
   if (!isOpen) openAddTargetPicker_();
 });
 
@@ -3994,7 +3994,7 @@ manageToggle.addEventListener('click', () => {
   addPanel.hidden = true;
   trashPanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
+  addToggle.textContent = '+ เพิ่มข้อมูล';
   trashToggle.setAttribute('aria-pressed', 'false');
   trashToggle.textContent = '🗑 ถังขยะ';
   manageToggle.setAttribute('aria-pressed', String(!isOpen));
@@ -4066,7 +4066,7 @@ trashToggle.addEventListener('click', () => {
   addPanel.hidden = true;
   managePanel.hidden = true;
   addToggle.setAttribute('aria-pressed', 'false');
-  addToggle.textContent = '+ เพิ่มข้อมูลใหม่ลงชีท';
+  addToggle.textContent = '+ เพิ่มข้อมูล';
   manageToggle.setAttribute('aria-pressed', 'false');
   manageToggle.textContent = 'จัดการข้อมูลชีทนี้';
   trashToggle.setAttribute('aria-pressed', String(!isOpen));
@@ -4323,9 +4323,11 @@ function renderPendingCases_(result) {
   const groups = (result && result.groups) || [];
   if (!groups.length) {
     dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ไม่มีเคสรอตรวจสอบ 🎉</p>';
+    updatePendingBadge_(0);
     return;
   }
   const total = groups.reduce((n, g) => n + g.count, 0);
+  updatePendingBadge_(total);
   dashboardStatusList.innerHTML = groups.map((g, i) => {
     const key = g.book + '\u0000' + g.sheet;
     const open = pendingOpenGroups_.has(key) || (pendingOpenGroups_.size === 0 && i === 0);
@@ -5090,7 +5092,7 @@ function showDateTimePicker_(inputEl) {
   const ws = document.getElementById('workspaceSticky');
   const update = () => {
     root.style.setProperty('--topbar-h', (topbar ? topbar.offsetHeight : 0) + 'px');
-    root.style.setProperty('--folderbar-h', (fbar && !fbar.hidden ? fbar.offsetHeight : 0) + 'px');
+    root.style.setProperty('--folderbar-h', '0px'); // โฟลเดอร์ย้ายไปแถบซ้ายแล้ว ไม่กินความสูงด้านบน
     root.style.setProperty('--wsticky-h', (ws ? ws.offsetHeight : 0) + 'px');
   };
   if (typeof ResizeObserver === 'function') {
@@ -5149,4 +5151,48 @@ logoutButton.addEventListener('click', (e) => {
     hint.hidden = true;
     if (addPanel.hidden) addToggle.click();
   });
+})();
+
+
+/* ===== เมนูด้านซ้าย: สลับหน้า ค้นหา / เคสรอตรวจสอบ / รายงานย้อนหลัง ===== */
+function updatePendingBadge_(n) {
+  const el = document.getElementById('navPendingCount');
+  if (!el) return;
+  el.textContent = n > 999 ? n.toLocaleString('en-US') : String(n);
+  el.hidden = !n;
+}
+(function setupSideNav_() {
+  const layout = document.getElementById('appLayout');
+  const sideNav = document.getElementById('sideNav');
+  if (!layout || !sideNav) return;
+  const viewBtns = Array.from(sideNav.querySelectorAll('.side-nav__item[data-view]'));
+  function setView(v) {
+    layout.dataset.view = v;
+    viewBtns.forEach(b => {
+      if (b.dataset.view === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    window.scrollTo({ top: 0 });
+  }
+  window.setAppView_ = setView;
+  viewBtns.forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+
+  // "เพิ่มข้อมูล" — กลับหน้าค้นหาแล้วเปิดฟอร์มเพิ่มข้อมูล (ใช้ปุ่มเดิม ไม่เปลี่ยนวิธีทำงาน)
+  const navAdd = document.getElementById('navAdd');
+  if (navAdd) navAdd.addEventListener('click', () => {
+    setView('search');
+    const home = document.getElementById('homeAddButton');
+    if (!mainEmpty.hidden && home) { home.click(); return; }
+    if (addPanel.hidden) addToggle.click();
+    addPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  // เปิดไฟล์/แท็บจากโฟลเดอร์ซ้าย ต้องพากลับไปหน้าค้นหาเสมอ
+  sideNav.addEventListener('click', (e) => {
+    if (e.target.closest('.folder__file, .folder__item, .folder__add')) setView('search');
+  }, true);
+
+  // ค้นหาแบบรวมจากหน้าแรก / ออกจากระบบ → กลับหน้าค้นหา
+  const gForm = document.getElementById('globalSearchForm');
+  if (gForm) gForm.addEventListener('submit', () => setView('search'));
+  logoutButton.addEventListener('click', () => { setView('search'); updatePendingBadge_(0); });
 })();
