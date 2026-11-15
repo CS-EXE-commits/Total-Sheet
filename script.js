@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261115-2100';
+const APP_VERSION = '20261115-2200';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4381,13 +4381,16 @@ async function refreshSyncBadge_() {
   const el = document.getElementById('syncBadge');
   if (!el || typeof supaLastSyncAt !== 'function' || !currentSessionToken) return;
   if (typeof supaReady !== 'function' || !supaReady()) {
-    el.textContent = '⚠️ ยังไม่เชื่อมต่อ Supabase';
+    el.textContent = '⚠️ ยังไม่เชื่อมต่อ Supabase · คลิกเพื่อเข้าสู่ระบบใหม่';
+    el.style.cursor = 'pointer';
+    el.onclick = () => logoutButton.click();
     el.classList.add('sync-badge--late');
     el.title = 'ยังอ่านเวลาซิงก์ไม่ได้ เพราะยังไม่ได้เชื่อมต่อฐานข้อมูล Supabase — ลองออกจากระบบแล้วเข้าสู่ระบบใหม่';
     el.hidden = false;
     return;
   }
   try {
+    el.onclick = null; el.style.cursor = '';
     const at = await supaLastSyncAt();
     if (!at) { el.hidden = true; return; }
     const age = Date.now() - at.getTime();

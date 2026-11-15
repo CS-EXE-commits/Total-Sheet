@@ -98,12 +98,16 @@ async function supaRestoreSession() {
   } catch (e) {
     saved = null;
   }
-  if (!saved || !saved.refresh_token) return null;
+  if (!saved || !saved.refresh_token) {
+    console.warn('[Supabase] ไม่มีตั๋วที่จำไว้ในเบราว์เซอร์นี้ ต้องเข้าสู่ระบบด้วย Google ใหม่หนึ่งครั้ง');
+    return null;
+  }
   supaSession = saved;
   if (Date.now() < (saved.expires_at || 0) - SUPA_REFRESH_MARGIN_MS) return supaSession;
   try {
     return await supaRefreshSession_();
   } catch (e) {
+    console.warn('[Supabase] กู้ตั๋วที่จำไว้ไม่ได้ (ตั๋วต่ออายุหมดอายุหรือถูกใช้ไปแล้ว) ต้องเข้าสู่ระบบด้วย Google ใหม่หนึ่งครั้ง:', e && e.message);
     supaClearSession();
     return null;
   }
