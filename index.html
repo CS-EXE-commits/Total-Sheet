@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261115-2000">
+<link rel="stylesheet" href="style.css?v=20261115-2100">
 <script>
   // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
   (function () {
@@ -65,9 +65,9 @@
     <p class="side-nav__label">เมนู</p>
     <div class="side-nav__items">
       <button type="button" class="side-nav__item" id="navSearch" data-view="search" aria-current="page"><span class="side-nav__ico" aria-hidden="true">🔍</span><span class="side-nav__text">ค้นหาข้อมูล</span></button>
-      <button type="button" class="side-nav__item" id="navAdd"><span class="side-nav__ico" aria-hidden="true">＋</span><span class="side-nav__text">เพิ่มข้อมูล</span></button>
+      <button type="button" class="side-nav__item" id="navAdd" data-view="add"><span class="side-nav__ico" aria-hidden="true">＋</span><span class="side-nav__text">เพิ่มข้อมูล</span></button>
       <button type="button" class="side-nav__item" id="navToday" data-view="today"><span class="side-nav__ico" aria-hidden="true">📋</span><span class="side-nav__text">เคสเข้าใหม่วันนี้</span><span class="side-nav__badge side-nav__badge--green" id="navTodayCount" hidden></span></button>
-      <button type="button" class="side-nav__item" id="navPending" data-view="pending"><span class="side-nav__ico" aria-hidden="true">⏳</span><span class="side-nav__text">เคสรอตรวจสอบ</span><span class="side-nav__badge" id="navPendingCount" hidden></span></button>
+      <button type="button" class="side-nav__item" id="navPending" data-view="pending"><span class="side-nav__ico" aria-hidden="true">⏳</span><span class="side-nav__text">เคสรอตรวจสอบ</span><span class="side-nav__badge side-nav__badge--green" id="navPendingCount" hidden></span></button>
       <button type="button" class="side-nav__item" id="navReports" data-view="reports"><span class="side-nav__ico" aria-hidden="true">📄</span><span class="side-nav__text">รายงานย้อนหลัง</span></button>
     </div>
   <!-- โฟลเดอร์ไฟล์ชีต + ปุ่มจัดการ (อยู่ในแถบซ้าย) -->
@@ -177,6 +177,45 @@
   <div class="app-content">
   <div class="layout" id="appLayout" data-view="search" hidden>
 
+    <!-- หน้า: เพิ่มข้อมูล (ฟอร์มเพิ่มข้อมูลย้ายมาไว้ที่นี่ที่เดียว เปิดจากปุ่มเมนู "เพิ่มข้อมูล") -->
+    <section class="view view--add" id="viewAdd" aria-label="เพิ่มข้อมูล">
+      <div class="view__head"><h2 class="view__title">＋ เพิ่มข้อมูล</h2><p class="view__sub">เลือกไฟล์และแท็บที่จะเพิ่ม แล้วกรอกข้อมูล</p></div>
+        <section class="add-panel" id="addPanel" hidden>
+          <div class="add-panel__target">
+            <label class="add-panel__pick"><span>เพิ่มลงไฟล์</span><select id="addTargetBook" aria-label="เลือกไฟล์ที่จะเพิ่มข้อมูล"></select></label>
+            <label class="add-panel__pick"><span>แท็บ</span><select id="addTargetSheet" aria-label="เลือกแท็บที่จะเพิ่มข้อมูล"></select></label>
+            <b id="addPanelSheetName" hidden></b>
+          </div>
+          <div class="add-panel__fields" id="addFields"></div>
+
+          <div class="row-color">
+            <label class="row-color__toggle">
+              <input type="checkbox" id="addColorToggle">
+              🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
+            </label>
+            <div class="row-color__pickers" id="addColorPickers" hidden>
+              <div class="row-color__swatch">
+                <span>สีพื้นหลัง</span>
+                <button type="button" class="color-swatch-btn" data-target="addColorBg" style="background:#ffffff"></button>
+                <input type="hidden" id="addColorBg" value="#ffffff">
+              </div>
+              <div class="row-color__swatch">
+                <span>สีตัวอักษร</span>
+                <button type="button" class="color-swatch-btn" data-target="addColorFont" style="background:#000000"></button>
+                <input type="hidden" id="addColorFont" value="#000000">
+              </div>
+              <button type="button" class="row-color__reset-btn" id="addColorReset">ล้างสี</button>
+            </div>
+          </div>
+
+          <div class="add-panel__actions">
+            <button type="button" class="toolbar__btn toolbar__btn--accent" id="addSubmitButton">บันทึกข้อมูล</button>
+            <button type="button" class="toolbar__btn toolbar__btn--muted" id="addPanelClose">ยกเลิก</button>
+            <p class="add-panel__status" id="addStatus"></p>
+          </div>
+        </section>
+    </section>
+
     <!-- หน้า: เคสเข้าใหม่วันนี้ (แยกออกจากเคสรอตรวจสอบ) -->
     <section class="view view--today" id="viewToday" aria-label="เคสเข้าใหม่วันนี้">
       <div class="view__head"><h2 class="view__title">📋 เคสเข้าใหม่วันนี้</h2><p class="view__sub">จำนวนเคสที่เพิ่มเข้ามาวันนี้ แยกตามสถานะ คลิกเพื่อดูรายละเอียด</p></div>
@@ -241,7 +280,7 @@
     <main class="main">
       <div class="main__empty" id="mainEmpty">
         <p>เลือกโฟลเดอร์ด้านซ้าย แล้วเลือกไฟล์เพื่อเริ่มต้นใช้งาน</p>
-        <button type="button" class="toolbar__btn" id="homeAddButton">+ เพิ่มข้อมูล</button>
+        <button type="button" class="toolbar__btn" id="homeAddButton" hidden>+ เพิ่มข้อมูล</button>
         <p class="main__empty-or">หรือพิมพ์ค้นหาได้เลย ระบบจะพาไปยังเกม ไฟล์ และแท็บที่พบข้อมูลให้เอง</p>
         <form class="toolbar__search global-search" id="globalSearchForm" autocomplete="off">
           <input type="text" id="globalSearchInput" placeholder="พิมพ์ชื่อ, รหัส หรือคำที่เกี่ยวข้อง..." aria-label="ค้นหาจากทุกไฟล์">
@@ -262,7 +301,7 @@
             <button type="submit" id="searchButton">ค้นหา</button>
           </form>
           <select class="toolbar__status-filter" id="statusFilter" hidden></select>
-          <button type="button" class="toolbar__btn" id="addToggle">+ เพิ่มข้อมูล</button>
+          <button type="button" class="toolbar__btn" id="addToggle" hidden>+ เพิ่มข้อมูล</button>
         </div>
 
         <div class="table-toolbar" id="tableToolbar" hidden>
@@ -275,40 +314,6 @@
         <p class="results__count" id="resultsCount" hidden></p>
         </div>
 
-        <section class="add-panel" id="addPanel" hidden>
-          <div class="add-panel__target">
-            <label class="add-panel__pick"><span>เพิ่มลงไฟล์</span><select id="addTargetBook" aria-label="เลือกไฟล์ที่จะเพิ่มข้อมูล"></select></label>
-            <label class="add-panel__pick"><span>แท็บ</span><select id="addTargetSheet" aria-label="เลือกแท็บที่จะเพิ่มข้อมูล"></select></label>
-            <b id="addPanelSheetName" hidden></b>
-          </div>
-          <div class="add-panel__fields" id="addFields"></div>
-
-          <div class="row-color">
-            <label class="row-color__toggle">
-              <input type="checkbox" id="addColorToggle">
-              🎨 เปลี่ยนสีพื้นหลัง/ตัวอักษรของแถวนี้
-            </label>
-            <div class="row-color__pickers" id="addColorPickers" hidden>
-              <div class="row-color__swatch">
-                <span>สีพื้นหลัง</span>
-                <button type="button" class="color-swatch-btn" data-target="addColorBg" style="background:#ffffff"></button>
-                <input type="hidden" id="addColorBg" value="#ffffff">
-              </div>
-              <div class="row-color__swatch">
-                <span>สีตัวอักษร</span>
-                <button type="button" class="color-swatch-btn" data-target="addColorFont" style="background:#000000"></button>
-                <input type="hidden" id="addColorFont" value="#000000">
-              </div>
-              <button type="button" class="row-color__reset-btn" id="addColorReset">ล้างสี</button>
-            </div>
-          </div>
-
-          <div class="add-panel__actions">
-            <button type="button" class="toolbar__btn toolbar__btn--accent" id="addSubmitButton">บันทึกข้อมูล</button>
-            <button type="button" class="toolbar__btn toolbar__btn--muted" id="addPanelClose">ยกเลิก</button>
-            <p class="add-panel__status" id="addStatus"></p>
-          </div>
-        </section>
 
         <section class="manage-panel" id="managePanel" hidden>
           <p class="manage-panel__label">คอลัมน์ในแท็บนี้ — กด × เพื่อลบทั้งคอลัมน์ออกจากชีตจริง</p>
@@ -466,8 +471,8 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261115-2000"></script>
-  <script src="supabase.js?v=20261115-2000"></script>
-  <script src="script.js?v=20261115-2000"></script>
+  <script src="config.js?v=20261115-2100"></script>
+  <script src="supabase.js?v=20261115-2100"></script>
+  <script src="script.js?v=20261115-2100"></script>
 </body>
 </html>

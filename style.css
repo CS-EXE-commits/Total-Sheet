@@ -3403,6 +3403,7 @@ input.datetime-field {
 /* ----- หน้าแยก: เคสรอตรวจสอบ / รายงานย้อนหลัง ----- */
 .layout[data-view]:not([data-view="search"]) > .main { display: none; }
 .layout > .view { display: none; }
+.layout[data-view="add"] > .view--add,
 .layout[data-view="today"] > .view--today,
 .layout[data-view="pending"] > .view--pending,
 .layout[data-view="reports"] > .view--reports { display: flex; }
@@ -3437,3 +3438,5 @@ input.datetime-field {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   height: calc(100% - 10px); width: auto; max-width: 34vw; object-fit: contain; pointer-events: none;
 }
+
+.view--add .add-panel { max-width: 920px; margin: 0; }

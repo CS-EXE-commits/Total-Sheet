@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261115-2000';
+const APP_VERSION = '20261115-2100';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4166,6 +4166,7 @@ const GLOBAL_DASHBOARD_REFRESH_MS = 90 * 1000; // รีเฟรชทุก 90
 let globalDashboardTimer = null;
 let globalDashboardLoading = false; // กันการยิงซ้อนกัน ถ้ารอบก่อนยังไม่เสร็จแล้วตัวตั้งเวลาทำงานอีก
 let globalDashboardLoadedOnce = false;
+let pendingFailed_ = false; // เคสรอตรวจสอบโหลดไม่ผ่านรอบล่าสุด (ลองใหม่เองเมื่อ Supabase พร้อม)
 
 /**
  * Dashboard ภาพรวมต้องไล่นับทุกไฟล์ทุกแท็บ รอบแรกของวัน (ตอนแคชฝั่งเซิร์ฟเวอร์ยังว่าง) อาจใช้เวลา
@@ -4194,9 +4195,10 @@ async function loadGlobalDashboard() {
 
   // ยอดสถานะทั้งระบบ (การ์ดตรวจสอบสถานะ) อ่านจาก Supabase ได้ทันที ไม่ต้องรอ Apps Script ไล่นับทุกชีท
   let statusFromSupabase = false;
+  let pendingErr_ = '';
   const supaPart = (typeof supaReady === 'function' && supaReady() && typeof supaPendingCases === 'function')
     ? supaPendingCases().then(r => { renderPendingCases_(r); statusFromSupabase = true; })
-        .catch(err => console.warn('[Supabase] นับสถานะไม่สำเร็จ ใช้ Apps Script แทน:', err.message))
+        .catch(err => { pendingErr_ = err.message; console.warn('[Supabase] นับสถานะไม่สำเร็จ ใช้ Apps Script แทน:', err.message); })
     : Promise.resolve();
 
   try {
@@ -4212,7 +4214,13 @@ async function loadGlobalDashboard() {
     await supaPart;
     if (!statusFromSupabase) {
       // Supabase ใช้ไม่ได้ และรอบนี้ขอแบบ lite ไป ต้องขอยอดเต็มจาก Apps Script อีกรอบ
-      dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ยังโหลดเคสรอตรวจสอบไม่ได้ ลองรีเฟรชหน้าอีกครั้ง</p>';
+      const why = (typeof supaReady === 'function' && supaReady())
+        ? 'อ่านจากฐานข้อมูลไม่สำเร็จ' + (pendingErr_ ? ': ' + escapeHtml(pendingErr_) : '')
+        : 'ยังไม่ได้เชื่อมต่อฐานข้อมูล Supabase — ลองออกจากระบบแล้วเข้าสู่ระบบใหม่';
+      dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ยังโหลดเคสรอตรวจสอบไม่ได้ (' + why + ') <button type="button" class="toolbar__btn" id="pendingRetryBtn">ลองใหม่</button></p>';
+      pendingFailed_ = true;
+      const rb = document.getElementById('pendingRetryBtn');
+      if (rb) rb.addEventListener('click', () => loadGlobalDashboard());
     }
     globalDashboardLoadedOnce = true;
     setDashboardStatus('', null);
@@ -4320,6 +4328,7 @@ function renderDashboardStatusList(result) {
 /** การ์ด "เคสรอตรวจสอบ" — แยกตามไฟล์/แท็บ คลิกหัวข้อเพื่อกาง/หุบ คลิกเคสเพื่อดูรายละเอียด */
 const pendingOpenGroups_ = new Set();
 function renderPendingCases_(result) {
+  pendingFailed_ = false;
   const groups = (result && result.groups) || [];
   if (!groups.length) {
     dashboardStatusList.innerHTML = '<p class="sidebar-dashboard__empty">ไม่มีเคสรอตรวจสอบ 🎉</p>';
@@ -4370,7 +4379,14 @@ const SYNC_WARN_MS = 2 * 60 * 60 * 1000; // เกิน 2 ชั่วโมง
 let syncBadgeTimer = null;
 async function refreshSyncBadge_() {
   const el = document.getElementById('syncBadge');
-  if (!el || typeof supaReady !== 'function' || !supaReady() || typeof supaLastSyncAt !== 'function') return;
+  if (!el || typeof supaLastSyncAt !== 'function' || !currentSessionToken) return;
+  if (typeof supaReady !== 'function' || !supaReady()) {
+    el.textContent = '⚠️ ยังไม่เชื่อมต่อ Supabase';
+    el.classList.add('sync-badge--late');
+    el.title = 'ยังอ่านเวลาซิงก์ไม่ได้ เพราะยังไม่ได้เชื่อมต่อฐานข้อมูล Supabase — ลองออกจากระบบแล้วเข้าสู่ระบบใหม่';
+    el.hidden = false;
+    return;
+  }
   try {
     const at = await supaLastSyncAt();
     if (!at) { el.hidden = true; return; }
@@ -4385,7 +4401,12 @@ async function refreshSyncBadge_() {
       ? 'ไม่มีการซิงก์มาเกิน 2 ชั่วโมง ข้อมูลบนเว็บอาจไม่ตรงกับชีท — ตรวจเมนู Executions ใน Apps Script'
       : 'เวลาที่ข้อมูลจากชีทถูกซิงก์เข้าระบบค้นหาครั้งล่าสุด';
     el.hidden = false;
-  } catch (e) { /* ไม่ต้องรบกวนผู้ใช้ รอบหน้าลองใหม่ */ }
+  } catch (e) {
+    el.textContent = '⚠️ อ่านเวลาซิงก์ไม่ได้';
+    el.classList.add('sync-badge--late');
+    el.title = 'อ่านเวลาซิงก์จากฐานข้อมูลไม่สำเร็จ: ' + (e && e.message ? e.message : e);
+    el.hidden = false;
+  }
 }
 function startSyncBadge_() {
   refreshSyncBadge_();
@@ -5176,16 +5197,16 @@ function updatePendingBadge_(n) {
   window.setAppView_ = setView;
   viewBtns.forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
 
-  // "เพิ่มข้อมูล" — กลับหน้าค้นหาแล้วเปิดฟอร์มเพิ่มข้อมูล (ใช้ปุ่มเดิม ไม่เปลี่ยนวิธีทำงาน)
+  // "เพิ่มข้อมูล" — เปิดหน้าเพิ่มข้อมูล (ใช้ปุ่มเปิดฟอร์มเดิม ไม่เปลี่ยนวิธีทำงาน)
   const navAdd = document.getElementById('navAdd');
   if (navAdd) navAdd.addEventListener('click', () => {
-    setView('search');
-    const home = document.getElementById('homeAddButton');
-    if (!mainEmpty.hidden && home) { home.click(); return; }
     if (addPanel.hidden) addToggle.click();
-    addPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
-
+  // ปิดฟอร์ม (บันทึกเสร็จ/ยกเลิก) ขณะอยู่หน้าเพิ่มข้อมูล → กลับหน้าค้นหา
+  new MutationObserver(() => {
+    if (addPanel.hidden && layout.dataset.view === 'add') setView('search');
+  }).observe(addPanel, { attributes: true, attributeFilter: ['hidden'] });
+  // ไปหน้าอื่นระหว่างที่ฟอร์มเปิดอยู่ แล้วกดเพิ่มข้อมูลอีกครั้ง → ฟอร์มยังอยู่ครบ
   // เปิดไฟล์/แท็บจากโฟลเดอร์ซ้าย ต้องพากลับไปหน้าค้นหาเสมอ
   sideNav.addEventListener('click', (e) => {
     if (e.target.closest('.folder__file, .folder__item, .folder__add')) setView('search');
@@ -5217,7 +5238,9 @@ function updatePendingBadge_(n) {
   let n = 0;
   const t = setInterval(() => {
     n++;
-    if (typeof supaReady === 'function' && supaReady()) { clearInterval(t); startSyncBadge_(); }
-    else if (n > 90) clearInterval(t);
+    if (typeof supaReady === 'function' && supaReady()) {
+      clearInterval(t); startSyncBadge_();
+      if (pendingFailed_) loadGlobalDashboard();
+    } else if (n > 90) { clearInterval(t); if (currentSessionToken) startSyncBadge_(); }
   }, 1000);
 })();
