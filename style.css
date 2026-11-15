@@ -3440,3 +3440,10 @@ input.datetime-field {
 }
 
 .view--add .add-panel { max-width: 920px; margin: 0; }
+
+/* จัดทุกหน้าที่แยกออกมา (เพิ่มข้อมูล / เคสเข้าใหม่ / เคสรอตรวจสอบ / รายงาน) ให้อยู่กึ่งกลาง */
+.layout > .view { width: 100%; max-width: 960px; margin-left: auto; margin-right: auto; }
+.view__head { align-items: center; text-align: center; }
+.view--today .view__grid, .view--pending .view__grid { grid-template-columns: minmax(0, 1fr); }
+.view--reports .sidebar-dashboard { max-width: none; width: 100%; }
+.view--add .add-panel { max-width: none; width: 100%; margin: 0 auto; }
