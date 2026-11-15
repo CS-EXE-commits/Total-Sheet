@@ -3539,3 +3539,21 @@ input.datetime-field {
 .file-preview__table td:last-child { border-radius: 0 8px 8px 0; }
 .file-preview__msg { margin: 18px 0; text-align: center; color: var(--color-text-muted); }
 @media (max-width: 860px) { .file-preview { display: none; } }
+
+/* ตารางข้อมูล: ไม่ใช้คลื่น และไม่ให้คอลัมน์/แถวอื่นขยับ — แถวที่ชี้ดูเด่นขึ้นด้วยการขยายทั้งแถวนิดเดียว (ไม่กระทบเลย์เอาต์) */
+.data-table td { transition: background .15s; }
+@media (hover: hover) {
+  .data-table tbody tr:hover > td { font-size: 14px; }
+  .data-table tbody tr:hover > td:first-child { padding-left: 16px; }
+  .data-table tbody tr:hover + tr > td,
+  .data-table tbody tr:has(+ tr:hover) > td,
+  .data-table tbody tr:hover + tr + tr > td,
+  .data-table tbody tr:has(+ tr + tr:hover) > td { font-size: 14px; }
+  .data-table tbody tr { transition: transform .15s ease, box-shadow .15s ease; }
+  .data-table tbody tr:hover {
+    position: relative; z-index: 2;
+    transform: scale(1.018);
+    box-shadow: 0 6px 18px -6px rgba(0, 0, 0, .35);
+    border-radius: 12px;
+  }
+}
