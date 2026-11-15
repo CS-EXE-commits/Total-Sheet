@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261114-2000';
+const APP_VERSION = '20261115-2000';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5194,5 +5194,30 @@ function updatePendingBadge_(n) {
   // ค้นหาแบบรวมจากหน้าแรก / ออกจากระบบ → กลับหน้าค้นหา
   const gForm = document.getElementById('globalSearchForm');
   if (gForm) gForm.addEventListener('submit', () => setView('search'));
-  logoutButton.addEventListener('click', () => { setView('search'); updatePendingBadge_(0); });
+  logoutButton.addEventListener('click', () => { setView('search'); updatePendingBadge_(0); const tb = document.getElementById('navTodayCount'); if (tb) tb.hidden = true; });
+})();
+
+
+/* จำนวนเคสเข้าใหม่วันนี้ → ป้ายบนเมนู */
+(function setupTodayBadge_() {
+  const src = document.getElementById('dashboardCasesToday');
+  const badge = document.getElementById('navTodayCount');
+  if (!src || !badge) return;
+  const sync = () => {
+    const t = (src.textContent || '').trim();
+    const ok = t && t !== '-' && t !== '0';
+    badge.textContent = t; badge.hidden = !ok;
+  };
+  new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
+  sync();
+})();
+
+/* ป้ายเวลาซิงก์: เริ่มทันทีที่ Supabase พร้อม ไม่ต้องรอแดชบอร์ดโหลดจบ (กันป้ายหายตอนแดชบอร์ดช้า) */
+(function earlySyncBadge_() {
+  let n = 0;
+  const t = setInterval(() => {
+    n++;
+    if (typeof supaReady === 'function' && supaReady()) { clearInterval(t); startSyncBadge_(); }
+    else if (n > 90) clearInterval(t);
+  }, 1000);
 })();
