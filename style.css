@@ -3523,5 +3523,5 @@ input.datetime-field {
 }
 
 .side-nav .folder__file { display: flex; align-items: center; gap: 10px; }
-.sheet-ico { flex: 0 0 18px; width: 18px; height: 18px; display: inline-flex; }
+.sheet-ico { flex: 0 0 16px; width: 16px; height: 20px; display: inline-flex; }
 .sheet-ico svg { display: block; }

@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261116-1930';
+const APP_VERSION = '20261116-1945';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1469,8 +1469,8 @@ function fillFolderSelects_() {
   });
 }
 
-// ไอคอนชีท (สี่เหลี่ยมเขียวมุมโค้ง ขีดขาวแบบตาราง) ใช้หน้าชื่อไฟล์ในแถบซ้าย
-const SHEET_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect width="18" height="18" rx="3.5" fill="#0F9D58"/><path d="M9 3.6v10.8M3.6 9h10.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><rect x="3.1" y="3.1" width="11.8" height="11.8" rx="1.6" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/></svg>';
+// ไอคอนชีท (แบบ Google Sheets: กระดาษเขียวพับมุม มีตารางสีขาว) ใช้หน้าชื่อไฟล์ในแถบซ้าย
+const SHEET_ICON_SVG = '<svg width="16" height="20" viewBox="0 0 16 20" aria-hidden="true"><path d="M2 0h8.5L16 5.5V18a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" fill="#0F9D58"/><path d="M10.5 0L16 5.5h-4.5a1 1 0 0 1-1-1z" fill="#87CEAC"/><path d="M3 9.5h10v7H3z" fill="#fff"/><path d="M3 12h10M3 14.3h10M7.2 9.5v7" stroke="#0F9D58" stroke-width="1" fill="none"/></svg>';
 
 function renderFolderBar(folders) {
   if (!folderBar || !folderList) return;
