@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261116-0900';
+const APP_VERSION = '20261116-1930';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1469,6 +1469,9 @@ function fillFolderSelects_() {
   });
 }
 
+// ไอคอนชีท (สี่เหลี่ยมเขียวมุมโค้ง ขีดขาวแบบตาราง) ใช้หน้าชื่อไฟล์ในแถบซ้าย
+const SHEET_ICON_SVG = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect width="18" height="18" rx="3.5" fill="#0F9D58"/><path d="M9 3.6v10.8M3.6 9h10.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><rect x="3.1" y="3.1" width="11.8" height="11.8" rx="1.6" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/></svg>';
+
 function renderFolderBar(folders) {
   if (!folderBar || !folderList) return;
   knownFolders = folders || [];
@@ -1510,7 +1513,11 @@ function renderFolderBar(folders) {
         chip.type = 'button';
         chip.className = 'folder__file';
         chip.dataset.book = book;
-        chip.textContent = '📄 ' + book;
+        const ico = document.createElement('span');
+        ico.className = 'sheet-ico';
+        ico.setAttribute('aria-hidden', 'true');
+        ico.innerHTML = SHEET_ICON_SVG;
+        chip.append(ico, document.createTextNode(book));
         chip.title = 'เปิดไฟล์ ' + book;
         chip.addEventListener('click', (e) => {
           e.stopPropagation();

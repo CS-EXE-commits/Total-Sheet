@@ -3521,3 +3521,7 @@ input.datetime-field {
     border-radius: 12px;
   }
 }
+
+.side-nav .folder__file { display: flex; align-items: center; gap: 10px; }
+.sheet-ico { flex: 0 0 18px; width: 18px; height: 18px; display: inline-flex; }
+.sheet-ico svg { display: block; }
