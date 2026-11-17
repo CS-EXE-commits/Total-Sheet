@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261116-1945';
+const APP_VERSION = '20261117-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5247,4 +5247,37 @@ function updatePendingBadge_(n) {
       if (pendingFailed_) loadGlobalDashboard();
     } else if (n > 90) { clearInterval(t); if (currentSessionToken) startSyncBadge_(); }
   }, 1000);
+})();
+
+
+/* ===== จำนวนคนออนไลน์ (มุมขวาล่าง) — ส่ง heartbeat ไป Apps Script ทุก 60 วินาทีขณะเปิดหน้าเว็บอยู่ ===== */
+(function setupOnlineBadge_() {
+  const badge = document.getElementById('onlineBadge');
+  const countEl = document.getElementById('onlineCount');
+  if (!badge || !countEl) return;
+  const BEAT_MS = 60 * 1000;
+  let lastBeat = 0, busy = false, failures = 0;
+  async function beat() {
+    if (busy || !currentSessionToken) return;
+    busy = true; lastBeat = Date.now();
+    try {
+      const r = await jsonpRequest(apiUrl({ action: 'heartbeat' }), 15000);
+      if (r && r.ok) {
+        failures = 0;
+        countEl.textContent = r.count;
+        badge.title = r.users && r.users.length
+          ? 'ออนไลน์ตอนนี้: ' + r.users.join(', ')
+          : 'จำนวนคนที่ล็อกอินและเปิดเว็บอยู่ตอนนี้';
+        badge.hidden = false;
+      } else if (++failures >= 3) badge.hidden = true;
+    } catch (e) {
+      if (++failures >= 3) badge.hidden = true;   // เซิร์ฟเวอร์ยังไม่รองรับ/เชื่อมต่อไม่ได้ ซ่อนไว้ ไม่รบกวนผู้ใช้
+    } finally { busy = false; }
+  }
+  setInterval(() => {
+    if (!currentSessionToken) { badge.hidden = true; return; }
+    if (document.hidden) return;                       // แท็บที่ซ่อนอยู่ไม่ส่ง ปล่อยให้หมดเวลาเอง
+    if (Date.now() - lastBeat >= BEAT_MS - 2000) beat();
+  }, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && currentSessionToken) beat(); });
 })();

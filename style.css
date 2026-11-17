@@ -3525,3 +3525,15 @@ input.datetime-field {
 .side-nav .folder__file { display: flex; align-items: center; gap: 10px; }
 .sheet-ico { flex: 0 0 16px; width: 16px; height: 20px; display: inline-flex; }
 .sheet-ico svg { display: block; }
+
+/* จำนวนคนออนไลน์ มุมขวาล่าง */
+.online-badge {
+  position: fixed; right: 20px; bottom: 20px; z-index: 16;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+  color: var(--color-text); background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: 999px; box-shadow: var(--shadow-md);
+}
+.online-badge__dot { width: 9px; height: 9px; border-radius: 50%; background: #2E9E5B; box-shadow: 0 0 0 3px rgba(46, 158, 91, .25); animation: onlinePulse 2s ease-in-out infinite; }
+@keyframes onlinePulse { 50% { box-shadow: 0 0 0 6px rgba(46, 158, 91, 0); } }
+@media (prefers-reduced-motion: reduce) { .online-badge__dot { animation: none; } }
