@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1000';
+const APP_VERSION = '20261117-1015';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2051,33 +2051,11 @@ const historyMenu = document.getElementById('historyMenu');
 const historyToggle = document.getElementById('historyToggle');
 const historyPanel = document.getElementById('historyPanel');
 
-function setHistoryOpen_(open) {
-  if (!historyPanel) return;
-  historyPanel.hidden = !open;
-  historyToggle.setAttribute('aria-expanded', String(open));
-  historyToggle.classList.toggle('topbtn--active', open);
-}
-
+// ประวัติการแก้ไขเป็นหน้ากลางจอแล้ว (สลับหน้าด้วยเมนูซ้าย) — กดแล้วโหลดเหตุการณ์ล่าสุดใหม่ทุกครั้ง
 if (historyToggle) {
-  historyToggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const willOpen = historyPanel.hidden;
-    // ปิดกล่องอื่นที่อยู่บนแถบเดียวกัน ไม่ให้ซ้อนทับกัน
-    addFilePanel.hidden = true;
-    createBookPanel.hidden = true;
-    bookTrashPanel.hidden = true;
+  historyToggle.addEventListener('click', () => {
     closeAllFolders();
-    setHistoryOpen_(willOpen);
-    // โหลดใหม่ทุกครั้งที่เปิด ให้เห็นเหตุการณ์ล่าสุดจริง ไม่ใช่ของตอนเปิดหน้าเว็บ
-    if (willOpen) loadDailyReport();
-  });
-
-  // คลิกข้างนอกหรือกด Esc เพื่อปิด
-  document.addEventListener('click', (e) => {
-    if (!historyPanel.hidden && !historyMenu.contains(e.target)) setHistoryOpen_(false);
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !historyPanel.hidden) setHistoryOpen_(false);
+    loadDailyReport();
   });
 }
 

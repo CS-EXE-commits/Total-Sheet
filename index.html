@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261117-1000">
+<link rel="stylesheet" href="style.css?v=20261117-1015">
 <script>
   // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
   (function () {
@@ -68,20 +68,7 @@
       <button type="button" class="side-nav__item" id="navAdd" data-view="add"><span class="side-nav__ico" aria-hidden="true">＋</span><span class="side-nav__text">เพิ่มข้อมูล</span></button>
       <button type="button" class="side-nav__item" id="navToday" data-view="today"><span class="side-nav__ico" aria-hidden="true">📋</span><span class="side-nav__text">เคสเข้าใหม่วันนี้</span><span class="side-nav__badge side-nav__badge--green" id="navTodayCount" hidden></span></button>
       <button type="button" class="side-nav__item" id="navPending" data-view="pending"><span class="side-nav__ico" aria-hidden="true">⏳</span><span class="side-nav__text">เคสรอตรวจสอบ</span><span class="side-nav__badge side-nav__badge--green" id="navPendingCount" hidden></span></button>
-      <!-- ประวัติการแก้ไข: ย้ายจากแถบด้านข้างมาเป็นปุ่ม กดแล้วกล่องเด้งลงมา -->
-      <div class="topmenu" id="historyMenu">
-        <button type="button" class="topbtn" id="historyToggle" aria-expanded="false"><span class="side-nav__ico" aria-hidden="true">📝</span><span class="side-nav__text">ประวัติการแก้ไข</span></button>
-        <div class="topmenu__panel topmenu__panel--history" id="historyPanel" hidden>
-          <section class="sidebar-report sidebar-report--popover" id="reportPanel">
-          <p class="sidebar-dashboard__title">📝 ประวัติการแก้ไข</p>
-          <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
-          <div class="report-stats" id="reportStats"></div>
-          <p class="sidebar-dashboard__subhead">เหตุการณ์วันนี้ล่าสุด (ทุกไฟล์)</p>
-          <div class="report-log-list" id="reportLogList"></div>
-          <p class="report-panel__status" id="reportStatus">กำลังโหลด...</p>
-        </section>
-        </div>
-      </div>
+      <button type="button" class="side-nav__item" id="historyToggle" data-view="history"><span class="side-nav__ico" aria-hidden="true">📝</span><span class="side-nav__text">ประวัติการแก้ไข</span></button>
     </div>
   <!-- โฟลเดอร์ไฟล์ชีต + ปุ่มจัดการ (อยู่ในแถบซ้าย) -->
   <nav class="folder-bar" id="folderBar" hidden>
@@ -177,6 +164,19 @@
 
   <div class="app-content">
   <div class="layout" id="appLayout" data-view="search" hidden>
+
+    <!-- หน้า: ประวัติการแก้ไข (แสดงกลางหน้าเว็บเหมือนฟังก์ชันอื่น) -->
+    <section class="view view--history" id="viewHistory" aria-label="ประวัติการแก้ไข">
+      <div class="view__head"><h2 class="view__title">📝 ประวัติการแก้ไข</h2><p class="view__sub">เหตุการณ์ล่าสุดของทุกไฟล์ทุกแท็บ</p></div>
+      <section class="sidebar-report sidebar-report--popover" id="reportPanel">
+          <p class="sidebar-dashboard__title">📝 ประวัติการแก้ไข</p>
+          <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
+          <div class="report-stats" id="reportStats"></div>
+          <p class="sidebar-dashboard__subhead">เหตุการณ์วันนี้ล่าสุด (ทุกไฟล์)</p>
+          <div class="report-log-list" id="reportLogList"></div>
+          <p class="report-panel__status" id="reportStatus">กำลังโหลด...</p>
+        </section>
+    </section>
 
     <!-- หน้า: เพิ่มข้อมูล (ฟอร์มเพิ่มข้อมูลย้ายมาไว้ที่นี่ที่เดียว เปิดจากปุ่มเมนู "เพิ่มข้อมูล") -->
     <section class="view view--add" id="viewAdd" aria-label="เพิ่มข้อมูล">
@@ -479,8 +479,8 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261117-1000"></script>
-  <script src="supabase.js?v=20261117-1000"></script>
-  <script src="script.js?v=20261117-1000"></script>
+  <script src="config.js?v=20261117-1015"></script>
+  <script src="supabase.js?v=20261117-1015"></script>
+  <script src="script.js?v=20261117-1015"></script>
 </body>
 </html>

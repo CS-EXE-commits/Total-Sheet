@@ -3403,6 +3403,7 @@ input.datetime-field {
 /* ----- หน้าแยก: เคสรอตรวจสอบ / รายงานย้อนหลัง ----- */
 .layout[data-view]:not([data-view="search"]) > .main { display: none; }
 .layout > .view { display: none; }
+.layout[data-view="history"] > .view--history,
 .layout[data-view="add"] > .view--add,
 .layout[data-view="today"] > .view--today,
 .layout[data-view="pending"] > .view--pending,
@@ -3554,3 +3555,12 @@ input.datetime-field {
 .online-list__mail { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .online-list__ago { flex: 0 0 auto; font-size: 12px; color: var(--color-text-muted); }
 .online-list__msg { margin: 8px 6px; font-size: 13px; color: var(--color-text-muted); }
+
+/* หน้าประวัติการแก้ไข */
+.view--history .sidebar-report--popover {
+  width: 100%; margin: 0; padding: 18px 20px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px;
+}
+.view--history .sidebar-report--popover > .sidebar-dashboard__title { display: none; }
+.view--history .report-log-list { max-height: none; }
+.view--history .report-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
