@@ -3607,3 +3607,14 @@ input.datetime-field {
   .app-shell:has(.side-nav .folder:hover) .app-content,
   .app-shell:has(.side-nav .folder:focus-within) .app-content { transform: translateX(252px); }
 }
+
+/* ปรับรอบล่าสุด: ไม่ขยับตารางตอนชี้โฟลเดอร์ ย่อกล่องชีทให้เล็กลงแทน และเว้นระยะให้ตารางห่างจากกล่อง */
+@media (hover: hover) {
+  .app-shell:has(.side-nav .folder:hover) .app-content,
+  .app-shell:has(.side-nav .folder:focus-within) .app-content { transform: none; }
+  .app-content { transition: none; padding-left: 20px; }
+  .side-nav .folder .folder__files { width: 210px; padding: 4px; left: calc(100% + 6px); }
+  .side-nav .folder__file { padding: 6px 10px; font-size: 13px; }
+  .side-nav .folder__file:hover { font-size: 14px; transform: translateX(4px); }
+  .side-nav .folder__file .sheet-ico { width: 16px; height: 16px; }
+}
