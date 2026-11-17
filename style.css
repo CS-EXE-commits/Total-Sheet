@@ -3648,3 +3648,7 @@ input.datetime-field {
 /* เพิ่มข้อมูล: หน้าเปล่าจนกว่าจะเลือกไฟล์และแท็บ */
 .add-panel--empty .add-panel__actions, .add-panel--empty .row-color, .add-panel--empty #addFields { display: none; }
 .add-panel--empty { min-height: 160px; }
+
+/* หน้าค้นหาข้อมูล (ยังไม่เปิดไฟล์): แสดงเฉพาะช่องค้นหา */
+.main__empty > p, .main__empty .main__empty-or { display: none; }
+.main__empty .global-search { margin-top: 24px; }

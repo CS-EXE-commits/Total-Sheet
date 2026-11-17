@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1430';
+const APP_VERSION = '20261117-1445';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5229,6 +5229,24 @@ function updatePendingBadge_(n) {
   const navAdd = document.getElementById('navAdd');
   if (navAdd) navAdd.addEventListener('click', () => {
     if (addPanel.hidden) addToggle.click();
+    else if (!addFormHasUnsavedInput_()) openAddTargetPicker_(); // กดซ้ำ → กลับหน้าเปล่า (ถ้ายังไม่ได้กรอกอะไรค้างไว้)
+  });
+  // "ค้นหาข้อมูล" — เหลือเฉพาะช่องค้นหา ยกเลิกไฟล์/โฟลเดอร์ที่เปิดดูอยู่ (ใช้ได้ทีละฟังก์ชัน)
+  const navSearch = document.getElementById('navSearch');
+  if (navSearch) navSearch.addEventListener('click', () => {
+    if (currentBook && !confirmDiscardAddForm_()) return;
+    currentBook = '';
+    selectedSheet = '';
+    lastKeyword = '';
+    input.value = '';
+    resetPanels();
+    clearCrossResults_();
+    workspace.hidden = true;
+    mainEmpty.hidden = false;
+    hint.hidden = true;
+    markActiveFolderItem();
+    const gi = document.getElementById('globalSearchInput');
+    if (gi) { gi.value = ''; gi.focus(); }
   });
   // สร้างไฟล์ Google Sheet / ถังขยะไฟล์ — แสดงเป็นหน้ากลางเหมือนฟังก์ชันอื่น (ใช้พาเนลเดิม ฟังก์ชันไม่เปลี่ยน)
   [[addFilePanel, 'create', 'navCreate'], [bookTrashPanel, 'trash', 'navTrash']].forEach(([panel, view]) => {
