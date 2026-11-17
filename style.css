@@ -3580,3 +3580,30 @@ input.datetime-field {
 :root[data-theme="dark"] .history-toolbar__pick select{background:#000;color:#fff;border-color:#444}
 :root[data-theme="dark"] .history-toolbar__pick select option{background:#000;color:#fff}
 :root[data-theme="dark"] .history-more{background:#000;color:#fff;border-color:#444}
+
+/* ชีทของโฟลเดอร์ แสดงเป็นกล่องลอยออกมาทางขวาของโฟลเดอร์ + ขยับเนื้อหาหนีไม่ให้ถูกทับ */
+@media (hover: hover) {
+  .side-nav .folder .folder__files {
+    position: absolute; top: -4px; left: calc(100% + 10px);
+    width: 250px; max-height: none; padding: 6px;
+    background: var(--color-surface); border: 1px solid var(--color-border);
+    border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateX(-8px);
+    transition: opacity .18s ease, transform .22s ease, visibility 0s linear .22s;
+    z-index: 60;
+  }
+  .side-nav .folder:hover .folder__files,
+  .side-nav .folder:focus-within .folder__files {
+    opacity: 1; visibility: visible; pointer-events: auto; transform: none; max-height: none;
+    transition-delay: 0s;
+  }
+  /* สะพานโปร่งใสกันกล่องหายตอนเมาส์ข้ามช่องว่างระหว่างโฟลเดอร์กับกล่อง */
+  .side-nav .folder__files::before { content: ""; position: absolute; top: 0; bottom: 0; left: -14px; width: 14px; }
+  .side-nav .folder__file { width: 100%; margin-left: 0; }
+  /* เนื้อหาขยับไปทางขวาตอนกล่องเปิด ไม่ให้ชีททับตาราง */
+  .app-shell { overflow-x: clip; }
+  .app-content { transition: transform .22s ease; }
+  .app-shell:has(.side-nav .folder:hover) .app-content,
+  .app-shell:has(.side-nav .folder:focus-within) .app-content { transform: translateX(252px); }
+}
