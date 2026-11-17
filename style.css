@@ -3730,3 +3730,9 @@ input.datetime-field {
 body[data-search-home="1"] #searchLogo { display: block; }
 body[data-search-home="1"] #folderLogo { display: none !important; }
 @media (max-width: 1100px) { body[data-search-home="1"] #searchLogo { display: none; } }
+
+/* ยังไม่เลือกแท็บ: ช่อง Dropdown อยู่กึ่งกลางหน้า เยื้องขึ้นด้านบนเล็กน้อย ข้อความในช่องอยู่กึ่งกลาง */
+.workspace:has(.tab-select option:checked[value=""]) #tabsBar { margin-top: clamp(80px, 22vh, 260px); }
+.workspace:has(.tab-select option:checked[value=""]) .results__hint { display: none !important; }
+.tab-select { text-align: center; text-align-last: center; }
+.tab-select option { text-align: center; }

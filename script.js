@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1930';
+const APP_VERSION = '20261117-1945';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2307,7 +2307,7 @@ function createTabSelect_(sheets) {
   select.setAttribute('aria-label', 'เลือกแท็บ');
   const blank = document.createElement('option');
   blank.value = '';
-  blank.textContent = 'กรุณาเลือกแท็บข้อมูลในชีท';
+  blank.textContent = '- กรุณาเลือกแท็บข้อมูลในชีท -';
   select.appendChild(blank);
   sheets.forEach(s => {
     const opt = document.createElement('option');
