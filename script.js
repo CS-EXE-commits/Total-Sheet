@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1615';
+const APP_VERSION = '20261117-1930';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5227,6 +5227,8 @@ function updatePendingBadge_(n) {
         || document.getElementById('navSearch');
     } else target = viewBtns.find(b => b.dataset.view === v);
     if (target) target.setAttribute('data-nav-active', 'true');
+    // หน้า "ค้นหาข้อมูล": ใช้รูปแว่นขยายแทนโลโก้เกม
+    document.body.dataset.searchHome = (target && target.id === 'navSearch') ? '1' : '';
   }
   window.syncNavActive_ = syncNavActive_;
   function setView(v) {
