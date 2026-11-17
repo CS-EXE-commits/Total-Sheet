@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1445';
+const APP_VERSION = '20261117-1500';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1518,6 +1518,16 @@ function renderFolderBar(folders) {
         ico.setAttribute('aria-hidden', 'true');
         ico.innerHTML = SHEET_ICON_SVG;
         chip.append(ico, document.createTextNode(book));
+        // เปลี่ยนชื่อ / เอาไฟล์ออก — โผล่เมื่อชี้ที่ไฟล์ (ไม่ต้องคลิกโฟลเดอร์แล้ว)
+        [['✎', `เปลี่ยนชื่อไฟล์ "${book}"`, () => renameBookPrompt(book), ''],
+         ['×', `เอาไฟล์ "${book}" ออกจากระบบ`, () => removeBook(book, null), ' folder__act--danger']].forEach(([t, title, fn, cls]) => {
+          const act = document.createElement('span');
+          act.className = 'folder__act' + cls;
+          act.setAttribute('role', 'button');
+          act.textContent = t; act.title = title;
+          act.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); fn(); });
+          chip.appendChild(act);
+        });
         chip.title = 'เปิดไฟล์ ' + book;
         chip.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1599,6 +1609,7 @@ function renderFolderBar(folders) {
     wrap.appendChild(menu);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      return; // โฟลเดอร์ใช้ได้เฉพาะการชี้เมาส์ ไม่เปิดเมนูเมื่อคลิก
       const willOpen = menu.hidden;
       closeAllFolders();
       if (willOpen) {
