@@ -3703,3 +3703,23 @@ input.datetime-field {
 }
 .table-frame .table-toolbar[hidden] { display: none; }
 .data-table th.data-table__actions-col { min-width: 250px; }
+
+/* ===== แถบเขียวเฉพาะฟังก์ชันที่ใช้งานอยู่ 1 อัน (กำหนดด้วย data-nav-active เท่านั้น) ===== */
+.side-nav .side-nav__item[aria-current], .side-nav .topbtn[aria-current], .side-nav .topbtn--active { background: transparent; color: var(--color-text); }
+.side-nav .folder[data-open] > .folder__btn,
+.side-nav .folder[data-active] > .folder__btn,
+.app-shell:has(#appLayout[data-view="search"]) .side-nav .folder[data-active] > .folder__btn { background: transparent; color: var(--color-text-muted); }
+.side-nav .folder[data-active] > .folder__btn:hover, .side-nav .folder:hover > .folder__btn { background: var(--color-btn-hover-bg); color: var(--color-text); }
+.side-nav .side-nav__item[data-nav-active="true"],
+.side-nav .folder > .folder__btn[data-nav-active="true"],
+.side-nav .folder[data-active] > .folder__btn[data-nav-active="true"],
+.app-shell:has(#appLayout[data-view="search"]) .side-nav .folder[data-active] > .folder__btn[data-nav-active="true"] {
+  background: var(--color-accent-bg); color: var(--color-accent); font-weight: 700;
+}
+.side-nav .folder:focus-within:not(:hover) > .folder__btn[data-nav-active="true"],
+.side-nav .folder:focus-within > .folder__btn[data-nav-active="true"] {
+  background: var(--color-accent-bg); color: var(--color-accent); font-weight: 700;
+}
+.side-nav .topbtn[data-nav-active="true"], .side-nav .topbtn[data-nav-active="true"]:focus {
+  background: var(--color-accent-bg); color: var(--color-accent); font-weight: 700;
+}

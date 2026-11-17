@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1600';
+const APP_VERSION = '20261117-1615';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1661,6 +1661,7 @@ function markActiveFolderItem() {
   const activeName = folderBar.querySelector('.folder[data-active="true"] .folder__name');
   if (activeName) logoFolderName_ = activeName.textContent.trim();
   updateFolderLogo_();
+  if (window.syncNavActive_) window.syncNavActive_();
   // เว้นที่ใต้แถบโฟลเดอร์ให้แถบรายชื่อไฟล์ เฉพาะตอนที่มีโฟลเดอร์ถูกเปิดใช้อยู่
   folderBar.classList.toggle('folder-bar--with-files',
     !!folderBar.querySelector('.folder__files:not([hidden])'));
@@ -5214,16 +5215,20 @@ function updatePendingBadge_(n) {
   // ไฮไลต์เขียวเฉพาะเมนูของหน้าที่กำลังแสดงเพียงอันเดียว
   function syncNavActive_() {
     const v = layout.dataset.view;
-    sideNav.querySelectorAll('.side-nav__item, .topbtn').forEach(b => {
-      b.classList.remove('topbtn--active');
-      b.removeAttribute('aria-current');
+    sideNav.querySelectorAll('[data-nav-active], [aria-current]').forEach(e => {
+      e.removeAttribute('data-nav-active'); e.removeAttribute('aria-current');
     });
-    const target = v === 'create' ? createBookToggle
-      : v === 'trash' ? bookTrashToggle
-      : v === 'search' ? document.getElementById('navSearch')
-      : viewBtns.find(b => b.dataset.view === v);
-    if (target) target.setAttribute('aria-current', 'page');
+    let target = null;
+    if (v === 'create') target = createBookToggle;
+    else if (v === 'trash') target = bookTrashToggle;
+    else if (v === 'search') {
+      // เปิดไฟล์อยู่ → โฟลเดอร์ของไฟล์นั้นเป็นตัวที่ใช้งาน ไม่งั้นเป็น "ค้นหาข้อมูล"
+      target = (currentBook && sideNav.querySelector('.folder[data-active="true"] > .folder__btn'))
+        || document.getElementById('navSearch');
+    } else target = viewBtns.find(b => b.dataset.view === v);
+    if (target) target.setAttribute('data-nav-active', 'true');
   }
+  window.syncNavActive_ = syncNavActive_;
   function setView(v) {
     layout.dataset.view = v;
     syncNavActive_();
