@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-0930';
+const APP_VERSION = '20261117-0945';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5268,7 +5268,7 @@ function updatePendingBadge_(n) {
   function renderList() {
     if (list.hidden) return;
     if (!lastUsers) {
-      list.innerHTML = '<p class="online-list__msg">ดูรายชื่อได้เฉพาะผู้ดูแลระบบ (ขณะนี้มี ' + lastCount + ' คนออนไลน์)</p>';
+      list.innerHTML = '<p class="online-list__msg">ยังโหลดรายชื่อไม่ได้ (ขณะนี้มี ' + lastCount + ' คนออนไลน์) — ต้องวาง Code.gs ใหม่ใน Apps Script แล้ว Deploy เวอร์ชันใหม่</p>';
       return;
     }
     list.innerHTML = '<div class="online-list__head">ออนไลน์ตอนนี้ · ' + lastUsers.length + ' คน</div>'
