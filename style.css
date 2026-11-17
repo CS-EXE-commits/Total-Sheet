@@ -3618,3 +3618,20 @@ input.datetime-field {
   .side-nav .folder__file:hover { font-size: 14px; transform: translateX(4px); }
   .side-nav .folder__file .sheet-ico { width: 16px; height: 16px; }
 }
+
+/* หน้า: สร้างไฟล์ Google Sheet / ถังขยะไฟล์ (ใช้พาเนลเดิม แสดงกลางหน้า) */
+.layout[data-view="create"] > .view--create,
+.layout[data-view="trash"] > .view--trash { display: flex; }
+.view--create .topmenu__panel, .view--trash .topmenu__panel {
+  position: static; width: 100%; max-width: none; left: auto; right: auto; top: auto;
+  box-shadow: none; transform: none;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 20px;
+}
+.view--create .topmenu__panel[hidden], .view--trash .topmenu__panel[hidden] { display: none; }
+.view--trash .trash-list { max-height: none; }
+.side-nav .topbtn[aria-current="page"] { background: var(--color-accent-bg); color: var(--color-accent); }
+.view--create .topmenu__panel { display: flex; flex-direction: column; gap: 14px; }
+.view--create .topmenu__panel[hidden] { display: none; }
+.view--create .add-field { display: flex; flex-direction: column; gap: 6px; }
+.view--trash .topmenu__panel { display: flex; flex-direction: column; gap: 10px; }
+.view--trash .topmenu__panel[hidden] { display: none; }

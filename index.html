@@ -120,42 +120,12 @@
 
       <div class="topmenu">
         <button type="button" class="topbtn" id="createBookToggle">+ สร้างไฟล์ Google Sheet</button>
-        <div class="topmenu__panel" id="createBookPanel" hidden>
-          <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
-          <div class="add-field">
-            <label for="createBookName">ชื่อไฟล์ใหม่</label>
-            <input type="text" id="createBookName" placeholder="เช่น ปัญหาเติมเงินเกม B">
-          </div>
-          <div class="add-field">
-            <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
-            <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
-          </div>
-          <div class="add-field">
-            <label for="createBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
-            <select id="createBookFolder"></select>
-          </div>
-          <div class="panel-actions">
-            <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
-            <button type="button" class="sidebar-btn" id="createBookCancel">ยกเลิก</button>
-          </div>
-          <p class="sidebar-panel__status" id="createBookStatus"></p>
-        </div>
+        
       </div>
 
       <div class="topmenu">
         <button type="button" class="topbtn" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
-        <div class="topmenu__panel topmenu__panel--trash" id="bookTrashPanel" hidden>
-          <!-- ถังขยะรวม: ข้อมูลที่ลบ (แถว/คอลัมน์) ของทุกไฟล์ + ไฟล์ที่เอาออกจากระบบ -->
-          <p class="trash-section__title">ข้อมูลที่ลบ (แถว / คอลัมน์)</p>
-          <div class="trash-list" id="dataTrashList"></div>
-          <p class="sidebar-panel__status" id="dataTrashStatus"></p>
-          <p class="trash-section__title">ไฟล์ที่เอาออกจากระบบ</p>
-          <div class="trash-list" id="bookTrashList"></div>
-          <p class="sidebar-panel__status" id="bookTrashStatus"></p>
-          <div class="panel-actions">
-            <button type="button" class="sidebar-btn" id="bookTrashClose">ปิด</button>
-          </div>
-        </div>
+        
       </div>
     </div>
   </nav>
@@ -191,6 +161,49 @@
           <button type="button" class="history-more" id="historyMore" hidden>โหลดเพิ่ม</button>
           <p class="report-panel__status" id="reportStatus">กำลังโหลด...</p>
         </section>
+    </section>
+
+
+    <!-- หน้า: สร้างไฟล์ Google Sheet -->
+    <section class="view view--create" id="viewCreate" aria-label="สร้างไฟล์ Google Sheet">
+      <div class="view__head"><h2 class="view__title">＋ สร้างไฟล์ Google Sheet</h2><p class="view__sub">สร้างไฟล์ใหม่ทั้งไฟล์ แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p></div>
+      <div class="topmenu__panel" id="createBookPanel" hidden>
+          <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
+          <div class="add-field">
+            <label for="createBookName">ชื่อไฟล์ใหม่</label>
+            <input type="text" id="createBookName" placeholder="เช่น ปัญหาเติมเงินเกม B">
+          </div>
+          <div class="add-field">
+            <label for="createBookSheetName">ชื่อแท็บแรก (ไม่จำเป็น)</label>
+            <input type="text" id="createBookSheetName" placeholder="เช่น ข้อมูลทั่วไป (เว้นว่างได้)">
+          </div>
+          <div class="add-field">
+            <label for="createBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
+            <select id="createBookFolder"></select>
+          </div>
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn sidebar-btn--accent" id="createBookSubmit">สร้างไฟล์</button>
+            <button type="button" class="sidebar-btn" id="createBookCancel">ยกเลิก</button>
+          </div>
+          <p class="sidebar-panel__status" id="createBookStatus"></p>
+        </div>
+    </section>
+
+    <!-- หน้า: ถังขยะไฟล์ -->
+    <section class="view view--trash" id="viewTrash" aria-label="ถังขยะไฟล์">
+      <div class="view__head"><h2 class="view__title">🗑 ถังขยะไฟล์</h2><p class="view__sub">กู้คืนข้อมูลที่ลบ และไฟล์ที่เอาออกจากระบบ</p></div>
+      <div class="topmenu__panel topmenu__panel--trash" id="bookTrashPanel" hidden>
+          <!-- ถังขยะรวม: ข้อมูลที่ลบ (แถว/คอลัมน์) ของทุกไฟล์ + ไฟล์ที่เอาออกจากระบบ -->
+          <p class="trash-section__title">ข้อมูลที่ลบ (แถว / คอลัมน์)</p>
+          <div class="trash-list" id="dataTrashList"></div>
+          <p class="sidebar-panel__status" id="dataTrashStatus"></p>
+          <p class="trash-section__title">ไฟล์ที่เอาออกจากระบบ</p>
+          <div class="trash-list" id="bookTrashList"></div>
+          <p class="sidebar-panel__status" id="bookTrashStatus"></p>
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn" id="bookTrashClose">ปิด</button>
+          </div>
+        </div>
     </section>
 
     <!-- หน้า: เพิ่มข้อมูล (ฟอร์มเพิ่มข้อมูลย้ายมาไว้ที่นี่ที่เดียว เปิดจากปุ่มเมนู "เพิ่มข้อมูล") -->
