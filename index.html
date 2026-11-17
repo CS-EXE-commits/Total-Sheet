@@ -330,17 +330,9 @@
             <button type="button" id="searchClear" class="search-clear" aria-label="ล้างคำค้นหา" title="ล้างคำค้นหา" hidden><svg viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
             <button type="submit" id="searchButton">ค้นหา</button>
           </form>
-          <select class="toolbar__status-filter" id="statusFilter" hidden></select>
           <button type="button" class="toolbar__btn" id="addToggle" hidden>+ เพิ่มข้อมูล</button>
         </div>
 
-        <div class="table-toolbar" id="tableToolbar" hidden>
-          <select id="pageSizeSelect" aria-label="จำนวนแถวต่อหน้า">
-            <option value="20">แสดง 20 แถว</option>
-            <option value="50">แสดง 50 แถว</option>
-            <option value="100">แสดง 100 แถว</option>
-          </select>
-        </div>
         <p class="results__count" id="resultsCount" hidden></p>
         </div>
 
@@ -369,11 +361,21 @@
 
         <p class="results__hint" id="resultsHint">เลือกแท็บด้านบน หรือพิมพ์คำค้นหาแล้วกด Enter</p>
         <div class="main-table-label" id="mainTableLabel" hidden></div>
+        <div class="table-frame">
+          <div class="table-toolbar" id="tableToolbar" hidden>
+          <select class="toolbar__status-filter" id="statusFilter" hidden></select>
+          <select id="pageSizeSelect" aria-label="จำนวนแถวต่อหน้า">
+            <option value="20">แสดง 20 แถว</option>
+            <option value="50">แสดง 50 แถว</option>
+            <option value="100">แสดง 100 แถว</option>
+          </select>
+        </div>
         <div class="table-wrap" id="tableWrap" hidden>
           <table class="data-table" id="dataTable">
             <thead id="dataTableHead"></thead>
             <tbody id="dataTableBody"></tbody>
           </table>
+        </div>
         </div>
         <div class="pagination" id="pagination" hidden></div>
         <div class="cross-results" id="crossResults" hidden></div>
