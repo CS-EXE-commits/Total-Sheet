@@ -66,6 +66,7 @@
     <div class="side-nav__items">
       <button type="button" class="side-nav__item" id="navSearch" data-view="search" aria-current="page"><span class="side-nav__ico" aria-hidden="true">🔍</span><span class="side-nav__text">ค้นหาข้อมูล</span></button>
       <button type="button" class="side-nav__item" id="navAdd" data-view="add"><span class="side-nav__ico" aria-hidden="true">＋</span><span class="side-nav__text">เพิ่มข้อมูล</span></button>
+      <button type="button" class="side-nav__item" id="createBookToggle"><span class="side-nav__ico side-nav__ico--big" aria-hidden="true">＋</span><span class="side-nav__text">เพิ่ม Sheet</span></button>
       <button type="button" class="side-nav__item" id="navToday" data-view="today"><span class="side-nav__ico" aria-hidden="true">📋</span><span class="side-nav__text">เคสเข้าใหม่วันนี้</span><span class="side-nav__badge side-nav__badge--green" id="navTodayCount" hidden></span></button>
       <button type="button" class="side-nav__item" id="navPending" data-view="pending"><span class="side-nav__ico" aria-hidden="true">⏳</span><span class="side-nav__text">เคสรอตรวจสอบ</span><span class="side-nav__badge side-nav__badge--green" id="navPendingCount" hidden></span></button>
       <button type="button" class="side-nav__item" id="historyToggle" data-view="history"><span class="side-nav__ico" aria-hidden="true">📝</span><span class="side-nav__text">ประวัติการแก้ไข</span></button>
@@ -84,17 +85,13 @@
       </div>
 
       <div class="topmenu">
-        <button type="button" class="topbtn" id="createBookToggle">+ เพิ่มไฟล์ Sheet</button>
+        <button type="button" class="topbtn" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
         
       </div>
 
       <!-- รายงานย้อนหลัง (สลับตำแหน่งมาอยู่ตรงนี้) -->
       <button type="button" class="side-nav__item" id="navReports" data-view="reports"><span class="side-nav__ico" aria-hidden="true">📄</span><span class="side-nav__text">รายงานย้อนหลัง</span></button>
 
-      <div class="topmenu">
-        <button type="button" class="topbtn" id="bookTrashToggle">🗑 ถังขยะไฟล์</button>
-        
-      </div>
     </div>
   </nav>
 

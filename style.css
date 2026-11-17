@@ -3666,3 +3666,14 @@ input.datetime-field {
 .side-nav .folder__file:hover .folder__act { display: inline-flex; }
 .side-nav .folder__act:hover { color: var(--color-accent); background: var(--color-btn-hover-bg); }
 .side-nav .folder__act--danger:hover { color: var(--color-danger); background: var(--color-danger-bg); }
+
+/* แสดงชีทจากโฟลเดอร์ที่ชี้อยู่เพียงโฟลเดอร์เดียว (โฟกัสจากการคลิกไม่ทำให้กล่องค้าง) */
+@media (hover: hover) {
+  .side-nav .folder:not(:hover) .folder__files {
+    opacity: 0 !important; visibility: hidden !important; pointer-events: none !important;
+  }
+  .app-shell:not(:has(.side-nav .folder:hover)) .app-content { transform: none !important; }
+}
+.side-nav .folder__btn:focus, .side-nav .folder__btn:focus-visible, .side-nav .folder__file:focus { outline: none; }
+.side-nav .folder:focus-within:not(:hover) > .folder__btn { background: transparent; color: inherit; transform: none; font-size: inherit; }
+.side-nav__ico--big { font-size: 21px; font-weight: 400; }

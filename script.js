@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1500';
+const APP_VERSION = '20261117-1515';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1532,6 +1532,7 @@ function renderFolderBar(folders) {
         chip.addEventListener('click', (e) => {
           e.stopPropagation();
           closeAllFolders();
+          chip.blur();
           if (book !== currentBook) openBook(book);
         });
         files.appendChild(chip);
@@ -1609,6 +1610,7 @@ function renderFolderBar(folders) {
     wrap.appendChild(menu);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      btn.blur();
       return; // โฟลเดอร์ใช้ได้เฉพาะการชี้เมาส์ ไม่เปิดเมนูเมื่อคลิก
       const willOpen = menu.hidden;
       closeAllFolders();
@@ -1781,7 +1783,6 @@ function anchorAddFilePanel_(anchorEl) {
 function openAddFilePanel_(folderName, anchorEl) {
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   addFilePanel.hidden = false;
   addBookName.value = '';
   addBookUrl.value = '';
@@ -2005,7 +2006,6 @@ function setAddBookStatus(message, type) {
 /** ปิดฟอร์มสร้างไฟล์ใหม่ แล้วล้างค่าที่กรอกไว้ */
 function closeCreateBookPanel_() {
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   createBookName.value = '';
   createBookSheetName.value = '';
   setCreateBookStatus('', null);
@@ -2080,7 +2080,6 @@ bookTrashToggle.addEventListener('click', () => {
   bookTrashPanel.hidden = isOpen;
   addFilePanel.hidden = true;
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   if (!isOpen && Date.now() - trashPrefetchedAt_ > 5000) loadBookTrash();
 });
