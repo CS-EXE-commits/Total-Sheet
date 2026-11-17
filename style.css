@@ -3635,3 +3635,12 @@ input.datetime-field {
 .view--create .add-field { display: flex; flex-direction: column; gap: 6px; }
 .view--trash .topmenu__panel { display: flex; flex-direction: column; gap: 10px; }
 .view--trash .topmenu__panel[hidden] { display: none; }
+
+/* ไฮไลต์เขียวเฉพาะรายการที่เลือกอยู่ — โฟลเดอร์ที่แค่กางออก/มีโฟกัสไม่ติดสีค้าง */
+.side-nav .folder[data-open] > .folder__btn { background: transparent; color: inherit; }
+.side-nav .folder[data-open]:hover > .folder__btn { background: var(--color-btn-hover-bg); color: var(--color-text); }
+.side-nav .folder[data-active] > .folder__btn { background: transparent; }
+.app-shell:has(#appLayout[data-view="search"]) .side-nav .folder[data-active] > .folder__btn { background: var(--color-accent-bg); color: var(--color-accent); }
+.side-nav .topbtn--active, .side-nav .topbtn:focus { background: transparent; color: inherit; }
+.side-nav .topbtn[aria-current="page"] { background: var(--color-accent-bg); color: var(--color-accent); }
+.side-nav .topbtn:hover, .side-nav .folder__btn:hover { background: var(--color-btn-hover-bg); }

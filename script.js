@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1400';
+const APP_VERSION = '20261117-1415';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5204,14 +5204,25 @@ function updatePendingBadge_(n) {
   const sideNav = document.getElementById('sideNav');
   if (!layout || !sideNav) return;
   const viewBtns = Array.from(sideNav.querySelectorAll('.side-nav__item[data-view]'));
+  // ไฮไลต์เขียวเฉพาะเมนูของหน้าที่กำลังแสดงเพียงอันเดียว
+  function syncNavActive_() {
+    const v = layout.dataset.view;
+    sideNav.querySelectorAll('.side-nav__item, .topbtn').forEach(b => {
+      b.classList.remove('topbtn--active');
+      b.removeAttribute('aria-current');
+    });
+    const target = v === 'create' ? createBookToggle
+      : v === 'trash' ? bookTrashToggle
+      : v === 'search' ? document.getElementById('navSearch')
+      : viewBtns.find(b => b.dataset.view === v);
+    if (target) target.setAttribute('aria-current', 'page');
+  }
   function setView(v) {
     layout.dataset.view = v;
+    syncNavActive_();
     // ออกจากหน้าสร้างไฟล์/ถังขยะ → ปิดพาเนลเพื่อให้ปุ่มเปิดใหม่ได้ปกติ
     if (v !== 'create' && !createBookPanel.hidden) { createBookPanel.hidden = true; }
     if (v !== 'trash' && !bookTrashPanel.hidden) { bookTrashPanel.hidden = true; }
-    viewBtns.forEach(b => {
-      if (b.dataset.view === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
-    });
     window.scrollTo({ top: 0 });
   }
   window.setAppView_ = setView;
@@ -5228,12 +5239,6 @@ function updatePendingBadge_(n) {
       if (!panel.hidden) setView(view);
       else if (layout.dataset.view === view && createBookPanel.hidden && bookTrashPanel.hidden) setView('search');
     }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
-  });
-  [[createBookToggle, 'create'], [bookTrashToggle, 'trash']].forEach(([btn, view]) => {
-    btn.addEventListener('click', () => {
-      viewBtns.forEach(b => b.removeAttribute('aria-current'));
-      setTimeout(() => { if (layout.dataset.view === view) btn.setAttribute('aria-current', 'page'); else btn.removeAttribute('aria-current'); }, 0);
-    });
   });
   // ปิดฟอร์ม (บันทึกเสร็จ/ยกเลิก) ขณะอยู่หน้าเพิ่มข้อมูล → กลับหน้าค้นหา
   new MutationObserver(() => {
