@@ -3572,3 +3572,11 @@ input.datetime-field {
 .history-toolbar__pick select{padding:8px 12px;border-radius:10px;border:1px solid var(--border,#d0d7de);background:var(--surface,#fff);color:inherit;font:inherit;cursor:pointer}
 .history-more{display:block;margin:14px auto 0;padding:9px 22px;border-radius:999px;border:1px solid var(--border,#d0d7de);background:var(--surface,#fff);color:inherit;font:inherit;cursor:pointer}
 .history-more:hover{border-color:var(--accent,#3fb950)}
+
+/* ปรับ Dropdown ช่วงเวลา: เล็กลง + ธีมมืดพื้นดำตัวอักษรขาว */
+.history-toolbar__pick{font-size:13px;gap:6px}
+.history-toolbar__pick select{padding:4px 26px 4px 10px;font-size:13px;min-width:0;width:auto;border-radius:8px;background:#fff;color:#111}
+.history-toolbar__pick select option{background:#fff;color:#111}
+:root[data-theme="dark"] .history-toolbar__pick select{background:#000;color:#fff;border-color:#444}
+:root[data-theme="dark"] .history-toolbar__pick select option{background:#000;color:#fff}
+:root[data-theme="dark"] .history-more{background:#000;color:#fff;border-color:#444}

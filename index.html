@@ -171,6 +171,7 @@
       <section class="sidebar-report sidebar-report--popover" id="reportPanel">
           <p class="sidebar-dashboard__title">📝 ประวัติการแก้ไข</p>
           <div class="history-toolbar">
+            <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
             <label class="history-toolbar__pick"><span>ช่วงเวลา</span>
               <select id="historyRange" aria-label="เลือกช่วงเวลาของประวัติการแก้ไข">
                 <option value="today">วันนี้</option>
@@ -183,7 +184,6 @@
                 <option value="10y">ย้อนหลัง 10 ปี</option>
               </select>
             </label>
-            <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
           </div>
           <div class="report-stats" id="reportStats"></div>
           <p class="sidebar-dashboard__subhead" id="reportListTitle">เหตุการณ์วันนี้ล่าสุด (ทุกไฟล์)</p>
