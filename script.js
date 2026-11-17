@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-0900';
+const APP_VERSION = '20261117-0930';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -5252,32 +5252,67 @@ function updatePendingBadge_(n) {
 
 /* ===== จำนวนคนออนไลน์ (มุมขวาล่าง) — ส่ง heartbeat ไป Apps Script ทุก 60 วินาทีขณะเปิดหน้าเว็บอยู่ ===== */
 (function setupOnlineBadge_() {
+  const wrap = document.getElementById('onlineWrap');
   const badge = document.getElementById('onlineBadge');
   const countEl = document.getElementById('onlineCount');
-  if (!badge || !countEl) return;
+  const list = document.getElementById('onlineList');
+  if (!wrap || !badge || !countEl || !list) return;
   const BEAT_MS = 60 * 1000;
-  let lastBeat = 0, busy = false, failures = 0;
-  async function beat() {
+  let lastBeat = 0, busy = false, failures = 0, lastUsers = null, lastCount = 0;
+
+  function agoText(sec) {
+    if (sec == null) return '';
+    if (sec < 45) return 'เมื่อสักครู่';
+    return Math.round(sec / 60) + ' นาทีที่แล้ว';
+  }
+  function renderList() {
+    if (list.hidden) return;
+    if (!lastUsers) {
+      list.innerHTML = '<p class="online-list__msg">ดูรายชื่อได้เฉพาะผู้ดูแลระบบ (ขณะนี้มี ' + lastCount + ' คนออนไลน์)</p>';
+      return;
+    }
+    list.innerHTML = '<div class="online-list__head">ออนไลน์ตอนนี้ · ' + lastUsers.length + ' คน</div>'
+      + lastUsers.map(u => {
+        const o = (typeof u === 'string') ? { name: u, email: '' } : u;
+        const idle = o.agoSec != null && o.agoSec > 100;
+        const showMail = o.email && o.email !== o.name;
+        return '<div class="online-list__row"><span class="online-list__dot' + (idle ? ' online-list__dot--idle' : '') + '"></span>'
+          + '<span class="online-list__who"><span class="online-list__name">' + escapeHtml(o.name) + '</span>'
+          + (showMail ? '<span class="online-list__mail">' + escapeHtml(o.email) + '</span>' : '') + '</span>'
+          + '<span class="online-list__ago">' + escapeHtml(agoText(o.agoSec)) + '</span></div>';
+      }).join('');
+  }
+  function setOpen(open) {
+    list.hidden = !open;
+    badge.setAttribute('aria-expanded', String(open));
+    if (open) { renderList(); beat(true); }
+  }
+  badge.addEventListener('click', (e) => { e.stopPropagation(); setOpen(list.hidden); });
+  document.addEventListener('click', (e) => { if (!list.hidden && !wrap.contains(e.target)) setOpen(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+
+  async function beat(force) {
     if (busy || !currentSessionToken) return;
+    if (!force && Date.now() - lastBeat < BEAT_MS - 2000) return;
     busy = true; lastBeat = Date.now();
     try {
       const r = await jsonpRequest(apiUrl({ action: 'heartbeat' }), 15000);
       if (r && r.ok) {
         failures = 0;
+        lastCount = r.count;
+        lastUsers = Array.isArray(r.users) ? r.users : null;
         countEl.textContent = r.count;
-        badge.title = r.users && r.users.length
-          ? 'ออนไลน์ตอนนี้: ' + r.users.join(', ')
-          : 'จำนวนคนที่ล็อกอินและเปิดเว็บอยู่ตอนนี้';
-        badge.hidden = false;
-      } else if (++failures >= 3) badge.hidden = true;
+        wrap.hidden = false;
+        renderList();
+      } else if (++failures >= 3) wrap.hidden = true;
     } catch (e) {
-      if (++failures >= 3) badge.hidden = true;   // เซิร์ฟเวอร์ยังไม่รองรับ/เชื่อมต่อไม่ได้ ซ่อนไว้ ไม่รบกวนผู้ใช้
+      if (++failures >= 3) wrap.hidden = true;   // เซิร์ฟเวอร์ยังไม่รองรับ/เชื่อมต่อไม่ได้ ซ่อนไว้ ไม่รบกวนผู้ใช้
     } finally { busy = false; }
   }
   setInterval(() => {
-    if (!currentSessionToken) { badge.hidden = true; return; }
+    if (!currentSessionToken) { wrap.hidden = true; list.hidden = true; return; }
     if (document.hidden) return;                       // แท็บที่ซ่อนอยู่ไม่ส่ง ปล่อยให้หมดเวลาเอง
-    if (Date.now() - lastBeat >= BEAT_MS - 2000) beat();
+    beat(false);
   }, 5000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && currentSessionToken) beat(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && currentSessionToken) beat(true); });
 })();
