@@ -82,44 +82,11 @@
       <span class="folder-bar__divider"></span>
 
       <div class="topmenu">
-        <div class="topmenu__panel" id="addFilePanel" hidden>
-          <!-- เลือกว่าจะเอาไฟล์มาจากไหน: วางลิงก์ Google Sheet ที่มีอยู่แล้ว หรือแนบไฟล์จากเครื่อง -->
-          <div class="seg" role="tablist">
-            <button type="button" class="seg__btn" id="addModeLink" data-active="true">🔗 วางลิงก์ชีท</button>
-            <button type="button" class="seg__btn" id="addModeFile">📎 แนบไฟล์จากเครื่อง</button>
-          </div>
-
-          <div class="add-field">
-            <label for="addBookName">ชื่อที่อยากให้แสดง</label>
-            <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
-          </div>
-
-          <div class="add-field" id="addBookUrlField">
-            <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
-            <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
-          </div>
-
-          <div class="add-field" id="addBookFileField" hidden>
-            <label for="addBookFile">ไฟล์จากเครื่อง (.xlsx .xls .csv)</label>
-            <input type="file" id="addBookFile" accept=".xlsx,.xls,.csv">
-            <p class="add-field__hint">ระบบจะสร้างไฟล์ Google Sheet ใหม่แล้วคัดลอกข้อมูลเข้าไปให้ (ไฟล์ต้นฉบับในเครื่องไม่ถูกแก้ไข)</p>
-          </div>
-
-          <div class="add-field">
-            <label for="addBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
-            <select id="addBookFolder"></select>
-          </div>
-
-          <div class="panel-actions">
-            <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
-            <button type="button" class="sidebar-btn" id="addBookCancel">ยกเลิก</button>
-          </div>
-          <p class="sidebar-panel__status" id="addBookStatus"></p>
-        </div>
+        
       </div>
 
       <div class="topmenu">
-        <button type="button" class="topbtn" id="createBookToggle">+ สร้างไฟล์ Google Sheet</button>
+        <button type="button" class="topbtn" id="createBookToggle">+ เพิ่มไฟล์ Sheet</button>
         
       </div>
 
@@ -165,9 +132,43 @@
 
 
     <!-- หน้า: สร้างไฟล์ Google Sheet -->
-    <section class="view view--create" id="viewCreate" aria-label="สร้างไฟล์ Google Sheet">
-      <div class="view__head"><h2 class="view__title">＋ สร้างไฟล์ Google Sheet</h2><p class="view__sub">สร้างไฟล์ใหม่ทั้งไฟล์ แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p></div>
-      <div class="topmenu__panel" id="createBookPanel" hidden>
+    <section class="view view--create" id="viewCreate" aria-label="เพิ่มไฟล์ Sheet">
+      <div class="view__head"><h2 class="view__title">＋ เพิ่มไฟล์ Sheet</h2><p class="view__sub">วางลิงก์ Google Sheet หรือแนบไฟล์จากเครื่อง (.xlsx .xls .csv)</p></div>
+      <div class="topmenu__panel" id="addFilePanel" hidden>
+          <!-- เลือกว่าจะเอาไฟล์มาจากไหน: วางลิงก์ Google Sheet ที่มีอยู่แล้ว หรือแนบไฟล์จากเครื่อง -->
+          <div class="seg" role="tablist">
+            <button type="button" class="seg__btn" id="addModeLink" data-active="true">🔗 วางลิงก์ชีท</button>
+            <button type="button" class="seg__btn" id="addModeFile">📎 แนบไฟล์จากเครื่อง</button>
+          </div>
+
+          <div class="add-field">
+            <label for="addBookName">ชื่อที่อยากให้แสดง</label>
+            <input type="text" id="addBookName" placeholder="เช่น ปัญหาเติมเงินเกม A">
+          </div>
+
+          <div class="add-field" id="addBookUrlField">
+            <label for="addBookUrl">ลิงก์ Google Sheet (หรือ ID)</label>
+            <input type="text" id="addBookUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+          </div>
+
+          <div class="add-field" id="addBookFileField" hidden>
+            <label for="addBookFile">ไฟล์จากเครื่อง (.xlsx .xls .csv)</label>
+            <input type="file" id="addBookFile" accept=".xlsx,.xls,.csv">
+            <p class="add-field__hint">ระบบจะสร้างไฟล์ Google Sheet ใหม่แล้วคัดลอกข้อมูลเข้าไปให้ (ไฟล์ต้นฉบับในเครื่องไม่ถูกแก้ไข)</p>
+          </div>
+
+          <div class="add-field">
+            <label for="addBookFolder">โฟลเดอร์ที่จะนำไปใส่</label>
+            <select id="addBookFolder"></select>
+          </div>
+
+          <div class="panel-actions">
+            <button type="button" class="sidebar-btn sidebar-btn--accent" id="addBookSubmit">เพิ่มไฟล์</button>
+            <button type="button" class="sidebar-btn" id="addBookCancel">ยกเลิก</button>
+          </div>
+          <p class="sidebar-panel__status" id="addBookStatus"></p>
+        </div>
+      <div hidden aria-hidden="true"><div class="topmenu__panel" id="createBookPanel" hidden>
           <p class="sidebar-panel__hint">สร้างไฟล์ Google Sheet ขึ้นมาใหม่ทั้งไฟล์ (ยังไม่มีมาก่อน) แล้วเพิ่มเข้าระบบให้อัตโนมัติ</p>
           <div class="add-field">
             <label for="createBookName">ชื่อไฟล์ใหม่</label>
@@ -186,7 +187,7 @@
             <button type="button" class="sidebar-btn" id="createBookCancel">ยกเลิก</button>
           </div>
           <p class="sidebar-panel__status" id="createBookStatus"></p>
-        </div>
+        </div></div>
     </section>
 
     <!-- หน้า: ถังขยะไฟล์ -->

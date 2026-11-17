@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1415';
+const APP_VERSION = '20261117-1430';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1735,13 +1735,14 @@ function closeAddFilePanel_() {
  * เรียกจากปุ่ม "+ เพิ่มไฟล์" ท้ายเมนูของแต่ละโฟลเดอร์ จึงรู้อยู่แล้วว่าจะเอาไฟล์ไปไว้ที่ไหน
  */
 // ที่อยู่เดิมของฟอร์มเพิ่มไฟล์ (ในแถบด้านบนมุมขวา) ไว้ย้ายกลับเมื่อไม่ได้เปิดจากโฟลเดอร์
-const addFilePanelHome = addFilePanel.parentElement;
+const addFilePanelHome = document.getElementById('viewCreate') || addFilePanel.parentElement;
 
 /**
  * ย้ายฟอร์มเพิ่มไฟล์ไปแปะใต้โฟลเดอร์ที่กดมา เพื่อให้ป๊อปอัปโผล่ตรงโฟลเดอร์นั้น
  * ไม่ใช่ไปโผล่มุมขวาบนซึ่งอยู่คนละที่กับที่ผู้ใช้กด
  */
 function anchorAddFilePanel_(anchorEl) {
+  anchorEl = null; // แสดงเป็นหน้ากลางเสมอ ไม่เด้งที่โฟลเดอร์แล้ว
   const host = anchorEl || addFilePanelHome;
   if (addFilePanel.parentElement !== host) host.appendChild(addFilePanel);
   addFilePanel.classList.toggle('topmenu__panel--anchored', !!anchorEl);
@@ -1769,7 +1770,7 @@ function anchorAddFilePanel_(anchorEl) {
 function openAddFilePanel_(folderName, anchorEl) {
   bookTrashPanel.hidden = true;
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
+  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   addFilePanel.hidden = false;
   addBookName.value = '';
   addBookUrl.value = '';
@@ -1993,24 +1994,18 @@ function setAddBookStatus(message, type) {
 /** ปิดฟอร์มสร้างไฟล์ใหม่ แล้วล้างค่าที่กรอกไว้ */
 function closeCreateBookPanel_() {
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
+  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   createBookName.value = '';
   createBookSheetName.value = '';
   setCreateBookStatus('', null);
 }
 
 createBookToggle.addEventListener('click', () => {
-  const isOpen = !createBookPanel.hidden;
-  if (isOpen) { closeCreateBookPanel_(); return; }
-
-  addFilePanel.hidden = true;
+  // ปุ่มนี้คือ "เพิ่มไฟล์ Sheet" (ลิงก์ / แนบไฟล์) ใช้ฟอร์มเพิ่มไฟล์เดิม แสดงเป็นหน้ากลาง
+  if (!addFilePanel.hidden) { closeAddFilePanel_(); return; }
   bookTrashPanel.hidden = true;
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
-  createBookPanel.hidden = false;
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
-  createBookName.value = '';
-  createBookSheetName.value = '';
-  setCreateBookStatus('', null);
+  openAddFilePanel_('', null);
 });
 
 if (createBookCancel) createBookCancel.addEventListener('click', closeCreateBookPanel_);
@@ -2074,7 +2069,7 @@ bookTrashToggle.addEventListener('click', () => {
   bookTrashPanel.hidden = isOpen;
   addFilePanel.hidden = true;
   createBookPanel.hidden = true;
-  createBookToggle.textContent = '+ สร้างไฟล์ Google Sheet';
+  createBookToggle.textContent = '+ เพิ่มไฟล์ Sheet';
   bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   if (!isOpen && Date.now() - trashPrefetchedAt_ > 5000) loadBookTrash();
 });
@@ -3391,7 +3386,7 @@ const addSheetsCache_ = {};
 function fillAddBookSelect_() {
   addTargetBookSel.innerHTML = '';
   const ph = document.createElement('option');
-  ph.value = ''; ph.textContent = '-- เลือกไฟล์ --';
+  ph.value = ''; ph.textContent = 'กรุณาเลือกไฟล์';
   addTargetBookSel.appendChild(ph);
   const used = {};
   (knownFolders || []).forEach(f => {
@@ -3409,7 +3404,7 @@ function fillAddBookSelect_() {
 async function fillAddSheetSelect_(book, preselect) {
   addTargetSheetSel.innerHTML = '';
   const ph = document.createElement('option');
-  ph.value = ''; ph.textContent = book ? '-- เลือกแท็บ --' : '-- เลือกไฟล์ก่อน --';
+  ph.value = ''; ph.textContent = 'กรุณาเลือกแท็บ';
   addTargetSheetSel.appendChild(ph);
   addTargetSheetSel.disabled = !book;
   if (!book) return;
@@ -3427,7 +3422,7 @@ async function fillAddSheetSelect_(book, preselect) {
       return;
     }
     if (addTargetBookSel.value !== book) return; // ผู้ใช้เปลี่ยนไฟล์ไปแล้วระหว่างรอ
-    ph.textContent = '-- เลือกแท็บ --';
+    ph.textContent = 'กรุณาเลือกแท็บ';
   }
   sheets.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; addTargetSheetSel.appendChild(o); });
   if (preselect && sheets.indexOf(preselect) !== -1) addTargetSheetSel.value = preselect;
@@ -3435,7 +3430,7 @@ async function fillAddSheetSelect_(book, preselect) {
 
 /** เปิดฟอร์มเพิ่มข้อมูล: ตั้งค่าเริ่มต้นเป็นไฟล์/แท็บที่เปิดอยู่ (ถ้ามี) แต่เปลี่ยนได้ทันที */
 async function openAddTargetPicker_() {
-  addTarget = { book: currentBook || '', sheet: selectedSheet || '' };
+  addTarget = { book: '', sheet: '' }; // เปิดหน้าเปล่าเสมอ ต้องเลือกไฟล์/แท็บก่อน
   fillAddBookSelect_();
   addTargetBookSel.value = addTarget.book;
   await fillAddSheetSelect_(addTarget.book, addTarget.sheet);
@@ -3472,6 +3467,7 @@ async function loadAddFields() {
   addPanelSheetName.textContent = sheet;
   addFields.innerHTML = '';
   addSubmitButton.disabled = true;
+  addPanel.classList.toggle('add-panel--empty', !book || !sheet);
   if (!book || !sheet) {
     setAddStatus(!book ? 'เลือกไฟล์และแท็บที่ต้องการเพิ่มข้อมูล' : 'เลือกแท็บที่ต้องการเพิ่มข้อมูล', null);
     return;
@@ -5188,6 +5184,7 @@ logoutButton.addEventListener('click', (e) => {
     workspace.hidden = false;
     hint.hidden = true;
     if (addPanel.hidden) addToggle.click();
+    else if (!addFormHasUnsavedInput_()) openAddTargetPicker_(); // กดซ้ำ → กลับหน้าเปล่า (ถ้ายังไม่ได้กรอกอะไรค้างไว้)
   });
 })();
 
@@ -5221,7 +5218,7 @@ function updatePendingBadge_(n) {
     layout.dataset.view = v;
     syncNavActive_();
     // ออกจากหน้าสร้างไฟล์/ถังขยะ → ปิดพาเนลเพื่อให้ปุ่มเปิดใหม่ได้ปกติ
-    if (v !== 'create' && !createBookPanel.hidden) { createBookPanel.hidden = true; }
+    if (v !== 'create' && !addFilePanel.hidden) { closeAddFilePanel_(); }
     if (v !== 'trash' && !bookTrashPanel.hidden) { bookTrashPanel.hidden = true; }
     window.scrollTo({ top: 0 });
   }
@@ -5234,10 +5231,10 @@ function updatePendingBadge_(n) {
     if (addPanel.hidden) addToggle.click();
   });
   // สร้างไฟล์ Google Sheet / ถังขยะไฟล์ — แสดงเป็นหน้ากลางเหมือนฟังก์ชันอื่น (ใช้พาเนลเดิม ฟังก์ชันไม่เปลี่ยน)
-  [[createBookPanel, 'create', 'navCreate'], [bookTrashPanel, 'trash', 'navTrash']].forEach(([panel, view]) => {
+  [[addFilePanel, 'create', 'navCreate'], [bookTrashPanel, 'trash', 'navTrash']].forEach(([panel, view]) => {
     new MutationObserver(() => {
       if (!panel.hidden) setView(view);
-      else if (layout.dataset.view === view && createBookPanel.hidden && bookTrashPanel.hidden) setView('search');
+      else if (layout.dataset.view === view && addFilePanel.hidden && bookTrashPanel.hidden) setView('search');
     }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   });
   // ปิดฟอร์ม (บันทึกเสร็จ/ยกเลิก) ขณะอยู่หน้าเพิ่มข้อมูล → กลับหน้าค้นหา
