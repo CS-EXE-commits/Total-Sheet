@@ -3564,3 +3564,11 @@ input.datetime-field {
 .view--history .sidebar-report--popover > .sidebar-dashboard__title { display: none; }
 .view--history .report-log-list { max-height: none; }
 .view--history .report-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+
+/* ประวัติการแก้ไข: Dropdown ช่วงเวลา + ปุ่มโหลดเพิ่ม */
+.history-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 12px}
+.history-toolbar .sidebar-report__label{margin:0}
+.history-toolbar__pick{display:flex;align-items:center;gap:8px;font-weight:600}
+.history-toolbar__pick select{padding:8px 12px;border-radius:10px;border:1px solid var(--border,#d0d7de);background:var(--surface,#fff);color:inherit;font:inherit;cursor:pointer}
+.history-more{display:block;margin:14px auto 0;padding:9px 22px;border-radius:999px;border:1px solid var(--border,#d0d7de);background:var(--surface,#fff);color:inherit;font:inherit;cursor:pointer}
+.history-more:hover{border-color:var(--accent,#3fb950)}

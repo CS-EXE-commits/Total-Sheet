@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-1015';
+const APP_VERSION = '20261117-1130';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4061,26 +4061,61 @@ trashToggle.addEventListener('click', () => {
  * อ่านจาก Log กลางอย่างเดียว ไม่ผูกกับแท็บที่เปิดอยู่ จึงโหลดได้ตั้งแต่เปิดหน้าเว็บ
  * ก่อนหน้านี้ต้องเลือกแท็บก่อนถึงจะเห็น และถ้าวันนั้นไปแก้งานอยู่แท็บอื่น ช่องนี้จะว่างเปล่า
  */
-async function loadDailyReport() {
+let historyReq_ = 0;
+let historyEvents_ = [];
+
+async function loadDailyReport(append) {
+  const sel = document.getElementById('historyRange');
+  const more = document.getElementById('historyMore');
+  const range = sel ? sel.value : 'today';
+  const offset = append ? historyEvents_.length : 0;
+  const myReq = ++historyReq_;
+  if (!append) {
+    historyEvents_ = [];
+    reportLogList.innerHTML = '';
+    if (more) more.hidden = true;
+  }
   setReportStatus('กำลังโหลด...', null);
+  if (sel) sel.disabled = true;
   try {
-    const result = await jsonpRequest(apiUrl({ action: 'activityToday' }));
+    const result = await jsonpRequest(apiUrl({ action: 'historyRange', range, offset: String(offset) }), 60000);
+    if (myReq !== historyReq_) return; // มีการเลือกช่วงใหม่แล้ว ทิ้งผลเก่า
     if (!result.ok) throw new Error(result.error || 'โหลดประวัติการแก้ไขไม่สำเร็จ');
-    reportPanelDate.textContent = formatDateDisplay(result.date);
-    renderReportStats(result);
-    renderReportLogList(result);
+    historyEvents_ = historyEvents_.concat(result.events || []);
+    reportPanelDate.textContent = result.from === result.to
+      ? formatDateDisplay(result.to)
+      : formatDateDisplay(result.from) + ' – ' + formatDateDisplay(result.to);
+    renderReportStats({
+      addedToday: result.added, editedToday: result.edited, deletedToday: result.deleted,
+      restoredToday: result.restored, booksTouched: result.booksTouched
+    }, result.range);
+    const title = document.getElementById('reportListTitle');
+    if (title) title.textContent = `${result.label} · ${result.total.toLocaleString('th-TH')} เหตุการณ์` +
+      (result.total > historyEvents_.length ? ` (แสดง ${historyEvents_.length.toLocaleString('th-TH')})` : '');
+    renderReportLogList({ recentAll: historyEvents_ }, result.label);
+    if (more) more.hidden = !result.hasMore;
     setReportStatus('', null);
   } catch (err) {
-    setReportStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+    if (myReq === historyReq_) setReportStatus('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  } finally {
+    if (myReq === historyReq_ && sel) sel.disabled = false;
   }
 }
 
-function renderReportStats(result) {
+(function setupHistoryRange_() {
+  const sel = document.getElementById('historyRange');
+  const more = document.getElementById('historyMore');
+  if (sel) sel.addEventListener('change', () => loadDailyReport(false));
+  if (more) more.addEventListener('click', () => loadDailyReport(true));
+})();
+
+function renderReportStats(result, rangeKey) {
+  const suffix = (!rangeKey || rangeKey === 'today') ? 'วันนี้' : 'ในช่วงนี้';
   const stats = [
-    { label: 'เพิ่มวันนี้', value: result.addedToday },
-    { label: 'แก้ไขวันนี้', value: result.editedToday },
-    { label: 'ลบวันนี้', value: result.deletedToday },
-    { label: 'กู้คืนวันนี้', value: result.restoredToday },
+    { label: 'เพิ่ม' + suffix, value: result.addedToday },
+    { label: 'แก้ไข' + suffix, value: result.editedToday },
+    { label: 'ลบ' + suffix, value: result.deletedToday },
+    { label: 'กู้คืน' + suffix, value: result.restoredToday },
     { label: 'ไฟล์ที่มีการแก้ไข', value: result.booksTouched },
   ];
   reportStats.innerHTML = stats.map(s => `
@@ -4116,11 +4151,11 @@ function renderReportStatusList(result) {
 // (ยังดูได้ครบในหน้าตรวจสอบการใช้งาน และตาราง login_history ใน Supabase)
 const NON_EDIT_ACTIONS = ['เข้าสู่ระบบ', 'ออกจากระบบ'];
 
-function renderReportLogList(result) {
+function renderReportLogList(result, label) {
   const events = (result.recentAll || result.recentToday || [])
     .filter(item => NON_EDIT_ACTIONS.indexOf((item.action || '').trim()) === -1);
   if (events.length === 0) {
-    reportLogList.innerHTML = '<p class="report-panel__status">วันนี้ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในไฟล์ใดเลย</p>';
+    reportLogList.innerHTML = '<p class="report-panel__status">' + escapeHtml((label || 'วันนี้') + ' ยังไม่มีการเพิ่ม/แก้ไข/ลบข้อมูลในไฟล์ใดเลย') + '</p>';
     return;
   }
   reportLogList.innerHTML = events.map(item => {

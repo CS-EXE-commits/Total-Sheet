@@ -170,10 +170,25 @@
       <div class="view__head"><h2 class="view__title">📝 ประวัติการแก้ไข</h2><p class="view__sub">เหตุการณ์ล่าสุดของทุกไฟล์ทุกแท็บ</p></div>
       <section class="sidebar-report sidebar-report--popover" id="reportPanel">
           <p class="sidebar-dashboard__title">📝 ประวัติการแก้ไข</p>
-          <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
+          <div class="history-toolbar">
+            <label class="history-toolbar__pick"><span>ช่วงเวลา</span>
+              <select id="historyRange" aria-label="เลือกช่วงเวลาของประวัติการแก้ไข">
+                <option value="today">วันนี้</option>
+                <option value="7d">ย้อนหลัง 7 วัน</option>
+                <option value="30d">ย้อนหลัง 30 วัน</option>
+                <option value="6m">ย้อนหลัง 6 เดือน</option>
+                <option value="1y">ย้อนหลัง 1 ปี</option>
+                <option value="3y">ย้อนหลัง 3 ปี</option>
+                <option value="5y">ย้อนหลัง 5 ปี</option>
+                <option value="10y">ย้อนหลัง 10 ปี</option>
+              </select>
+            </label>
+            <p class="sidebar-report__label">ทุกไฟล์ทุกแท็บ · <span id="reportPanelDate"></span></p>
+          </div>
           <div class="report-stats" id="reportStats"></div>
-          <p class="sidebar-dashboard__subhead">เหตุการณ์วันนี้ล่าสุด (ทุกไฟล์)</p>
+          <p class="sidebar-dashboard__subhead" id="reportListTitle">เหตุการณ์วันนี้ล่าสุด (ทุกไฟล์)</p>
           <div class="report-log-list" id="reportLogList"></div>
+          <button type="button" class="history-more" id="historyMore" hidden>โหลดเพิ่ม</button>
           <p class="report-panel__status" id="reportStatus">กำลังโหลด...</p>
         </section>
     </section>
