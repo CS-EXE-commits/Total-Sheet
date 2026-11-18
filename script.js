@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261118-0955';
+const APP_VERSION = '20261118-1010';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1036,7 +1036,7 @@ async function tryLoginGoogle(idToken) {
       ? applyBooksResult_(result)
       : await loadBooks();
     await waitForSupabaseOrGiveUp_(supaTask);
-    restoreLastView(books);
+    restoreLastView(books, true);
     initGlobalDashboard();
     loadDailyReport();
   } catch (err) {
@@ -1070,6 +1070,7 @@ logoutButton.addEventListener('click', () => {
   if (typeof supaClearSession === 'function') supaClearSession();
   if (typeof supaClearMetaCache === 'function') supaClearMetaCache();
   currentSessionToken = '';
+  clearSavedView_();
   localStorage.removeItem('sheetSearchLastBook');
   localStorage.removeItem('sheetSearchLastSheet');
   localStorage.removeItem('sheetSearchLastKeyword');
@@ -1115,9 +1116,37 @@ logoutButton.addEventListener('click', () => {
  * เมื่อรีเฟรชหน้าเว็บไซต์แล้วล็อกอินอัตโนมัติสำเร็จ ให้กลับไปที่ไฟล์และแท็บล่าสุดที่เปิดไว้
  * (จำไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น) แทนที่จะย้อนกลับไปหน้าเริ่มต้นเปล่าๆ ทุกครั้ง
  */
-function restoreLastView(books) {
-  // ล็อกอินเข้ามาใหม่/รีเฟรช → เริ่มที่หน้า "ค้นหาข้อมูล" เสมอ ไม่เปิดไฟล์เดิมกลับมาเอง
-  try { if (window.setAppView_) window.setAppView_('search'); } catch (e) { /* ignore */ }
+const VIEW_KEY_ = 'sheetSearchView';       // หน้าที่ใช้งานอยู่ (อยู่ได้ตลอดการรีเฟรช F5 ของแท็บนี้)
+const HOME_KEY_ = 'sheetSearchHome';       // 1 = อยู่หน้าค้นหาแบบยังไม่เปิดไฟล์
+const VIEW_NAV_IDS_ = { add: 'navAdd', today: 'navToday', pending: 'navPending', history: 'historyToggle', reports: 'navReports', create: 'createBookToggle', trash: 'bookTrashToggle' };
+
+function clearSavedView_() {
+  try { sessionStorage.removeItem(VIEW_KEY_); sessionStorage.removeItem(HOME_KEY_); } catch (e) { /* ignore */ }
+}
+
+/**
+ * fresh = true  → เพิ่งล็อกอินเข้ามาใหม่: เริ่มที่หน้า "ค้นหาข้อมูล" เสมอ
+ * fresh = false → รีเฟรช (F5): กลับไปหน้าที่ใช้อยู่ก่อนรีเฟรช
+ */
+function restoreLastView(books, fresh) {
+  try {
+    if (fresh) { clearSavedView_(); if (window.setAppView_) window.setAppView_('search'); return; }
+    let view = '', home = '';
+    try { view = sessionStorage.getItem(VIEW_KEY_) || ''; home = sessionStorage.getItem(HOME_KEY_) || ''; } catch (e) { /* ignore */ }
+    if (!view) { if (window.setAppView_) window.setAppView_('search'); return; }   // เข้าครั้งแรกของแท็บนี้ → หน้าค้นหา
+    if (view !== 'search') {
+      const btn = document.getElementById(VIEW_NAV_IDS_[view]);
+      if (btn) { btn.click(); return; }
+    }
+    if (window.setAppView_) window.setAppView_('search');
+    if (home === '1') return;                                                     // อยู่หน้าค้นหาที่ยังไม่เปิดไฟล์ → คงไว้
+    const savedBook = localStorage.getItem('sheetSearchLastBook');
+    if (savedBook && Array.isArray(books) && books.includes(savedBook)) {
+      const savedSheet = localStorage.getItem('sheetSearchLastSheet') || '';
+      const savedKeyword = savedSheet ? (localStorage.getItem('sheetSearchLastKeyword') || '') : '';
+      openBook(savedBook, savedSheet, savedKeyword);
+    }
+  } catch (e) { /* ถ้าอ่านที่เก็บค่าไม่ได้ ก็แค่อยู่หน้าค้นหา */ }
 }
 
 function setLoginStatus(message, type) {
@@ -2232,7 +2261,7 @@ async function openBook(book, initialSheet, initialKeyword) {
   lastKeyword = '';
   input.value = '';
 
-  try { localStorage.setItem('sheetSearchLastBook', book); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('sheetSearchLastBook', book); sessionStorage.removeItem(HOME_KEY_); sessionStorage.setItem(VIEW_KEY_, 'search'); } catch (e) { /* ignore */ }
 
   mainEmpty.hidden = true;
   workspace.hidden = false;
@@ -5209,6 +5238,7 @@ function updatePendingBadge_(n) {
   new MutationObserver(syncNavActive_).observe(workspace, { attributes: true, attributeFilter: ['hidden'] });
   function setView(v) {
     layout.dataset.view = v;
+    try { if (currentSessionToken) sessionStorage.setItem(VIEW_KEY_, v); } catch (e) { /* ignore */ }
     syncNavActive_();
     // ออกจากหน้าสร้างไฟล์/ถังขยะ → ปิดพาเนลเพื่อให้ปุ่มเปิดใหม่ได้ปกติ
     if (v !== 'create' && !addFilePanel.hidden) { closeAddFilePanel_(); }
@@ -5228,6 +5258,7 @@ function updatePendingBadge_(n) {
   const navSearch = document.getElementById('navSearch');
   if (navSearch) navSearch.addEventListener('click', () => {
     if (currentBook && !confirmDiscardAddForm_()) return;
+    try { sessionStorage.setItem(HOME_KEY_, '1'); sessionStorage.setItem(VIEW_KEY_, 'search'); } catch (e) { /* ignore */ }
     currentBook = '';
     selectedSheet = '';
     lastKeyword = '';
