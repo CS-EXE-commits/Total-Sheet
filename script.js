@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261118-0900';
+const APP_VERSION = '20261118-0925';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1116,17 +1116,8 @@ logoutButton.addEventListener('click', () => {
  * (จำไว้ใน localStorage ของเบราว์เซอร์นี้เท่านั้น) แทนที่จะย้อนกลับไปหน้าเริ่มต้นเปล่าๆ ทุกครั้ง
  */
 function restoreLastView(books) {
-  try {
-    const savedBook = localStorage.getItem('sheetSearchLastBook');
-    if (savedBook && Array.isArray(books) && books.includes(savedBook)) {
-      const savedSheet = localStorage.getItem('sheetSearchLastSheet') || '';
-      // คืนคำค้นเดิมด้วย — รีเฟรชแล้วต้องอยู่ที่ไฟล์/แท็บ/คำค้นเดิม
-      const savedKeyword = savedSheet ? (localStorage.getItem('sheetSearchLastKeyword') || '') : '';
-      openBook(savedBook, savedSheet, savedKeyword);
-    }
-  } catch (e) {
-    // ถ้าอ่าน localStorage ไม่ได้ด้วยเหตุผลใดก็ตาม ก็แค่ไม่ย้อนกลับ ไม่ต้องทำให้หน้าเว็บพัง
-  }
+  // ล็อกอินเข้ามาใหม่/รีเฟรช → เริ่มที่หน้า "ค้นหาข้อมูล" เสมอ ไม่เปิดไฟล์เดิมกลับมาเอง
+  try { if (window.setAppView_) window.setAppView_('search'); } catch (e) { /* ignore */ }
 }
 
 function setLoginStatus(message, type) {
@@ -2305,7 +2296,7 @@ function createTabSelect_(sheets) {
   select.setAttribute('aria-label', 'เลือกแท็บ');
   const blank = document.createElement('option');
   blank.value = '';
-  blank.textContent = '- กรุณาเลือกแท็บข้อมูลในชีท -';
+  blank.textContent = 'กรุณาเลือกแท็บที่ต้องการ';
   select.appendChild(blank);
   sheets.forEach(s => {
     const opt = document.createElement('option');
