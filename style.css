@@ -3759,3 +3759,7 @@ body:not([data-game-logo="1"]) #folderLogo { display: none !important; }
 .case-table .case-row__status-cell { text-align: right; }
 .case-table th:last-child { text-align: right; }
 .view--today .sidebar-dashboard, .view--pending .sidebar-card { overflow: visible; }
+
+/* รายชื่อคนออนไลน์: เวลาออนไลน์ + เวลาที่เข้าใช้งาน */
+.online-list__time { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right; white-space: nowrap; }
+.online-list__since { font-size: 11px; opacity: .65; }

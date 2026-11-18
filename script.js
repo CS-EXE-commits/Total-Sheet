@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261118-1010';
+const APP_VERSION = '20261118-1350';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -1130,7 +1130,7 @@ function clearSavedView_() {
  */
 function restoreLastView(books, fresh) {
   try {
-    if (fresh) { clearSavedView_(); if (window.setAppView_) window.setAppView_('search'); return; }
+    if (fresh) { clearSavedView_(); try { sessionStorage.setItem('sheetSearchSince', String(Date.now())); } catch (e) { /* ignore */ } if (window.setAppView_) window.setAppView_('search'); return; }
     let view = '', home = '';
     try { view = sessionStorage.getItem(VIEW_KEY_) || ''; home = sessionStorage.getItem(HOME_KEY_) || ''; } catch (e) { /* ignore */ }
     if (!view) { if (window.setAppView_) window.setAppView_('search'); return; }   // เข้าครั้งแรกของแท็บนี้ → หน้าค้นหา
@@ -5333,10 +5333,27 @@ function updatePendingBadge_(n) {
   const BEAT_MS = 60 * 1000;
   let lastBeat = 0, busy = false, failures = 0, lastUsers = null, lastCount = 0;
 
-  function agoText(sec) {
-    if (sec == null) return '';
-    if (sec < 45) return 'เมื่อสักครู่';
-    return Math.round(sec / 60) + ' นาทีที่แล้ว';
+  // เวลาที่ล็อกอินเข้ามาในแท็บนี้ (อยู่ได้ตลอดการรีเฟรช) ส่งไปให้เซิร์ฟเวอร์ใช้เป็นเวลาเริ่มออนไลน์
+  function mySince_() {
+    try {
+      let s = sessionStorage.getItem('sheetSearchSince');
+      if (!s) { s = String(Date.now()); sessionStorage.setItem('sheetSearchSince', s); }
+      return s;
+    } catch (e) { return ''; }
+  }
+  function durText(ms) {
+    const min = Math.max(0, Math.floor(ms / 60000));
+    if (min < 1) return 'ไม่ถึง 1 นาที';
+    if (min < 60) return min + ' นาที';
+    const h = Math.floor(min / 60), m = min % 60;
+    if (h < 24) return h + ' ชม.' + (m ? ' ' + m + ' นาที' : '');
+    return Math.floor(h / 24) + ' วัน ' + (h % 24) + ' ชม.';
+  }
+  function sinceBlock_(o) {
+    if (!o.sinceMs) return '';
+    const t = new Date(o.sinceMs).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    return '<span class="online-list__ago">ออนไลน์ ' + escapeHtml(durText(Date.now() - o.sinceMs)) + '</span>'
+      + '<span class="online-list__since">เข้าใช้งาน ' + escapeHtml(t) + ' น.</span>';
   }
   function renderList() {
     if (list.hidden) return;
@@ -5352,7 +5369,7 @@ function updatePendingBadge_(n) {
         return '<div class="online-list__row"><span class="online-list__dot' + (idle ? ' online-list__dot--idle' : '') + '"></span>'
           + '<span class="online-list__who"><span class="online-list__name">' + escapeHtml(o.name) + '</span>'
           + (showMail ? '<span class="online-list__mail">' + escapeHtml(o.email) + '</span>' : '') + '</span>'
-          + '<span class="online-list__ago">' + escapeHtml(agoText(o.agoSec)) + '</span></div>';
+          + '<span class="online-list__time">' + (sinceBlock_(o) || '<span class="online-list__ago">กำลังใช้งาน</span>') + '</span></div>';
       }).join('');
   }
   function setOpen(open) {
@@ -5369,7 +5386,7 @@ function updatePendingBadge_(n) {
     if (!force && Date.now() - lastBeat < BEAT_MS - 2000) return;
     busy = true; lastBeat = Date.now();
     try {
-      const r = await jsonpRequest(apiUrl({ action: 'heartbeat' }), 15000);
+      const r = await jsonpRequest(apiUrl({ action: 'heartbeat', since: mySince_() }), 15000);
       if (r && r.ok) {
         failures = 0;
         lastCount = r.count;
