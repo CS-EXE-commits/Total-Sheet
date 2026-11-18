@@ -3732,3 +3732,8 @@ body:not([data-game-logo="1"]) #folderLogo { display: none !important; }
 .workspace:has(.tab-select option:checked[value=""]) .results__hint { display: none !important; }
 .tab-select { text-align: center; text-align-last: center; }
 .tab-select option { text-align: center; }
+
+/* ข้อความ "- กรุณาเลือกแท็บข้อมูลในชีท -" เป็นสีเทาแบบ placeholder ของช่องค้นหา */
+.tab-select:has(option:checked[value=""]) { color: #757575; font-weight: 400; }
+.tab-select option { color: var(--color-text); font-weight: 500; }
+.tab-select option[value=""] { color: #757575; font-weight: 400; }
