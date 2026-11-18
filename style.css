@@ -3737,3 +3737,15 @@ body:not([data-game-logo="1"]) #folderLogo { display: none !important; }
 .tab-select:has(option:checked[value=""]) { color: #757575; font-weight: 400; }
 .tab-select option { color: var(--color-text); font-weight: 500; }
 .tab-select option[value=""] { color: #757575; font-weight: 400; }
+
+/* ช่องเลือกแท็บ: ข้อความชิดซ้ายด้านหน้า หน้าตาเหมือนช่องค้นหา */
+.tab-select {
+  text-align: left; text-align-last: left;
+  padding: 12px 42px 12px 20px; font-size: 14px; letter-spacing: .01em;
+  min-width: 420px; height: 46px; border-radius: 12px;
+  background-color: var(--color-surface); box-shadow: var(--shadow-sm);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.tab-select:focus, .tab-select:hover { border-color: var(--color-accent); box-shadow: var(--shadow-card); outline: none; }
+.tab-select option { text-align: left; }
+@media (max-width: 560px) { .tab-select { min-width: 0; width: 100%; } }
