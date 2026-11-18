@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261117-2000';
+const APP_VERSION = '20261118-0845';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2016,7 +2016,6 @@ createBookToggle.addEventListener('click', () => {
   // ปุ่มนี้คือ "เพิ่มไฟล์ Sheet" (ลิงก์ / แนบไฟล์) ใช้ฟอร์มเพิ่มไฟล์เดิม แสดงเป็นหน้ากลาง
   if (!addFilePanel.hidden) { closeAddFilePanel_(); return; }
   bookTrashPanel.hidden = true;
-  bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   openAddFilePanel_('', null);
 });
 
@@ -2081,7 +2080,6 @@ bookTrashToggle.addEventListener('click', () => {
   bookTrashPanel.hidden = isOpen;
   addFilePanel.hidden = true;
   createBookPanel.hidden = true;
-  bookTrashToggle.textContent = '🗑 ถังขยะไฟล์';
   if (!isOpen && Date.now() - trashPrefetchedAt_ > 5000) loadBookTrash();
 });
 
@@ -5228,9 +5226,11 @@ function updatePendingBadge_(n) {
     } else target = viewBtns.find(b => b.dataset.view === v);
     if (target) target.setAttribute('data-nav-active', 'true');
     // โลโก้เกมแสดงเฉพาะตอนเปิดไฟล์ของเกมนั้นอยู่ในหน้าค้นหา
-    document.body.dataset.gameLogo = (v === 'search' && currentBook) ? '1' : '';
+    document.body.dataset.gameLogo = (v === 'search' && currentBook && !workspace.hidden) ? '1' : '';
   }
   window.syncNavActive_ = syncNavActive_;
+  // เปิด/ปิดพื้นที่ทำงานของไฟล์ → อัปเดตโลโก้เกม
+  new MutationObserver(syncNavActive_).observe(workspace, { attributes: true, attributeFilter: ['hidden'] });
   function setView(v) {
     layout.dataset.view = v;
     syncNavActive_();
