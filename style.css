@@ -3749,3 +3749,13 @@ body:not([data-game-logo="1"]) #folderLogo { display: none !important; }
 .tab-select:focus, .tab-select:hover { border-color: var(--color-accent); box-shadow: var(--shadow-card); outline: none; }
 .tab-select option { text-align: left; }
 @media (max-width: 560px) { .tab-select { min-width: 0; width: 100%; } }
+
+/* เคสเข้าใหม่วันนี้ / เคสรอตรวจสอบ: แสดงเป็นตารางแบบแยกแถว */
+.case-table-wrap { max-height: none; }
+.case-table th, .case-table td { text-align: left; white-space: nowrap; }
+.case-table td { overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.case-table .case-row { cursor: pointer; }
+.case-table .case-row__num { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.case-table .case-row__status-cell { text-align: right; }
+.case-table th:last-child { text-align: right; }
+.view--today .sidebar-dashboard, .view--pending .sidebar-card { overflow: visible; }

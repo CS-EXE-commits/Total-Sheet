@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261118-0940';
+const APP_VERSION = '20261118-0955';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4266,19 +4266,21 @@ function renderDashboardTodayStatus_(result) {
   }
   const dateText = formatDateDisplay(result.date);
   // รายการเคสวันนี้ (ใหม่สุดก่อน) แต่ละเคสแสดงสถานะปัจจุบันของเคสนั้นไว้ด้านขวา
-  box.innerHTML = cases.map(c => {
+  box.innerHTML = `<div class="table-wrap case-table-wrap"><table class="data-table case-table">
+    <thead><tr><th>วันที่ · เวลา</th><th>ไฟล์</th><th>แท็บ</th><th>แถวที่</th><th>สถานะ</th></tr></thead>
+    <tbody>` + cases.map(c => {
     const st = (c.status || '').trim();
     const noStatus = !st || st === NO_STATUS_LABEL_TODAY;
     return `
-    <div class="today-work__case${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
-         ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
-      <div class="today-work__info">
-        <div class="today-work__when">${escapeHtml(dateText)} · ${escapeHtml(c.time)} น.</div>
-        <div class="today-work__where">${escapeHtml(c.book)} · ${escapeHtml(c.sheet)}${c.row ? ` · แถวที่ ${c.row}` : ''}</div>
-      </div>
-      <span class="today-work__status${noStatus ? ' today-work__status--none' : ''}">${noStatus ? 'ยังไม่ใส่สถานะ' : escapeHtml(st)}</span>
-    </div>`;
-  }).join('') + (result.newCasesTruncated ? `<p class="sidebar-dashboard__empty">แสดงล่าสุด ${cases.length} เคส</p>` : '');
+    <tr class="case-row${c.row ? ' sidebar-dashboard__case--clickable' : ''}"
+        ${c.row ? `data-case-book="${escapeHtml(c.book)}" data-case-sheet="${escapeHtml(c.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้"` : ''}>
+      <td class="case-row__when">${escapeHtml(dateText)} · ${escapeHtml(c.time)} น.</td>
+      <td>${escapeHtml(c.book)}</td>
+      <td>${escapeHtml(c.sheet)}</td>
+      <td class="case-row__num">${c.row || ''}</td>
+      <td class="case-row__status-cell"><span class="today-work__status${noStatus ? ' today-work__status--none' : ''}">${noStatus ? 'ยังไม่ใส่สถานะ' : escapeHtml(st)}</span></td>
+    </tr>`;
+  }).join('') + `</tbody></table></div>` + (result.newCasesTruncated ? `<p class="sidebar-dashboard__empty">แสดงล่าสุด ${cases.length} เคส</p>` : '');
   bindCaseDetailClicks_(box);
   refineTodayStatuses_(box);
 }
@@ -4290,7 +4292,7 @@ function renderDashboardTodayStatus_(result) {
  */
 async function refineTodayStatuses_(box) {
   if (typeof supaReady !== 'function' || !supaReady() || typeof supaRowFull !== 'function') return;
-  const items = Array.from(box.querySelectorAll('.today-work__case[data-case-row]')).slice(0, 60);
+  const items = Array.from(box.querySelectorAll('.case-row[data-case-row]')).slice(0, 60);
   await Promise.all(items.map(async el => {
     const badge = el.querySelector('.today-work__status');
     if (!badge) return;
@@ -4347,40 +4349,23 @@ function renderPendingCases_(result) {
   }
   const total = groups.reduce((n, g) => n + g.count, 0);
   updatePendingBadge_(total);
-  dashboardStatusList.innerHTML = groups.map((g, i) => {
-    const key = g.book + '\u0000' + g.sheet;
-    const open = pendingOpenGroups_.has(key) || (pendingOpenGroups_.size === 0 && i === 0);
-    return `
-    <div class="pending-group" data-key="${escapeHtml(key)}">
-      <button type="button" class="sidebar-dashboard__row sidebar-dashboard__row--clickable pending-group__head" aria-expanded="${open}">
-        <span class="sidebar-dashboard__row-name">${escapeHtml(g.book)} · ${escapeHtml(g.sheet)}</span>
-        <span class="sidebar-dashboard__row-count${g.cases.some(c => c.ageDays >= 7) ? ' pending-count--red' : g.cases.some(c => c.ageDays >= 3) ? ' pending-count--orange' : ''}">${g.count}</span>
-      </button>
-      <div class="pending-group__cases"${open ? '' : ' hidden'}>
-        ${g.cases.map(c => `
-        <div class="today-work__case sidebar-dashboard__case--clickable"
-             data-case-book="${escapeHtml(g.book)}" data-case-sheet="${escapeHtml(g.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้">
-          <div class="today-work__info">
-            <div class="today-work__when">${escapeHtml(c.exeId || '(ไม่มี EXE ID)')}</div>
-            <div class="today-work__where">แถวที่ ${c.row}${c.date ? ' · ' + escapeHtml(c.date) : ''}</div>
-          </div>
-          <span class="pending-age${c.ageDays >= 7 ? ' pending-age--red' : c.ageDays >= 3 ? ' pending-age--orange' : ''}"
-                title="${c.ageDays == null ? 'อ่านวันที่ไม่ได้' : 'ค้างมา ' + c.ageDays + ' วัน'}">${c.ageDays == null ? escapeHtml(c.status) : (c.ageDays === 0 ? 'วันนี้' : c.ageDays + ' วัน')}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  }).join('') + `<p class="sidebar-dashboard__total">รวม ${total} เคส ใน ${groups.length} แท็บ${result.truncated ? ' (แสดงล่าสุด ' + total + ' เคส)' : ''}</p>`;
+  const rowsHtml = groups.map(g => g.cases.map(c => `
+    <tr class="case-row sidebar-dashboard__case--clickable"
+        data-case-book="${escapeHtml(g.book)}" data-case-sheet="${escapeHtml(g.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้">
+      <td>${escapeHtml(g.book)}</td>
+      <td>${escapeHtml(g.sheet)}</td>
+      <td class="case-row__num">${c.row}</td>
+      <td>${escapeHtml(c.exeId || '(ไม่มี EXE ID)')}</td>
+      <td>${c.date ? escapeHtml(c.date) : ''}</td>
+      <td class="case-row__status-cell"><span class="today-work__status">รอตรวจสอบ</span></td>
+      <td class="case-row__status-cell"><span class="pending-age${c.ageDays >= 7 ? ' pending-age--red' : c.ageDays >= 3 ? ' pending-age--orange' : ''}"
+            title="${c.ageDays == null ? 'อ่านวันที่ไม่ได้' : 'ค้างมา ' + c.ageDays + ' วัน'}">${c.ageDays == null ? '-' : c.ageDays + ' วัน'}</span></td>
+    </tr>`).join('')).join('');
+  dashboardStatusList.innerHTML = `<div class="table-wrap case-table-wrap"><table class="data-table case-table">
+    <thead><tr><th>ไฟล์</th><th>แท็บ</th><th>แถวที่</th><th>EXE ID</th><th>วันที่</th><th>สถานะ</th><th>ค้างมา</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table></div>`
+    + `<p class="sidebar-dashboard__total">รวม ${total} เคส ใน ${groups.length} แท็บ${result.truncated ? ' (แสดงล่าสุด ' + total + ' เคส)' : ''}</p>`;
 
-  dashboardStatusList.querySelectorAll('.pending-group__head').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const group = btn.closest('.pending-group');
-      const cases = group.querySelector('.pending-group__cases');
-      const nowOpen = cases.hidden;
-      cases.hidden = !nowOpen;
-      btn.setAttribute('aria-expanded', String(nowOpen));
-      if (nowOpen) pendingOpenGroups_.add(group.dataset.key); else pendingOpenGroups_.delete(group.dataset.key);
-    });
-  });
   bindCaseDetailClicks_(dashboardStatusList);
 }
 
