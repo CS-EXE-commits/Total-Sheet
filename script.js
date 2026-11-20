@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261118-1350';
+const APP_VERSION = '20261120-1800';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -2703,6 +2703,28 @@ function tabOrderInBar_() {
  *   3) ไฟล์อื่น เรียงตามลำดับโฟลเดอร์/ไฟล์ในแถบด้านบน
  * ที่ไหนก็ตามที่พบ ระบบจะสลับไปโฟลเดอร์ → ไฟล์ → แท็บนั้นให้ทันที (โลโก้/พื้นหลังเปลี่ยนตามเกม)
  */
+/**
+ * ค้นข้ามไฟล์แบบลองซ้ำอัตโนมัติ: ครั้งแรกมักพลาดเพราะตั๋ว Supabase เพิ่งหมดอายุ/เน็ตสะดุด
+ * (ได้ error หรือได้ 0 แถวทั้งที่มีข้อมูล) เดิมระบบถอยไปค้นแค่แท็บที่เปิดอยู่แล้วขึ้น "ไม่พบ"
+ * ผู้ใช้ต้องกดค้นอีกรอบ ตอนนี้ลองซ้ำให้เอง: ต่ออายุตั๋วก่อนแล้วค้นใหม่ สูงสุด 2 รอบ
+ */
+async function findMatchesWithRetry_(keyword) {
+  let last = null, lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0 && typeof supaRefreshSession_ === 'function') {
+        try { await supaRefreshSession_(); } catch (e) { /* ใช้ตั๋วเดิมต่อ */ }
+        await new Promise(r => setTimeout(r, 400 * attempt));
+      }
+      last = await supaFindMatches(keyword);
+      lastErr = null;
+      if (last && last.length) return last;   // เจอแล้ว
+    } catch (err) { lastErr = err; }
+  }
+  if (lastErr) throw lastErr;
+  return last;                                 // ลองครบแล้วยังว่างจริง = ไม่มีข้อมูล
+}
+
 let crossTabSearchSeq_ = 0;
 async function searchAcrossTabs_(keyword) {
   keyword = (keyword || '').trim();
@@ -2720,7 +2742,7 @@ async function searchAcrossTabs_(keyword) {
   setGlobalSearchLoading_(true);
   let matches = null;
   try {
-    matches = await supaFindMatches(keyword);
+    matches = await findMatchesWithRetry_(keyword);
   } catch (err) {
     matches = null;
   } finally {
