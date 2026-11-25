@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261120-1800';
+const APP_VERSION = '20261125-0900';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4390,7 +4390,25 @@ function renderDashboardStatusList(result) {
 
 /** การ์ด "เคสรอตรวจสอบ" — แยกตามไฟล์/แท็บ คลิกหัวข้อเพื่อกาง/หุบ คลิกเคสเพื่อดูรายละเอียด */
 const pendingOpenGroups_ = new Set();
+const PENDING_PAGE_SIZE_ = 20;   // แถวที่ 21 เป็นต้นไปขึ้นหน้า 2
+let pendingPage_ = 1;
+let pendingLast_ = null;
+function pendingPagerHtml_(pages) {
+  if (pages <= 1) return '';
+  let h = '<div class="pagination pending-pager">';
+  h += `<button type="button" data-pp="${pendingPage_ - 1}" ${pendingPage_ <= 1 ? 'disabled' : ''}>‹</button>`;
+  for (let i = 1; i <= pages; i++) h += `<button type="button" data-pp="${i}"${i === pendingPage_ ? ' aria-current="true"' : ''}>${i}</button>`;
+  h += `<button type="button" data-pp="${pendingPage_ + 1}" ${pendingPage_ >= pages ? 'disabled' : ''}>›</button></div>`;
+  return h;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('.pending-pager button[data-pp]');
+  if (!b || b.disabled || !pendingLast_) return;
+  pendingPage_ = parseInt(b.dataset.pp, 10) || 1;
+  renderPendingCases_(pendingLast_);
+});
 function renderPendingCases_(result) {
+  pendingLast_ = result;
   pendingFailed_ = false;
   const groups = (result && result.groups) || [];
   if (!groups.length) {
@@ -4400,7 +4418,13 @@ function renderPendingCases_(result) {
   }
   const total = groups.reduce((n, g) => n + g.count, 0);
   updatePendingBadge_(total);
-  const rowsHtml = groups.map(g => g.cases.map(c => `
+  const allCases = [];
+  groups.forEach(g => g.cases.forEach(c => allCases.push({ g, c })));
+  const pages = Math.max(1, Math.ceil(allCases.length / PENDING_PAGE_SIZE_));
+  if (pendingPage_ > pages) pendingPage_ = pages;
+  if (pendingPage_ < 1) pendingPage_ = 1;
+  const slice = allCases.slice((pendingPage_ - 1) * PENDING_PAGE_SIZE_, pendingPage_ * PENDING_PAGE_SIZE_);
+  const rowsHtml = slice.map(({ g, c }) => `
     <tr class="case-row sidebar-dashboard__case--clickable"
         data-case-book="${escapeHtml(g.book)}" data-case-sheet="${escapeHtml(g.sheet)}" data-case-row="${c.row}" title="คลิกเพื่อดูรายละเอียดเคสนี้">
       <td>${escapeHtml(g.book)}</td>
@@ -4411,10 +4435,10 @@ function renderPendingCases_(result) {
       <td class="case-row__status-cell"><span class="today-work__status">รอตรวจสอบ</span></td>
       <td class="case-row__status-cell"><span class="pending-age${c.ageDays >= 7 ? ' pending-age--red' : c.ageDays >= 3 ? ' pending-age--orange' : ''}"
             title="${c.ageDays == null ? 'อ่านวันที่ไม่ได้' : 'ค้างมา ' + c.ageDays + ' วัน'}">${c.ageDays == null ? '-' : c.ageDays + ' วัน'}</span></td>
-    </tr>`).join('')).join('');
+    </tr>`).join('');
   dashboardStatusList.innerHTML = `<div class="table-wrap case-table-wrap"><table class="data-table case-table">
     <thead><tr><th>ไฟล์</th><th>แท็บ</th><th>แถวที่</th><th>EXE ID</th><th>วันที่</th><th>สถานะ</th><th>ค้างมา</th></tr></thead>
-    <tbody>${rowsHtml}</tbody></table></div>`
+    <tbody>${rowsHtml}</tbody></table></div>` + pendingPagerHtml_(pages)
     + `<p class="sidebar-dashboard__total">รวม ${total} เคส ใน ${groups.length} แท็บ${result.truncated ? ' (แสดงล่าสุด ' + total + ' เคส)' : ''}</p>`;
 
   bindCaseDetailClicks_(dashboardStatusList);
