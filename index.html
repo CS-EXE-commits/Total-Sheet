@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261127-1730">
+<link rel="stylesheet" href="style.css?v=20261127-1800">
 <script>
   // อ่านธีมที่จำไว้ก่อนหน้า Body render เพื่อไม่ให้เห็นจอกระพริบสลับธีมตอนโหลดหน้า
   (function () {
@@ -460,6 +460,7 @@
       <div class="case-modal__head">
         <h2 class="modal-box__title">รายละเอียดเคส</h2>
         <div class="case-modal__actions">
+          <button type="button" class="data-table__sheet" id="caseModalSheet" title="เปิดในชีท (ไปที่แถวนี้)" aria-label="เปิดในชีท"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></svg></button>
           <button type="button" class="data-table__edit" id="caseModalEdit" title="แก้ไขเคสนี้" aria-label="แก้ไขเคสนี้">✎</button>
           <button type="button" class="data-table__delete" id="caseModalDelete" title="ลบเคสนี้" aria-label="ลบเคสนี้">🗑</button>
         </div>
@@ -510,8 +511,8 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- ใช้สร้างไฟล์ Excel (.xlsx) ของรายงานฝั่ง browser โดยตรง ไม่ต้องผ่าน backend -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="config.js?v=20261127-1730"></script>
-  <script src="supabase.js?v=20261127-1730"></script>
-  <script src="script.js?v=20261127-1730"></script>
+  <script src="config.js?v=20261127-1800"></script>
+  <script src="supabase.js?v=20261127-1800"></script>
+  <script src="script.js?v=20261127-1800"></script>
 </body>
 </html>

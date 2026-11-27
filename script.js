@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261127-1730';
+const APP_VERSION = '20261127-1800';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -704,6 +704,26 @@ function isLikelyUrl(value) {
   return /^https?:\/\//i.test((value || '').toString().trim());
 }
 
+const SHEET_ICON_SVG_ = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 9v12"/></svg>';
+
+/** เปิดชีทจริงในแท็บใหม่ ตรงแถว/คอลัมน์ที่มีข้อมูล (เปิดหน้าต่างรอก่อนทันทีเพื่อไม่ให้ถูกบล็อกป๊อปอัป) */
+async function openInSheet_(book, sheet, row, btn) {
+  if (!book || !sheet || !row) return;
+  const w = window.open('about:blank', '_blank');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await jsonpRequest(apiUrl({ action: 'sheetLink', book: book, sheet: sheet, row: row }));
+    if (!r.ok) throw new Error(r.error || 'หาลิงก์ชีทไม่สำเร็จ');
+    if (w) { try { w.opener = null; } catch (e) { /* ignore */ } w.location.href = r.url; }
+    else window.open(r.url, '_blank');
+  } catch (err) {
+    if (w) w.close();
+    showInfoToast_('เปิดชีทไม่สำเร็จ: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 /** ช่องปุ่มจัดการท้ายแถว: ปุ่มแก้ไข (แก้ไขข้อมูลในชีตจริง) และปุ่มลบ อยู่ด้วยกัน ใช้ได้ทั้งโหมดแท็บเดียวและโหมดทั้งหมด */
 function buildActionsCell(row, tr) {
   const actionsTd = document.createElement('td');
@@ -711,6 +731,14 @@ function buildActionsCell(row, tr) {
   actionsTd.addEventListener('click', (e) => e.stopPropagation()); // กดปุ่มแก้ไข/ลบ ไม่ต้องเปิดกล่องรายละเอียด
   const wrap = document.createElement('div');
   wrap.className = 'data-table__actions';
+
+  const sheetBtn = document.createElement('button');
+  sheetBtn.type = 'button';
+  sheetBtn.className = 'data-table__sheet';
+  sheetBtn.innerHTML = SHEET_ICON_SVG_;
+  sheetBtn.title = 'เปิดในชีท (ไปที่แถวนี้)';
+  sheetBtn.addEventListener('click', () => openInSheet_(row.book || currentBook, row.sheet, row.row, sheetBtn));
+  wrap.appendChild(sheetBtn);
 
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
@@ -5205,6 +5233,10 @@ function showDateTimePicker_(inputEl) {
   const targetRow = () => caseModalTarget && caseModalTarget.row
     ? { book: caseModalTarget.book, sheet: caseModalTarget.sheet, row: caseModalTarget.row, cells: [], __fromModal: true }
     : null;
+  const sheetBtn = document.getElementById('caseModalSheet');
+  if (sheetBtn) sheetBtn.addEventListener('click', () => {
+    if (caseModalTarget && caseModalTarget.row) openInSheet_(caseModalTarget.book, caseModalTarget.sheet, caseModalTarget.row, sheetBtn);
+  });
   editBtn.addEventListener('click', () => {
     const row = targetRow();
     if (!row) return;

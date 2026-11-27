@@ -3768,3 +3768,12 @@ body:not([data-game-logo="1"]) #folderLogo { display: none !important; }
 #dashboardStatusList, #dashboardStatusList .table-wrap, #dashboardStatusList .case-table-wrap { max-height: none !important; overflow-y: visible; }
 #dashboardStatusList .table-wrap { overflow-x: auto; }
 .pending-pager { justify-content: center; margin: 12px 0 4px; }
+
+/* ปุ่มเปิดในชีท (ข้างปุ่มแก้ไข/ลบ) */
+.data-table__sheet {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  color: #34a853; background: rgba(52,168,83,.14); border: none; border-radius: 6px; cursor: pointer;
+}
+.data-table__sheet:hover { background: #34a853; color: #fff; }
+.data-table__sheet:disabled { opacity: .5; cursor: progress; }
