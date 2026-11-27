@@ -845,17 +845,24 @@ const SUPA_PENDING_LIMIT = 500;
 const PENDING_EMPTY_STATUS_BOOKS = ['พิจารณาปลด 2026'];
 async function supaPendingCases() {
   const withStatus = await supaStatusSheets_();
-  const query = '/sheet_rows?select=book,sheet,row_index,status,data,row_date' +
-    '&status=eq.' + encodeURIComponent('รอตรวจสอบ') +
-    '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
-  // ไฟล์ที่นับ "ยังไม่ใส่สถานะ" เป็นเคสรอตรวจสอบด้วย (เช่น พิจารณาปลด: สถานะว่าง = ยังไม่ได้ตัดสิน BANNED/UNBANNED)
-  const emptyQueries = PENDING_EMPTY_STATUS_BOOKS.map(book => supaSelect_(
-    '/sheet_rows?select=book,sheet,row_index,status,data,row_date' +
-    '&book=eq.' + encodeURIComponent(book) +
-    '&or=(status.is.null,status.eq.)' +
-    '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT).then(r => r.json()).catch(() => []));
-  const [res, ...emptyLists] = await Promise.all([supaSelect_(query), ...emptyQueries]);
-  const data = (await res.json()).concat(...emptyLists);
+  // "ค้างมา" นับจากวันที่แถวถูกกรอกลงชีทจริง (first_seen_at = ครั้งแรกที่ระบบเห็นแถวนี้)
+  // ไม่ใช่คอลัมน์วันที่ในชีท ถ้ายังไม่ได้เพิ่มคอลัมน์นี้ในฐานข้อมูล จะถอยไปใช้แบบเดิมอัตโนมัติ
+  const run = async (cols) => {
+    const query = '/sheet_rows?select=' + cols +
+      '&status=eq.' + encodeURIComponent('รอตรวจสอบ') +
+      '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT;
+    const emptyQueries = PENDING_EMPTY_STATUS_BOOKS.map(book => supaSelect_(
+      '/sheet_rows?select=' + cols +
+      '&book=eq.' + encodeURIComponent(book) +
+      '&or=(status.is.null,status.eq.)' +
+      '&order=row_index.desc&limit=' + SUPA_PENDING_LIMIT).then(r => r.json()).catch(() => []));
+    const [res, ...emptyLists] = await Promise.all([supaSelect_(query), ...emptyQueries]);
+    return (await res.json()).concat(...emptyLists);
+  };
+  const BASE_COLS = 'book,sheet,row_index,status,data,row_date';
+  let data;
+  try { data = await run(BASE_COLS + ',first_seen_at'); }
+  catch (e) { data = await run(BASE_COLS); }
   const groups = {};
   const seenRows = new Set();
   data.forEach(r => {
@@ -879,7 +886,7 @@ async function supaPendingCases() {
     });
     (groups[key] = groups[key] || { book: r.book, sheet: r.sheet, cases: [] }).cases.push({
       row: r.row_index, status: (r.status || '').toString().trim() || 'ยังไม่ใส่สถานะ', exeId, date,
-      ageDays: supaAgeDays_(r.row_date, date)
+      ageDays: r.first_seen_at ? supaAgeFromTimestamp_(r.first_seen_at) : supaAgeDays_(r.row_date, date)
     });
   });
   const list = Object.keys(groups).map(k => groups[k]);
@@ -887,6 +894,15 @@ async function supaPendingCases() {
   list.forEach(g => { g.count = g.cases.length; g.cases.sort((a, b) => a.row - b.row); });
   list.sort((a, b) => b.count - a.count);
   return { ok: true, groups: list, total: data.length, truncated: data.length >= SUPA_PENDING_LIMIT };
+}
+
+/** อายุเคส (วัน) นับจากเวลาที่แถวถูกกรอกลงชีท (first_seen_at, ISO timestamp) นับตามวันปฏิทินเวลาไทยของเครื่อง */
+function supaAgeFromTimestamp_(ts) {
+  const t = new Date(ts);
+  if (isNaN(t)) return null;
+  const d = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((today - d) / 86400000));
 }
 
 /** อายุเคส (วัน) จาก row_date (yyyy-mm-dd) หรือข้อความวันที่ dd/mm/yyyy — อ่านไม่ได้คืน null */
