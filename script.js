@@ -3,7 +3,7 @@
  * มีไว้ให้ดูใน Console ได้ทันทีว่าเบราว์เซอร์กำลังรันโค้ดชุดไหน
  * เคยเสียเวลาไล่บั๊กที่แก้ไปแล้วหลายรอบ เพราะเบราว์เซอร์ผู้ใช้ยังรันไฟล์เก่าที่จำไว้
  */
-const APP_VERSION = '20261127-1800';
+const APP_VERSION = '20261128-1630';
 console.log('%c[หน้าเว็บ] เวอร์ชัน ' + APP_VERSION, 'color:#3fb950;font-weight:bold');
 
 /* ===== อ้างอิง element ===== */
@@ -4841,16 +4841,38 @@ function bindCaseDetailClicks_(container) {
  * ถ้าใช้ grid แล้วห่อแต่ละคู่ด้วย div ซ้อนอีกชั้น คู่ชื่อ-ค่าจะหลุดออกจากคอลัมน์
  * กลายเป็นข้อความไหลปนกันจนอ่านไม่ออก (เป็นอาการที่เกิดขึ้นในหน้าติดตามสถานะ)
  */
+/** ทำให้ลิงก์ที่แทรกอยู่ในข้อความยาว (เช่น ลิงก์ YouTube ในช่องรายละเอียด) กดเปิดได้ */
+function linkifyText_(text) {
+  const out = [];
+  let last = 0;
+  const re = /https?:\/\/[^\s<>"']+/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    let url = m[0];
+    const trail = (url.match(/[.,;:!?)\]]+$/) || [''])[0]; // ไม่เอาเครื่องหมายท้ายประโยคเข้าไปในลิงก์
+    if (trail) url = url.slice(0, -trail.length);
+    out.push(escapeHtml(text.slice(last, m.index)));
+    out.push(`<a class="inline-link" href="${escapeAttr_(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`);
+    last = m.index + url.length;
+    re.lastIndex = last;
+  }
+  out.push(escapeHtml(text.slice(last)));
+  return out.join('');
+}
+
 function buildCaseFieldsTable_(fields) {
   return '<table class="case-fields"><tbody>' + (fields || []).map(f => {
     const value = (f.value || '').toString().trim();
-    const cell = value
-      ? (/^https?:\/\/\S+$/i.test(value)
-          ? `<a class="ticket-link" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
-          : escapeHtml(value))
-      : '<span class="case-fields__empty">(ว่าง)</span>';
-    const copy = (value && (isCopyableHeader_(f.name) || /https?:\/\//i.test(value))) // EXE ID/ตัวละคร/Family/UID/AID และทุกช่องที่เป็นลิงก์
-      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="${/^https?:\/\//i.test(value) ? 'คัดลอกลิงก์' : 'คัดลอก'}" aria-label="คัดลอก ${escapeAttr_(f.name)}">⧉</button>`
+    const isUrlOnly = /^https?:\/\/\S+$/i.test(value);
+    let cell;
+    if (!value) cell = '<span class="case-fields__empty">(ว่าง)</span>';
+    else if (isUrlOnly) cell = `<a class="ticket-link" href="${escapeAttr_(value)}" target="_blank" rel="noopener noreferrer">${isTicketColumn(f.name) ? 'เปิด Ticket ↗' : escapeHtml(value)}</a>`;
+    else cell = linkifyText_(value);
+    // ปุ่ม Copy: EXE ID/ตัวละคร/Family/UID/AID และช่อง Ticket (คัดลอกลิงก์) หรือช่องที่เป็นลิงก์ล้วน
+    // ช่องข้อความยาวที่แค่มีลิงก์แทรกอยู่ (เช่น รายละเอียด) ไม่มีปุ่ม
+    const wantCopy = value && (isCopyableHeader_(f.name) || isUrlOnly);
+    const copy = wantCopy
+      ? ` <button type="button" class="copy-btn" data-copy="${escapeAttr_(value)}" title="${isUrlOnly ? 'คัดลอกลิงก์' : 'คัดลอก'}" aria-label="${isUrlOnly ? 'คัดลอกลิงก์' : 'คัดลอก'}">⧉</button>`
       : '';
     return `<tr><th scope="row">${escapeHtml(f.name)}</th><td>${cell}${copy}</td></tr>`;
   }).join('') + '</tbody></table>';
